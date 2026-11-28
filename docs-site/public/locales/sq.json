@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
-      "buttonText": "Shkarko .exe",
-      "size": "~150 MB"
+      "buttonText": "Shkarko .exe"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 e më të rinj (arm64)",
-      "buttonText": "Shkarko .dmg",
-      "size": "~140 MB"
+      "description": "M1 dhe më të rinj (arm64), macOS 13.3+",
+      "buttonText": "Shkarko .dmg"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Mac me Intel (x64), macOS 11 e më i ri",
-      "buttonText": "Shkarko .dmg",
-      "size": "~145 MB"
+      "description": "Mac me Intel (x64), macOS 13.3+",
+      "buttonText": "Shkarko .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Shkarko .AppImage",
-      "size": "~155 MB"
+      "buttonText": "Shkarko .AppImage"
     },
     "recommended": "E rekomanduar për sistemin tuaj",
     "showOtherOS": "Shkarkoni për një sistem tjetër operativ",
@@ -63,7 +59,8 @@
       "step1": "Klikoni „Më shumë informacion” te dritarja e paralajmërimit.",
       "step2": "Klikoni butonin „Ekzekuto gjithsesi” që shfaqet, pastaj vazhdoni instalimin si zakonisht.",
       "outro": "Nëse shfletuesi e bllokoi shkarkimin, zgjidhni „Mbaje” për ta ruajtur më parë instaluesin."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Kontribuoni",
@@ -84,15 +81,25 @@
     },
     "playlist": {
       "title": "Rreshtoni cue-të dhe nisini",
-      "description": "Tërhiqni muzikën dhe efektet në një listë luajtjeje me cue dhe zgjidhni si kalon secili te pasuesi: vazhdon, përsëritet ose kërcen diku tjetër. Drejtoni të gjithë rendin e shfaqjes me mi, ekran me prekje, tastierë ose kontrollues MIDI."
+      "description": "Tërhiqni muzikën dhe efektet në një listë luajtjeje me cue dhe zgjidhni si kalon secili te pasuesi: vazhdon, përsëritet ose kërcen diku tjetër. Drejtoni të gjithë rendin e shfaqjes me mi, ekran me prekje, tastierë ose kontrollues MIDI.",
+      "points": [
+        "Vazhdo, përsërit ose kërce pas çdo cue-je",
+        "Maus, prekje, tastierë ose MIDI",
+        "Grupe për skena, akte dhe sete"
+      ]
     },
     "cart": {
       "title": "Tinguj dhe xhingle në çast",
-      "description": "Mbani xhinglat, efektet e shkurtra dhe njoftimet vetëm një prekje larg në cart player, gati për t'u nisur mbi çdo gjë tjetër që luhet."
+      "description": "Mbani xhinglat, efektet e shkurtra dhe njoftimet vetëm një prekje larg në cart player, gati për t'u nisur mbi çdo gjë tjetër që luhet.",
+      "points": [
+        "Niset mbi çdo gjë që po luhet",
+        "Një shkurtore tastiere për çdo cart",
+        "Paradëgjojeni fillimisht në kufje"
+      ]
     },
     "ducking": {
       "title": "Ducking automatik",
-      "description": "Lërini njoftimet dhe efektet ta ulin muzikën ndërsa dëgjohen dhe ta rikthejnë butësisht më pas, ose bëni që një cue të ndalë gjithçka tjetër për një ndërrim të pastër skene."
+      "description": "Lërini njoftimet dhe efektet ta ulin muzikën ndërsa dëgjohen dhe ta rikthejnë butësisht më pas, ose bëni që një cue të ndalë gjithçka tjetër për një ndërrim të pastër skene. Ti zgjedh sa shpejt ulet muzika dhe sa butë kthehet."
     },
     "interface": {
       "title": "I organizuar si ju pëlqen",
@@ -100,11 +107,25 @@
     },
     "showMode": {
       "title": "Mënyra e shfaqjes",
-      "description": "Mënyra e shfaqjes e kthen ekranin në kontrolle të mëdha, të lehta për t'u prekur, dhe fsheh gjithçka që mund ta ndryshojë shfaqjen, që asgjë të mos ndryshohet gabimisht pasi hapen dyert."
+      "description": "Mënyra e shfaqjes e kthen ekranin në kontrolle të mëdha, të lehta për t'u prekur, dhe fsheh gjithçka që mund ta ndryshojë shfaqjen, që asgjë të mos ndryshohet gabimisht pasi hapen dyert.",
+      "points": [
+        "Kontrolle të mëdha, të lehta për t'u prekur",
+        "Përpunimi është i kyçur",
+        "Aktivizohet me një çelës"
+      ]
     },
     "waveform": {
       "title": "Prerje mbi formën e valës",
       "description": "Priteni çdo tingull pikërisht te pjesa që doni dhe formësojini zbehjet drejtpërdrejt mbi formën e valës. LivePlay mund edhe ta shkurtojë heshtjen dhe t'i barazojë nivelet për ju, që çdo cue të vijë me volum të njëtrajtshëm."
+    },
+    "automation": {
+      "title": "Automatizimi i volumit",
+      "description": "Vizato nivelin e një cue-je drejtpërdrejt mbi formën e tij të valës. Kliko për të shtuar një pikë, tërhiq vijën për ta ulur muzikën nën një fjalim ose për ta ngritur në një refren, ose zgjidh një pjesë dhe ule me një lëvizje. Forma e valës tregon saktësisht se çfarë do të dëgjohet, dhe para shfaqjes mund ta paradëgjosh në kufje nga çdo pikë.",
+      "points": [
+        "Vizatoni nivelet mbi formën e valës",
+        "Zgjidhni një pjesë dhe uleni",
+        "Paradëgjoni nga çdo pikë"
+      ]
     },
     "properties": {
       "title": "Rregullim i imët për çdo cue",
@@ -124,15 +145,30 @@
     },
     "mixer": {
       "title": "Një mikser i vërtetë për shfaqjen tuaj",
-      "description": "Jepini muzikës, efekteve dhe njoftimeve bus-et e tyre dhe balancojini në kanale, njësoj si në një konsolë. Drejtoni bus-et njëri te tjetri, drejt e te një dalje ose përmes send-eve aux, dhe caktoni një grup të tërë cue-sh me një lëvizje."
+      "description": "Jepini muzikës, efekteve dhe njoftimeve bus-et e tyre dhe balancojini në kanale, njësoj si në një konsolë. Drejtoni bus-et njëri te tjetri, drejt e te një dalje ose përmes send-eve aux, dhe caktoni një grup të tërë cue-sh me një lëvizje.",
+      "points": [
+        "Bus-e me kanale të plota",
+        "Drejtoni mes bus-eve ose përdorni send-e aux",
+        "Caktoni grupe të tëra cue-sh njëherësh"
+      ]
     },
     "eqDynamics": {
       "title": "EQ dhe dinamikë në çdo bus",
-      "description": "Formësoni çdo bus me një EQ parametrik dhe një analizues spektri live, pastaj mbajeni nën kontroll me një gate dhe një compressor. Bus-et stereo mund të zgjerohen ose të ngushtohen, me bass-in të qëndrueshëm në qendër."
+      "description": "Formësoni çdo bus me një EQ parametrik dhe një analizues spektri live, pastaj mbajeni nën kontroll me një gate dhe një compressor. Bus-et stereo mund të zgjerohen ose të ngushtohen, me bass-in të qëndrueshëm në qendër.",
+      "points": [
+        "Deri në 32 breza EQ me analizues live",
+        "Gate dhe compressor në çdo bus",
+        "Gjerësi stereo me bas të sigurt në mono"
+      ]
     },
     "limiter": {
       "title": "Limiter brickwall dhe objektiva loudness-i",
-      "description": "Një limiter brickwall në çdo dalje i mban majat e humbura larg altoparlantëve, dhe mikseri ju tregon kur po punon. Zgjidhni një objektiv loudness-i, nga transmetimi dhe streaming-u deri te live, dhe limiteri, matësit e format e valës i përshtaten të gjithë."
+      "description": "Një limiter brickwall në çdo dalje i mban majat e humbura larg altoparlantëve, dhe mikseri ju tregon kur po punon. Zgjidhni një objektiv loudness-i, nga transmetimi dhe streaming-u deri te live, dhe limiteri, matësit e format e valës i përshtaten të gjithë.",
+      "points": [
+        "Një limiter në çdo dalje",
+        "Objektiva për transmetim, streaming dhe live",
+        "Matësit dhe format e valës e ndjekin"
+      ]
     },
     "meters": {
       "title": "Matës të nivelit broadcast",
@@ -156,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Punë lokale ose në distancë",
-      "description": "Ekzekutoni motorin audio në të njëjtin kompjuter ose në një makinë në prapaskenë pranë ndërfaqeve audio, dhe kontrolloni gjithçka nga kudo në rrjet. Zëri vjen nga motori, jo nga ekrani, kështu që shfaqja vazhdon edhe nëse bie një kompjuter kontrolli."
+      "description": "Ekzekutoni motorin audio në të njëjtin kompjuter ose në një makinë në prapaskenë pranë ndërfaqeve audio, dhe kontrolloni gjithçka nga kudo në rrjet. Zëri vjen nga motori, jo nga ekrani, kështu që shfaqja vazhdon edhe nëse bie një kompjuter kontrolli.",
+      "points": [
+        "Motori dhe ekranet në makina të veçanta",
+        "Vazhdon të luajë nëse bie një ekran",
+        "Kontrollojeni nga kudo në rrjet"
+      ]
     },
     "discovery": {
       "title": "Punë në ekip, rikthim i shpejtë",
@@ -168,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Të gjitha cilësimet në një vend",
-      "description": "Të gjitha cilësimet gjenden në një faqe. Parapëlqimet personale, si gjuha dhe tema, ju ndjekin në çdo ekran ku hyni, ndërsa vetë shfaqja tingëllon njësoj kudo."
+      "description": "Të gjitha cilësimet gjenden në një faqe, të grupuara sipas temës dhe të shpjeguara aty për aty. Një stemë tregon kujt i përket secili: juve, shfaqjes, këtij kompjuteri apo serverit. Tema ju ndjek në çdo ekran ku hyni, ndërsa vetë shfaqja tingëllon njësoj kudo."
     },
     "audioEngine": {
       "title": "Motor audio i qëndrueshëm në C++",
@@ -177,6 +218,68 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Dërgoni timecode SMPTE bashkë me cue-të, që ndriçimi, videoja dhe pajisje të tjera ta ndjekin shfaqjen tuaj."
+    },
+    "missingMedia": {
+      "title": "Gjeni audion që mungon",
+      "description": "Nëse një skedar zhvendoset ose fshihet, LivePlay e shënon cue-në para se ta nisë kushdo. Tregojini një dosje dhe çdo skedar që mungon gjendet e rilidhet sipas emrit, ose zëvendësoni vetëm një skedar pa humbur cilësimet e cue-së.",
+      "points": [
+        "Shënohet para se ta nisë kushdo",
+        "Rilidhni një shfaqje të tërë nga një dosje",
+        "Zëvendësoni skedarin dhe ruani cilësimet"
+      ]
+    },
+    "groupEvents": {
+      "title": "Gjithë salla me një cue",
+      "intro": "Një cue mund të nisë dritat, videon dhe mikserin. LivePlay mban kohën, që gjithçka të ndodhë njëherësh."
+    },
+    "events": {
+      "title": "Ngjarje në vijën kohore",
+      "description": "Vendosni ngjarje mbi formën e valës së një cue-je për të nisur një cue ndriçimi përmes OSC ose MIDI Show Control, për të thirrur një API web, për të lëvizur një fader në një mikser X Air ose për të nisur një cue tjetër. Serveri e aktivizon secilën pikërisht në kohën e saj, që shfaqja të mbetet e sinkronizuar edhe kur s'ka njeri para ekranit.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control dhe HTTP",
+        "Mikserë Behringer X Air",
+        "Nisni ose ndaloni cue të tjera"
+      ]
+    },
+    "connections": {
+      "title": "Lidhje me pajisjet tuaja",
+      "description": "Ujdisni një herë për shfaqje çdo konsolë ndriçimi, mikser, portë MIDI ose shërbim web. LivePlay i gjen mikserët X Air në rrjet, lexon emrat e kanaleve dhe të snapshot-eve të tyre dhe kufizon sa lart mund ta shtyjë një ngjarje një fader."
+    },
+    "tabs": {
+      "title": "Një skedë për çdo akt",
+      "description": "Ndajeni një shfaqje të gjatë në skeda të listës së luajtjes për çdo akt, skenë ose set. Një „Në radhë” i vetëm vlen për të gjitha, dhe çdo skedë vendos çfarë ndodh pas cue-së së fundit: kthim në krye, vazhdim te skeda tjetër ose ndalim.",
+      "points": [
+        "Emër dhe ngjyrë për çdo skedë",
+        "Një „Në radhë” për gjithë shfaqjen",
+        "Hapni çdo skedë në dritaren e vet"
+      ]
+    },
+    "cartPages": {
+      "title": "Faqe të tëra me cart-e",
+      "description": "Renditini cart-et në faqe me emër dhe ngjyrë, nga 4 deri në 64. Tastet e vendeve aktivizojnë faqen që po shihni, ndërsa tastet e fiksuara aktivizojnë një tingull të preferuar nga çdo faqe.",
+      "points": [
+        "Nga 4 deri në 64 cart-e në çdo faqe",
+        "Nxirreni një faqe në një ekran tjetër",
+        "Tastet e fiksuara punojnë nga çdo faqe"
+      ]
+    },
+    "presets": {
+      "title": "Paracaktime për pajisjet tuaja",
+      "description": "Ruajeni „Dritat e sallës në 40%” një herë në një lidhje dhe përdoreni në çdo cue. Ndryshoni paracaktimin dhe e ndjekin të gjitha ngjarjet që e përdorin.",
+      "points": [
+        "Cilësime me emër për çdo lidhje",
+        "Një ndryshim përditëson çdo ngjarje",
+        "Anashkaloni një fushë të vetme kur duhet"
+      ]
+    },
+    "companion": {
+      "title": "Kontroll nga Stream Deck me Companion",
+      "description": "LivePlay ka një modul zyrtar për Bitfocus Companion, kështu që një Stream Deck ose çdo sipërfaqe tjetër kontrolli e Companion mund ta drejtojë shfaqjen tuaj. Çdo tast tregon emrin dhe ngjyrën e cue-së së vet dhe mbushet ndërsa cue luan.",
+      "points": [
+        "GO, cue, cart-e, Ndalo të gjitha dhe ndalim emergjence",
+        "Mute, PFL dhe niveli master i mikserit",
+        "Numërim mbrapsht dhe ecuri live në taste"
+      ]
     }
   },
   "ports": {
@@ -200,11 +303,334 @@
     "description": "Kontrolloni luajtjen, përpunoni projekte dhe drejtimin, dhe ndiqni gjendjen live përmes HTTP dhe WebSocket. Kur hyrja me llogari është aktive, jepini Companion-it, një sistemi show control ose një skripti tokenin e vet API te Cilësimet, seksioni Llogaritë, në vend që të ndani fjalëkalimin e dikujt. Dokumentacioni për zhvillues mbulon mirëfilltësimin, çdo endpoint, komandat, ngjarjet dhe shembuj integrimi.",
     "referenceLabel": "Dokumentacioni i API-t për zhvillues"
   },
+  "companion": {
+    "get": "Merrni modulin Companion",
+    "getCompanion": "Shkarkoni Bitfocus Companion",
+    "credit": "Moduli nga {name}",
+    "padAlt": "Taste Companion për LivePlay gjatë një shfaqjeje: GO me cue-në e radhës, cue-ja që luan me numërim mbrapsht, Ndalo të gjitha, ndalim emergjence, pesë cart-e me njërin duke luajtur, mute i mikserit, PFL dhe niveli master"
+  },
   "footer": {
     "license": "licencohet sipas",
     "developedBy": "Zhvilluar nga",
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Shiheni në GitHub",
     "contributors": "Kontribuesit"
+  },
+  "site": {
+    "skip": "Kalo te përmbajtja",
+    "menu": "Menyja",
+    "close": "Mbyll",
+    "features": "Veçoritë",
+    "download": "Shkarko",
+    "api": "API",
+    "whatsNew": "Çfarë ka të re",
+    "newIn": "E re në {version}",
+    "enlarge": "Shihni në madhësi të plotë: {name}",
+    "footerNav": "Lidhjet e sajtit"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Falas dhe me burim të hapur për Windows, macOS dhe Linux",
+      "title": "Çdo tingull, në çastin e duhur.",
+      "download": "Shkarko falas",
+      "seeNew": "Shihni çfarë ka të re në {version}"
+    },
+    "audience": {
+      "label": "Për kë është LivePlay",
+      "theatre": {
+        "title": "Teatër",
+        "text": "Efekte zanore, muzikë sfondi dhe ndërrime skenash, me radhë dhe mbi replikë."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Sfonde muzikore, xhingle dhe kalime, me nivele që u besoni në transmetim."
+      },
+      "events": {
+        "title": "Evente live",
+        "text": "Muzikë hyrjeje, efekte të shkurtra dhe njoftime për konferenca, ceremoni çmimesh dhe shfaqje skenike."
+      },
+      "parties": {
+        "title": "Festa",
+        "text": "Rreshtoni muzikën, uleni gjatë fjalimeve dhe shijojeni mbrëmjen."
+      }
+    },
+    "how": {
+      "title": "Gati në tre hapa",
+      "one": {
+        "title": "Sillni audion tuaj",
+        "text": "Tërhiqni muzikë dhe efekte, ose merrni një pjesë nga YouTube. LivePlay mund ta presë heshtjen dhe t'i barazojë nivelet për ju."
+      },
+      "two": {
+        "title": "Rreshtoni cue-të",
+        "text": "Vendosini sipas rendit të shfaqjes, grupojini sipas skenës dhe zgjidhni çfarë bën secila më pas."
+      },
+      "three": {
+        "title": "Shtypni Luaj pasuesin",
+        "text": "Drejtoni gjithë shfaqjen me një buton, një ekran me prekje, tastierën ose një kontrollues MIDI."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay në shifra",
+      "carts": "cart-e në çdo faqe",
+      "eq": "breza EQ për bus",
+      "languages": "gjuhë",
+      "platforms": "platforma desktopi",
+      "cost": "tarifa licence, kurrë"
+    },
+    "teaser": {
+      "eyebrow": "Sapo erdhi",
+      "title": "E re në LivePlay {version}",
+      "text": "Cue-të tani mund të drejtojnë dritat, mikserin dhe videon. Shfaqjet e gjata marrin skeda, cart-et marrin faqe dhe volumin mund ta vizatoni drejt mbi formën e valës.",
+      "button": "Shihni gjithçka të re"
+    },
+    "tech": {
+      "eyebrow": "Për ekipet teknike"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Shënimet e versionit",
+      "title": "Çfarë ka të re në LivePlay",
+      "lead": "Shtesat më të mëdha të çdo versioni, më të rejat së pari. I ri në LivePlay? Bëni më mirë turin e plotë të veçorive.",
+      "tour": "Bëni turin e veçorive",
+      "latest": "Versioni i fundit",
+      "read": "Shihni çfarë ka të re",
+      "older": "Versionet e mëparshme"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versionet",
+      "more": "Më shumë në këtë version",
+      "fixed": "U rregulluan gjithashtu:",
+      "github": "Shënimet e plota të versionit në GitHub"
+    },
+    "v26": {
+      "title": "Gjithë salla në një cue.",
+      "summary": "Ngjarje për dritat, mikserin dhe videon, skeda të listës së luajtjes, faqe cart-i dhe automatizim i volumit.",
+      "lead": "LivePlay 2.6 shkon përtej altoparlantëve. Cue-të tani mund të nisin dritat, mikserin dhe videon nga vija kohore, shfaqjet e gjata palosen në skeda, cart-et shtrihen në faqe dhe volumi mund të vizatohet drejt mbi formën e valës.",
+      "sections": {
+        "events": {
+          "kicker": "Ngjarjet",
+          "title": "Një cue. Gjithë skena.",
+          "text": "Vendosni ngjarje mbi formën e valës së një cue-je dhe LivePlay e nis secilën në çastin e vet: një cue ndriçimi, një kërkesë web, një lëvizje fader-i në konsolën tuaj ose një cue tjetër. Serveri mban kohën, ndaj gjithçka godet njëkohësisht edhe kur s'ka njeri para ekranit.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control dhe HTTP",
+            "Fader-a, mute dhe snapshot në Behringer X Air",
+            "Nisje në fillim, fund, pauzë, rifillim ose në çdo kohë"
+          ]
+        },
+        "presets": {
+          "kicker": "Paracaktimet",
+          "title": "Vendoseni një herë. Përdoreni kudo.",
+          "text": "Ruani cilësimet që përdorni shpesh si paracaktim me emër në një lidhje. Drejtoni sa të doni ngjarje drejt tij dhe, kur ndryshojnë pajisjet, përditësoni paracaktimin një herë.",
+          "points": [
+            "„Dritat e sallës 40%”, gati për çdo cue",
+            "Një ndryshim përditëson çdo ngjarje",
+            "Anashkaloni një fushë në një ngjarje"
+          ]
+        },
+        "tabs": {
+          "kicker": "Skedat e listës",
+          "title": "Shfaqje të gjata, të palosura bukur.",
+          "text": "Jepini çdo akti, skene ose seti skedën e vet. Luaj pasuesin nis gjithmonë të vetmin „Në radhë” të shfaqjes dhe ju tregon në cilën skedë ndodhet, që të shihni përpara pa humbur vendin.",
+          "points": [
+            "Kthim në krye, te skeda tjetër ose ndalim",
+            "Zhvendosni cue-të mes skedave",
+            "Hapni një skedë në dritaren e vet"
+          ]
+        },
+        "pages": {
+          "kicker": "Faqet e cart-it",
+          "title": "Vend për çdo tingull.",
+          "text": "Organizojini cart-et në faqe për çdo skenë ose detyrë. Çdo faqe ka madhësinë dhe ngjyrën e vet, dhe mund të ndjekë rrjedhën ose të dalë në një ekran tjetër.",
+          "points": [
+            "Nga 4 deri në 64 cart-e për faqe",
+            "Taste për faqen e dukshme ose të fiksuara te një cart",
+            "Zhvendosni cart-et mes faqeve"
+          ]
+        },
+        "automation": {
+          "kicker": "Automatizimi i volumit",
+          "title": "Vizatoni miksin mbi valë.",
+          "text": "Klikoni për të shtuar një pikë, tërhiqni vijën për ta ulur muzikën nën një fjalim ose për ta ngritur në një refren. Forma e valës tregon saktësisht çfarë do të dëgjojë publiku.",
+          "points": [
+            "Shtoni, tërhiqni dhe hiqni pika",
+            "Ulni një përzgjedhje të tërë me një lëvizje",
+            "Paradëgjoni në kufje nga çdo pikë"
+          ]
+        },
+        "relink": {
+          "kicker": "Rilidhja e medias",
+          "title": "Skedarët e humbur, të gjetur.",
+          "text": "Nëse një skedar zhvendoset, LivePlay e shënon cue-në para se ta nisë kushdo. Tregojini një dosje dhe çdo skedar që mungon përputhet sipas emrit, ose vendosni një skedar të ri dhe mbajeni cue-në pikërisht siç e keni ngritur.",
+          "points": [
+            "Paralajmërim para se të shtypni Luaj",
+            "Rilidhni një shfaqje të tërë nga një dosje",
+            "Zëvendësoni një skedar pa humbur cilësimet"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Shfaqja juaj në një Stream Deck.",
+          "text": "LivePlay tani ka një modul zyrtar në Bitfocus Companion. Kërkoni LivePlay kur shtoni një lidhje, dhe një Stream Deck, butonat web në një tablet ose çdo sipërfaqe tjetër Companion merr taste të gatshme që ndjekin shfaqjen tuaj.",
+          "points": [
+            "Taste cue në ngjyrat tuaja, që mbushen ndërsa luajnë",
+            "GO, cart-e, Ndalo të gjitha, ndalim emergjence dhe mikseri",
+            "Lidhet me një token API kur hyrja me llogari është aktive"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "Një listë e tërë në një cart",
+          "text": "Lëshoni një skedë të listës së luajtjes mbi një cart për ta nisur me një prekje dhe për të ndjekur kohën e mbetur."
+        },
+        "duckTimes": {
+          "title": "Ducking me ritmin tuaj",
+          "text": "Caktoni sa shpejt ulet muzika dhe sa butë kthehet, cue pas cue-je. Shfaqjet nga versionet e mëparshme e ruajnë ducking-un e shpejtë që kanë pasur gjithmonë."
+        },
+        "stopFades": {
+          "title": "Ndalo të gjitha, si ju doni",
+          "text": "Lëreni Ndalo të gjitha ta zbehë çdo cue me fade-out-in e vet të ndalimit në vend të një kohe fikse."
+        },
+        "stopKey": {
+          "title": "Ndalo cue-n aktual",
+          "text": "Ndalni vetëm cue-në që nisët të fundit, nga një tast, një notë MIDI ose Companion, dhe lërini të gjitha të tjerat të luajnë."
+        },
+        "openFile": {
+          "title": "Hapni shfaqje nga skedarët tuaj",
+          "text": "Klikoni dy herë mbi një shfaqje, tani edhe në Linux. LivePlay pyet gjithmonë para se të zëvendësojë një shfaqje të hapur."
+        },
+        "waveformPan": {
+          "title": "Lëvizni me butonin e mesit",
+          "text": "Tërhiqni me butonin e mesit të miut për të lëvizur në një formë vale të zmadhuar."
+        },
+        "sealed": {
+          "title": "Fjalëkalimet mbeten të enkriptuara",
+          "text": "Fjalëkalimet dhe çelësat në lidhjet tuaja shfaqen si pika dhe ruhen të enkriptuar, që t'i lexojë vetëm makina e serverit. Hapeni shfaqjen diku tjetër dhe LivePlay ju kërkon të hyni sërish."
+        },
+        "compat": {
+          "title": "Hapja e shfaqjeve më të vjetra",
+          "text": "Shfaqjet nga 2.5 hapen të pandryshuara. Pasi një shfaqje ruhet në 2.6, mbajeni në 2.6 ose më të re: LivePlay 2.5 do t'i humbiste skedat, faqet e cart-it dhe lidhjet."
+        }
+      },
+      "fixes": "ngjarje dhe lidhje më të besueshme, luajtje që nuk ngec më te mediat që mungojnë, importe që nuk mbishkruajnë kurrë skedarin e një cue-je tjetër, shkurtore tastiere që nuk ndërhyjnë më në dritaret kërcyese dhe redaktuesit, taste cart-i që Companion i aktivizon saktë në çdo faqe, ndërtime të korrigjuara për macOS (tani macOS 13.3 ose më i ri), një dritare që përshtatet pranë aplikacioneve të tjera, ngjyra theksi më të qarta dhe një faqe Cilësimesh më e rregullt, me cilësimet të grupuara sipas temës, një përshkrim nën secilin dhe një stemë që tregon kujt i përket."
+    },
+    "v25": {
+      "title": "Një mikser i vërtetë për shfaqjen tuaj.",
+      "summary": "Bus-e dhe kanale, EQ me 32 breza, dalje fizike sipas emrit dhe llogari ekipi.",
+      "lead": "LivePlay 2.5 futi një mikser të plotë brenda aplikacionit. Jepini muzikës, efekteve dhe zërave kanalet e tyre, formësojini siç duhet dhe çojeni të njëjtën shfaqje në çdo vend.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mikseri",
+          "title": "Çdo tingull me kanalin e vet.",
+          "text": "Krijoni bus-e për muzikën, efektet dhe njoftimet dhe balancojini në kanale, njësoj si në një konsolë. Drejtojini njëri te tjetri, drejt e te një dalje ose përmes send-eve aux.",
+          "points": [
+            "Rolet Master dhe Preview në bus-e të zakonshme",
+            "Send-e aux para dhe pas fader-it",
+            "Caktoni grupe të tëra njëherësh"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ dhe dinamikë",
+          "title": "Formësojeni. Mbajeni.",
+          "text": "Një EQ parametrik me grafikun në qendër dhe një analizues spektri live, pastaj një gate dhe një compressor që tregojnë çfarë i bëjnë sinjalit.",
+          "points": [
+            "Deri në 32 breza të çdo lloj filtri",
+            "Analizues live pas kurbës",
+            "Gjerësi stereo me bas të sigurt në mono"
+          ]
+        },
+        "outputs": {
+          "kicker": "Daljet fizike",
+          "title": "Shfaqja udhëton. Rrugëzimi e ndjek.",
+          "text": "Shfaqjet u drejtohen daljeve me emër dhe çdo kompjuter i lidh ato emra me kartat e veta të zërit. Në një vend të ri, LivePlay tregon çfarë mungon dhe ju tërhiqni një dalje fizike për ta rregulluar.",
+          "points": [
+            "Dalje me emër, jo karta zëri",
+            "Pajisjet që mungojnë heshtin dhe e thonë",
+            "Rilidhje me tërhiq-e-lësho"
+          ]
+        },
+        "workspace": {
+          "kicker": "Hapësira e punës",
+          "title": "Rregullojeni si t'ju pëlqejë.",
+          "text": "Lista e luajtjes, Cart player dhe Mikseri punojnë njësoj. Shfaqini, mbushni ekranin me njërin, strehojini në një skaj ose çojini në një ekran tjetër.",
+          "points": [
+            "Një model paraqitjeje për çdo panel",
+            "Shkëputni panelet në një ekran të dytë",
+            "Kthehet ashtu siç e latë"
+          ]
+        },
+        "accounts": {
+          "kicker": "Llogaritë",
+          "title": "Një hyrje për çdo anëtar të ekipit.",
+          "text": "Jepuni operatorëve dhe administratorëve hyrjet e tyre, shihni kush është i lidhur dhe lëshoni token API për mjetet e kontrollit të shfaqjes në vend që të ndani një fjalëkalim.",
+          "points": [
+            "Role operatori dhe administratori",
+            "Token API për mjete si Companion",
+            "Çojeni ekipin në një server tjetër"
+          ]
+        },
+        "fades": {
+          "kicker": "Fade dhe kohëzim",
+          "title": "Kalime pa skaje të ashpra.",
+          "text": "Jepini çdo cue-je fade-out-in e vet të ndalimit, bashkoni butësisht fundin e përsëritjeve me fillimin dhe bëni një cue të presë para se të nisë tjetra.",
+          "points": [
+            "Fade sa vetë audioja",
+            "Crossfade pa ndërprerje në përsëritje",
+            "Prit para pasuesit"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "Një faqe e vetme Cilësimesh",
+          "text": "Çdo cilësim në një vend, me preferencat tuaja personale që ju ndjekin në çdo ekran."
+        },
+        "multiEdit": {
+          "title": "Përpunoni shumë cue njëherësh",
+          "text": "Ndryshoni çdo veti në një përzgjedhje të tërë cue-sh."
+        },
+        "groupTime": {
+          "title": "Grupet e dinë kohëzgjatjen",
+          "text": "Shihni sa zgjat një grup dhe sa ka mbetur, edhe kur është i mbyllur."
+        },
+        "sends": {
+          "title": "Bus-e që vetëm dërgojnë",
+          "text": "Një bus mund të ushqejë të tjerë vetëm përmes send-eve, pa dalje kryesore të vetën."
+        },
+        "tray": {
+          "title": "Serveri në hapësirën e sistemit",
+          "text": "Ekzekutoni motorin audio në heshtje në sfond, pa dritare konsole."
+        },
+        "youtubeFormat": {
+          "title": "Zgjidhni formatin YouTube",
+          "text": "Vendosni si ruhet audioja e importuar, përfshirë WAV."
+        }
+      },
+      "fixes": "mbështetje për Linux pa internet dhe shpërndarje më të vjetra, një import më i fortë nga YouTube, një kokë që ripërmasohet me dritaren, të dhëna përdoruesi që ruhen gjithmonë dhe shumë rregullime në mikser e lidhje."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Kontrolli i shfaqjes",
+        "text": "Mbështetje për Bitfocus Companion, plus veprimet e luajtjes Vazhdo me cue dhe Jump Cue."
+      },
+      "v23": {
+        "title": "Mënyra e shfaqjes dhe matës të ndershëm",
+        "text": "Mënyrë shfaqjeje për ekran me prekje, matje LUFS dhe true-peak, projekte të fundit dhe numërim i konfigurueshëm."
+      },
+      "v22": {
+        "title": "Kalime në stil radioje",
+        "text": "Shënues Nis tjetrën, një kalim i paracaktuar për pjesët e reja dhe përgatitje automatike e elementit pasues."
+      },
+      "v21": {
+        "title": "Importe më të shpejta",
+        "text": "Importoni dhe fshini shumë skedarë njëherësh."
+      },
+      "v20": {
+        "title": "Një motor i ri audio",
+        "text": "Një motor i dedikuar C++ me punë lokale ose në distancë, objektiva loudness-i dhe zbulim automatik të serverit."
+      }
+    }
   }
 }

@@ -37,10 +37,15 @@ Open **http://localhost:3000/liveplay/** and **http://localhost:3000/liveplay/ap
 
 | File / directory | Purpose |
 |---|---|
-| `app/app.vue` | Product homepage and link to the API page |
-| `app/components/` | Feature cards and language switcher |
+| `app/app.vue` | Site shell: header, page, footer and image viewer |
+| `app/pages/index.vue` | Home page, written for someone who has never used LivePlay |
+| `app/pages/whats-new/` | Release index and one designed page per release |
+| `app/data/tour.ts` | Running order of the home page's feature tour |
+| `app/data/releases.ts` | Release pages and the earlier-release timeline |
+| `app/components/` | Header, footer, feature rows, downloads, waveform and language switcher |
 | `app/composables/useI18n.ts` | Locale loading, English fallback and saved locale |
-| `app/assets/styles/main.scss` | Global styles |
+| `app/composables/useSiteInfo.ts` | Version, contributors and public-file URLs |
+| `app/assets/styles/main.scss` | Design tokens and all page styles |
 | `public/locales/` | Website translations, separate from client translations |
 | `public/api/index.html` | API connection guide and reference structure |
 | `public/api/reference.json` | Authoritative API contract catalog |
@@ -50,7 +55,29 @@ Open **http://localhost:3000/liveplay/** and **http://localhost:3000/liveplay/ap
 | `scripts/copy-screenshots.mjs` | Copy canonical client screenshots before dev/generation |
 | `nuxt.config.ts` | Static output and `/liveplay/` base path |
 
-The homepage fetches `public/package.json` for version information and `contributors.json` for contributors. CI copies the root README into `public/README.md`; the current homepage does not render that file.
+The site fetches `public/package.json` for version information and `contributors.json` for contributors. `client/assets/json/contributors.json` is the app's copy of that list, so update both together. CI copies the root README into `public/README.md`; the site does not render that file.
+
+## Add a release page
+
+1. Add the release to `app/data/releases.ts`, and move the previous release's summary into `timeline` when it no longer needs its own page.
+2. Add its words to `public/locales/en.json` under `whatsNew.<key>`, then translate them.
+3. Add the page to `app/data/seo.json`, with its publish date once released, and add its 1200x630 social card to `public/og/`. A `whatsNew.v<major><minor>` entry in the English copy is prerendered automatically.
+4. Mark features added in that release with `isNew` in `app/data/tour.ts`, and clear the previous release's flags.
+
+Every new feature gets a designed section or a "More in this release" tile. Bug fixes are a single short paragraph (`fixes`) at the end of the page. Every What's New page lists all LivePlay contributors, not only those who worked on that release.
+
+## Search, AI and social sharing
+
+Pages are prerendered to real English HTML, because search engines and most AI crawlers do not run JavaScript. Other languages load in the browser. All metadata is in English.
+
+| File | Purpose |
+|---|---|
+| `app/data/seo.json` | Titles, descriptions, social text, feature list and FAQ |
+| `app/composables/usePageSeo.ts` | Canonical URL, Open Graph, Twitter and JSON-LD for each page |
+| `public/og/` | Social cards and the Apple touch icon |
+| `scripts/generate-seo.mjs` | Builds `sitemap.xml`, `llms.txt` and `llms-full.txt` from the English copy |
+
+The FAQ is both visible text and structured data, so change it only in `seo.json`. The site lives under `/liveplay/`, so a `robots.txt` here would be ignored; crawlers only read one at the domain root. Submit `https://tdoukinitsas.github.io/liveplay/sitemap.xml` in Google Search Console and Bing Webmaster Tools instead.
 
 ## Maintain the API reference
 

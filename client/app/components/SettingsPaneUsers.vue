@@ -1,6 +1,9 @@
 <template>
   <div class="settings-pane">
-    <h3 class="settings-pane-title">{{ t('settings.sectionUsers') }}</h3>
+    <h3 class="settings-pane-title">
+      {{ t('settings.sectionUsers') }}
+      <SettingsScope scope="server" />
+    </h3>
     <p class="settings-pane-intro">{{ t('settings.sectionUsersHelp') }}</p>
 
     <!-- ================================================================
@@ -511,6 +514,7 @@
 </template>
 
 <script setup lang="ts">
+import SettingsScope from './SettingsScope.vue';
 // The Users pane (P3c).
 //
 // The /api/users routes have been tested and unreachable since U3 shipped: the
@@ -1218,13 +1222,6 @@ watch(() => server.authUser?.id, () => { void load(); void loadClients(); });
 </script>
 
 <style lang="scss" scoped>
-.settings-group-title {
-  margin: 32px 0 4px;
-  font-size: 15px;
-  font-weight: 600;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border, #333);
-}
 .settings-row {
   display: flex;
   flex-wrap: wrap;
@@ -1262,7 +1259,7 @@ watch(() => server.authUser?.id, () => { void load(); void loadClients(); });
   cursor: pointer;
   font-size: 13px;
   &:disabled { opacity: 0.45; cursor: default; }
-  &--primary { background: var(--color-accent-custom, #DA1E28); border-color: transparent; color: #fff; }
+  &--primary { background: var(--color-accent-custom, #DA1E28); border-color: transparent; color: var(--color-on-accent, #fff); }
   &--danger  { border-color: rgba(255, 23, 68, 0.5); color: #ff5a72; }
 }
 .settings-badge {

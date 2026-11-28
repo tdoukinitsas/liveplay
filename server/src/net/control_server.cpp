@@ -19,6 +19,7 @@
 #include "liveplay/logger.hpp"
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/meta/waveform.hpp"
+#include "liveplay/util/media_names.hpp"
 #include "liveplay/util/unicode_path.hpp"
 
 #if defined(_WIN32)
@@ -41,6 +42,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <iomanip>
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -175,6 +177,12 @@ struct ControlServer::Impl {
         // spreads the kept frames evenly instead of bunching them, which a
         // simple "every Nth" counter does not do for rates that do not divide.
         std::size_t   meter_accum = 0;
+        // Which playlist tab and cart page this window shows (#74). Purely so
+        // another operator can choose to follow it: nothing else reads these,
+        // and they are never part of the show.
+        bool          has_view = false;
+        std::string   view_playlist_tab;
+        std::string   view_cart_page;
 
         // ---- Principal (U3) ----------------------------------------------
         // Who this connection turned out to be, decided once during the
@@ -260,6 +268,22 @@ struct ControlServer::Impl {
         std::filesystem::path waveforms_dir; // empty = no disk cache
         bool                  force{false};  // delete cache and recompute
     };
+    // Held from "is this name free?" to the rename that claims it, so two
+    // imports of one file name cannot both decide it is theirs (#92).
+    std::mutex              media_publish_mutex;
+
+    // Requests that wait on the network (an event Test, device discovery).
+    // They run off Crow's I/O threads, because a handler blocking one of those
+    // also stalls every socket it serves, GO included. A quick one answers
+    // directly; a slow one answers {pending, jobId} and is collected from
+    // GET /api/events/jobs/<id>.
+    struct SlowJob {
+        std::future<json>                     result;
+        std::chrono::steady_clock::time_point started;
+    };
+    std::mutex                               slow_mutex;
+    std::unordered_map<std::string, SlowJob> slow_jobs;
+
     std::mutex              waveform_q_mutex;
     std::condition_variable waveform_q_cv;
     std::deque<WaveformTask> waveform_q;
@@ -285,14 +309,17 @@ public:
     }
 };
 
-// File extensions we accept as cue audio files.
+// File extensions we accept as cue audio files: exactly what the engine's
+// built-in decoders can play (audio/miniaudio_impl.c). The client's copy is in
+// utils/audioFormats.ts, and Electron's file dialog has its own list.
 const std::set<std::string>& audio_extensions() {
     static const std::set<std::string> exts {
-        ".wav", ".aiff", ".aif", ".flac", ".mp3", ".ogg", ".m4a", ".aac",
-        ".opus", ".wma", ".caf"
+        ".wav", ".aiff", ".aif", ".flac", ".mp3"
     };
     return exts;
 }
+
+constexpr const char* kUnsupportedAudio = "unsupported audio format: use WAV, AIFF, FLAC or MP3";
 
 bool is_audio_file(const fs::path& p) {
     auto e = p.extension().string();
@@ -887,6 +914,10 @@ static bool api_token_forbidden(std::string_view path) {
     if (path == "/api/upload")           return true;
     if (path == "/api/file/download")    return true;
     if (path == "/api/copy_to_media")    return true;
+    // Walks a folder and copies what it finds into the project. (Not
+    // /api/media/missing: that only says whether the show's own references,
+    // already in the document a token can read, are on disk.)
+    if (path == "/api/media/locate")     return true;
     if (path == "/api/project/import")   return true;   // an archive in…
     if (path == "/api/project/export")   return true;   // …and a copy of the show out
 
@@ -909,12 +940,30 @@ static bool api_token_forbidden(std::string_view path) {
     return false;
 }
 
-void AuthGuard::after_handle(crow::request& req, crow::response& res, context&) {
+void AuthGuard::after_handle(crow::request& req, crow::response& res, context& ctx) {
     // Never overrides: json_ok/json_err and the download route already set the
     // origin, and a duplicate header is rejected by browsers.
     const auto set_once = [&res](const char* key, const std::string& value) {
         if (res.get_header_value(key).empty()) res.add_header(key, value);
     };
+    // No client is ever sent a secret (F-01, F-23). Every JSON answer passes
+    // here, so a route added later can't forget: HTTP header values that are
+    // credentials go out masked, and an API token gets every header value
+    // masked. Only answers that mention headers at all are parsed again.
+    if (res.body.size() > 2 && core::ProjectState::may_hold_secrets(res.body) &&
+        res.get_header_value("Content-Type").find("json") != std::string::npos) {
+        try {
+            json body = json::parse(res.body);
+            core::ProjectState::mask_secrets(
+                body, ctx.authenticated && ctx.principal.is_api());
+            res.body = body.dump(-1, ' ', false, json::error_handler_t::replace);
+        } catch (const std::exception& e) {
+            // Never send what couldn't be checked.
+            Logger::error("Masking a response for {} failed: {}", req.url, e.what());
+            res.code = 500;
+            res.body = json({{"error", "internal error"}}).dump();
+        }
+    }
     set_once("Access-Control-Allow-Origin", g_cors_allow_origin);
     if (req.method == crow::HTTPMethod::Options) {
         // Explicit lists, not "*": a wildcard Allow-Headers does not cover
@@ -962,6 +1011,20 @@ void AuthGuard::before_handle(crow::request& req, crow::response& res, context& 
 
     ctx.authenticated = true;
     ctx.principal     = *principal;
+
+    // F-30: an API token may read the show's connections (secrets hidden) and
+    // fire what the operator set up, but not change them. Connections hold
+    // the credentials and decide where the server sends requests, so a token
+    // that could write one could aim the server at any address and test it.
+    if (principal->is_api() && req.method != crow::HTTPMethod::Get) {
+        std::string_view path = req.url;
+        if (const auto q = path.find('?'); q != std::string_view::npos) path = path.substr(0, q);
+        if (path == "/api/events/connections") {
+            res = json_err(403, "API tokens can't change event connections");
+            res.end();
+            return;
+        }
+    }
 
     if (principal->is_api()) {
         // Recorded here rather than in verify_token so that verification stays
@@ -1018,16 +1081,18 @@ bool ControlServer::start() {
     if (running_.exchange(true)) return true;
     install_routes();
 
-    // Hand custom http-request actions off to clients. The server has no
-    // HTTP client of its own; broadcasting as a doc_patch lets any
-    // connected client execute the fetch. This is a best-effort fan-out;
-    // if no client is connected the action is silently dropped.
-    state_.set_external_action_handler([this](const json& action) {
-        broadcast_doc_patch(json{
-            {"type", "doc_patch"},
-            {"op",   "custom_action_http"},
-            {"action", action},
-        });
+    // Every event that runs (#84), ok or not, so the clients can flash its
+    // marker and show what went wrong.
+    state_.set_event_fired_broadcaster([this](const json& fired) {
+        json msg = fired;
+        msg["type"] = "doc_patch";
+        msg["op"]   = "event_fired";
+        broadcast_doc_patch(msg);
+    });
+    // A connection's sign-in state moved (a 401, then a success): every
+    // client's prompt follows (F-23).
+    state_.set_connections_broadcaster([this](const json& connections) {
+        broadcast_event_connections(connections);
     });
 
     // Fan out every "Up Next" change — whether requested by a client or armed
@@ -1085,6 +1150,15 @@ void ControlServer::stop() {
     if (impl_->broadcast_thread.joinable()) impl_->broadcast_thread.join();
     if (impl_->waveform_thread.joinable())  impl_->waveform_thread.join();
     if (impl_->app_thread.joinable())       impl_->app_thread.join();
+    // A Test or Discover still running calls into the project. Destroying its
+    // future waits for it, outside the lock.
+    {
+        decltype(impl_->slow_jobs) running;
+        {
+            std::lock_guard lock{impl_->slow_mutex};
+            running.swap(impl_->slow_jobs);
+        }
+    }
     Logger::info("Control server stopped.");
 }
 
@@ -1405,16 +1479,94 @@ void ControlServer::broadcast_loop() {
 // idempotent on its side (uuid lookup) and keeps the local diff-watcher
 // quiet because the client wraps the apply in its `isHydrating` flag.
 void ControlServer::broadcast_doc_patch(const json& payload) {
-    std::string serialized;
-    try { serialized = payload.dump(); }
-    catch (const std::exception& e) {
+    // Shutting down: the sockets are going, and a late report has no audience.
+    if (!running_.load(std::memory_order_acquire)) return;
+    std::string serialized, for_tokens;
+    // Invalid UTF-8 from a client (a name cut mid-character) is replaced, not
+    // thrown on: one bad string must not silence the frame for everyone (F-20).
+    try {
+        const auto dump = [](const json& j) {
+            return j.dump(-1, ' ', false, json::error_handler_t::replace);
+        };
+        serialized = dump(payload);
+        // An item patch carries its events, and an HTTP event its headers: no
+        // client is sent a secret, and a token no header value (F-01).
+        if (core::ProjectState::may_hold_secrets(serialized)) {
+            json masked = payload;
+            core::ProjectState::mask_secrets(masked, false);
+            serialized = dump(masked);
+            masked = payload;
+            core::ProjectState::mask_secrets(masked, true);
+            for_tokens = dump(masked);
+        }
+    } catch (const std::exception& e) {
         Logger::error("broadcast_doc_patch: serialization failed: {}", e.what());
         return;
     }
     std::lock_guard lock{impl_->ws_mutex};
-    for (auto& [c, _] : impl_->ws_clients) {
+    for (auto& [c, session] : impl_->ws_clients) {
         if (!impl_->authorize_ws_locked(c, users_)) continue;
-        try { c->send_text(serialized); }
+        try { c->send_text(session.is_api && !for_tokens.empty() ? for_tokens : serialized); }
+        catch (...) { /* onclose will clean up dead connections */ }
+    }
+}
+
+void ControlServer::broadcast_client_views() {
+    if (!running_.load(std::memory_order_acquire)) return;
+    json views = json::array();
+    {
+        std::lock_guard lock{impl_->ws_mutex};
+        for (const auto& [conn, s] : impl_->ws_clients) {
+            // A control surface on an API token isn't an operator anyone can
+            // follow (S-9).
+            if (!s.has_view || s.is_api) continue;
+            // Who is looking: the signed-in user's name, or a number. Never the
+            // address: every socket gets this frame, API tokens included, and
+            // who is connected from where is the Admin-only /api/clients (F-14).
+            views.push_back(json{
+                {"id", s.id},
+                {"label", s.user_name.empty() ? "Client " + std::to_string(s.id) : s.user_name},
+                {"playlistTab", s.view_playlist_tab},
+                {"cartPage", s.view_cart_page},
+            });
+        }
+    }
+    // A stable order: the map's is a hash of pointers.
+    std::sort(views.begin(), views.end(), [](const json& a, const json& b) {
+        return a.value("id", std::uint64_t{0}) < b.value("id", std::uint64_t{0});
+    });
+    broadcast_doc_patch(json{{"type", "doc_patch"}, {"op", "client_views"}, {"views", views}});
+}
+
+void ControlServer::broadcast_cart_keys() {
+    json frame = state_.cart_keys();
+    frame["type"] = "doc_patch";
+    frame["op"]   = "cart_keys_changed";
+    broadcast_doc_patch(frame);
+}
+
+void ControlServer::broadcast_event_connections(const json& connections) {
+    if (!running_.load(std::memory_order_acquire)) return;
+    std::string full, hidden;
+    try {
+        const auto frame = [](const json& list) {
+            json f{{"type", "doc_patch"}, {"op", "event_connections_changed"}};
+            f["connections"] = list;
+            return f.dump();
+        };
+        // Secrets masked for everyone; every header value for a token (F-23).
+        json masked = connections;
+        core::ProjectState::mask_secrets(masked, false);
+        full   = frame(masked);
+        hidden = frame(core::ProjectState::redact_event_connections(connections));
+    } catch (const std::exception& e) {
+        Logger::error("broadcast_event_connections: serialization failed: {}", e.what());
+        return;
+    }
+    std::lock_guard lock{impl_->ws_mutex};
+    for (auto& [c, session] : impl_->ws_clients) {
+        if (!impl_->authorize_ws_locked(c, users_)) continue;
+        try { c->send_text(session.is_api ? hidden : full); }
         catch (...) { /* onclose will clean up dead connections */ }
     }
 }
@@ -1426,7 +1578,11 @@ void ControlServer::broadcast_to_user(const std::string& user_id, const json& pa
     if (user_id.empty()) return;
 
     std::string serialized;
-    try { serialized = payload.dump(); }
+    try {
+        json masked = payload;
+        core::ProjectState::mask_secrets(masked, false);
+        serialized = masked.dump(-1, ' ', false, json::error_handler_t::replace);
+    }
     catch (const std::exception& e) {
         Logger::error("broadcast_to_user: serialization failed: {}", e.what());
         return;
@@ -1679,6 +1835,17 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
     return playing;
 }
 
+// A select step's scope from its request (F-05): `"scope": "show"` walks every
+// playlist tab; anything else keeps to one, `tabId` naming it when given.
+static core::ProjectState::SelectionScope selection_scope_of(const json& j) {
+    core::ProjectState::SelectionScope scope;
+    if (const auto it = j.find("scope"); it != j.end() && it->is_string())
+        scope.whole_show = it->get<std::string>() == "show";
+    if (const auto it = j.find("tabId"); it != j.end() && it->is_string())
+        scope.tab_id = it->get<std::string>();
+    return scope;
+}
+
 // ---------------------------------------------------------------------------
 // Returns a non-empty string if a direct reply to this specific client is
 // needed (pong, error). The caller sends it under ws_mutex so it doesn't
@@ -1695,6 +1862,7 @@ static std::vector<std::string> selection_anchors(audio::AudioEngine& engine,
 struct SessionOps {
     std::function<std::string(const std::string&)> set_locale;
     std::function<std::size_t(std::size_t)>        set_meter_hz;
+    std::function<std::uint64_t(const std::string&, const std::string&)> set_view;
     std::function<void(const std::string&)>        set_analyser;
 };
 
@@ -1818,6 +1986,15 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                              fade ? std::to_string(*fade) + "ms" : "project default");
             state.stop_all_cues(fade);
         }
+        else if (type == "stop_current") {
+            // Stop Current Cue (#87): the cue fired last that is still on air.
+            // Same as POST /api/transport/stop_current.
+            std::optional<long long> fade;
+            if (j.contains("fade_ms") && j["fade_ms"].is_number())
+                fade = j["fade_ms"].get<long long>();
+            const auto uuid = state.stop_current_cue(fade);
+            Logger::playback("STOP CURRENT: {}", uuid.empty() ? std::string{"nothing playing"} : uuid);
+        }
         else if (type == "go") {
             // Play whatever is armed as "Up Next" (override first, else the
             // playing item's endBehavior target). Same semantics as
@@ -1898,8 +2075,13 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
             // is hearing instead of snapping back to the top of the show. This
             // only applies when there is no selection — an explicit selection
             // always wins.
+            //
+            // `scope: "show"` crosses playlist tabs; otherwise the step keeps
+            // to `tabId` (the tab the sender is showing) or the selected cue's
+            // tab (F-05).
             const int delta = j.value("delta", 0);
-            if (delta != 0) state.step_selection(delta, selection_anchors(engine, state));
+            if (delta != 0) state.step_selection(delta, selection_anchors(engine, state),
+                                                 selection_scope_of(j));
         }
         else if (type == "set_show_mode") {
             // Omit "enabled" to toggle.
@@ -1947,6 +2129,26 @@ static std::string handle_ws_message(crow::websocket::connection& conn,
                     asked <= 0 ? 0 : static_cast<std::size_t>(asked));
                 return json{{"type", "doc_patch"}, {"op", "meter_hz_changed"},
                             {"hz", effective}}.dump();
+            }
+        }
+        else if (type == "set_view") {
+            if (session.set_view) {
+                // At most 64 bytes, cut on a character boundary: a byte cut
+                // through a multibyte character made the client_views frame
+                // unserialisable for everyone (F-20).
+                const auto text = [&](const char* key) {
+                    const auto it = j.find(key);
+                    if (it == j.end() || !it->is_string()) return std::string{};
+                    std::string s = it->get<std::string>();
+                    if (s.size() > 64) {
+                        std::size_t n = 64;
+                        while (n > 0 && (static_cast<unsigned char>(s[n]) & 0xC0) == 0x80) --n;
+                        s.resize(n);
+                    }
+                    return s;
+                };
+                const auto id = session.set_view(text("playlistTab"), text("cartPage"));
+                return json{{"type", "doc_patch"}, {"op", "client_view_id"}, {"id", id}}.dump();
             }
         }
         else if (type == "bus_gain") {
@@ -3216,6 +3418,35 @@ void ControlServer::install_routes() {
             } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
+    // Stop Current Cue (#87): the cue fired most recently that is still on air.
+    // The keyboard shortcut and the MIDI action call this too, so every
+    // surface agrees on what "current" means. Optional { "fade_ms": n }.
+    CROW_ROUTE(app, "/api/transport/stop_current").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req){
+            try {
+                auto j = json::parse(req.body.empty() ? std::string{"{}"} : req.body);
+                Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/stop_current",
+                                    req.remote_ip_address, impl_->server_addr);
+                std::optional<long long> fade;
+                if (j.contains("fade_ms") && j["fade_ms"].is_number())
+                    fade = j["fade_ms"].get<long long>();
+                const std::string uuid = state_.stop_current_cue(fade);
+                if (uuid.empty()) return json_err(404, "nothing is playing");
+                return json_ok(json({{"ok", true}, {"uuid", uuid}}));
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // The panic (#23): every cue stops at once and every event dies. The same
+    // as a second Stop All during the first one's fade, for a control that has
+    // one button for it.
+    CROW_ROUTE(app, "/api/transport/panic").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/panic",
+                                req.remote_ip_address, impl_->server_addr);
+            state_.panic();
+            return json_ok(json({{"ok", true}}));
+        });
+
     // ---- External-control surface (Bitfocus Companion, custom remotes) ----
     // Compact machine-readable transport summary. Control surfaces fetch this
     // once on connect (and after a project_changed doc_patch), then keep it
@@ -3280,7 +3511,9 @@ void ControlServer::install_routes() {
         });
 
     // Body: { "itemUuid": "..." } to select (empty string clears), or
-    //       { "delta": -1 | 1 }  to step through the flattened playlist.
+    //       { "delta": -1 | 1 }  to step through the flattened playlist,
+    //       keeping to one playlist tab unless "scope": "show" (F-05); an
+    //       optional "tabId" names the tab to keep to.
     CROW_ROUTE(app, "/api/selection").methods(crow::HTTPMethod::Post)
         ([this](const crow::request& req){
             try {
@@ -3289,7 +3522,11 @@ void ControlServer::install_routes() {
                 if (j.contains("delta") && j["delta"].is_number_integer()) {
                     const int delta = j["delta"].get<int>();
                     if (delta == 0) return json_err(400, "delta must be non-zero");
-                    uuid = state_.step_selection(delta, selection_anchors(engine_, state_));
+                    if (j.contains("scope") && !(j["scope"].is_string() &&
+                        (j["scope"] == "show" || j["scope"] == "tab")))
+                        return json_err(400, "scope must be \"tab\" or \"show\"");
+                    uuid = state_.step_selection(delta, selection_anchors(engine_, state_),
+                                                 selection_scope_of(j));
                     if (uuid.empty()) return json_err(404, "playlist is empty");
                 } else if (j.contains("itemUuid") && j["itemUuid"].is_string()) {
                     uuid = j["itemUuid"].get<std::string>();
@@ -3439,6 +3676,10 @@ void ControlServer::install_routes() {
         });
 
     // Trigger the item bound to a cart slot. GET accepted for curl/browser.
+    // `slot` is the raw slot number, the `slot` summary.cart reports (F-04).
+    // Each page owns a block of 64 from its slotBase, so slots 0-63 are the
+    // first page ever made, as they were before pages existed, and reordering
+    // pages never changes which cart a number fires.
     CROW_ROUTE(app, "/api/transport/cart/<int>/play")
         .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
         ([this](const crow::request& req, int slot){
@@ -3446,12 +3687,108 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/play",
                                 req.remote_ip_address, impl_->server_addr,
                                 crow::method_name(req.method), slot);
-            const std::string uuid = state_.cart_slot_item_uuid(slot);
+            const std::string uuid = state_.cart_item_at_slot(slot);
             if (uuid.empty()) return json_err(404, "cart slot is empty");
             Logger::playback("CART {}: {}", slot, item_playback_info(uuid, state_));
             if (!state_.trigger_item(uuid))
                 return json_err(404, "item not loaded into engine");
             return json_ok(json({{"ok", true}, {"slot", slot}, {"uuid", uuid}}));
+        });
+
+    CROW_ROUTE(app, "/api/transport/cart/<int>/stop").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, int slot){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/cart/{}/stop",
+                                req.remote_ip_address, impl_->server_addr, slot);
+            const std::string uuid = state_.cart_item_at_slot(slot);
+            if (uuid.empty()) return json_err(404, "cart slot is empty");
+            const bool stopped = state_.stop_item(uuid);
+            return json_ok(json({{"ok", true}, {"slot", slot}, {"uuid", uuid}, {"stopped", stopped}}));
+        });
+
+    // The same by page,cart, both zero-based (#74).
+    CROW_ROUTE(app, "/api/transport/cart/<int>/<int>/play")
+        .methods(crow::HTTPMethod::Post, crow::HTTPMethod::Get)
+        ([this](const crow::request& req, int page, int cart){
+            if (is_head_probe(req)) return head_probe_ok();
+            Logger::api_request("Client ({}) -> Server ({}) : {} /api/transport/cart/{}/{}/play",
+                                req.remote_ip_address, impl_->server_addr,
+                                crow::method_name(req.method), page, cart);
+            const std::string uuid = state_.cart_item_at(page, cart);
+            if (uuid.empty()) return json_err(404, "cart is empty or doesn't exist");
+            Logger::playback("CART {},{}: {}", page, cart, item_playback_info(uuid, state_));
+            if (!state_.trigger_item(uuid))
+                return json_err(404, "item not loaded into engine");
+            return json_ok(json({{"ok", true}, {"page", page}, {"cart", cart}, {"uuid", uuid}}));
+        });
+
+    CROW_ROUTE(app, "/api/transport/cart/<int>/<int>/stop").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req, int page, int cart){
+            Logger::api_request("Client ({}) -> Server ({}) : POST /api/transport/cart/{}/{}/stop",
+                                req.remote_ip_address, impl_->server_addr, page, cart);
+            const std::string uuid = state_.cart_item_at(page, cart);
+            if (uuid.empty()) return json_err(404, "cart is empty or doesn't exist");
+            // `stopped` says whether anything was playing (or waiting to
+            // advance) for it to stop.
+            const bool stopped = state_.stop_item(uuid);
+            return json_ok(json({{"ok", true}, {"page", page}, {"cart", cart}, {"uuid", uuid},
+                                 {"stopped", stopped}}));
+        });
+
+    // Every page with its carts, for control surfaces (#74).
+    CROW_ROUTE(app, "/api/cart/pages").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(json{{"pages", state_.cart_pages()}}); });
+
+    // Playlist tabs and cart pages: what they are. Which one a client is
+    // looking at is its own business and never reaches the server's document.
+    CROW_ROUTE(app, "/api/project/tabs").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(state_.project_tabs()); });
+
+    CROW_ROUTE(app, "/api/project/tabs").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.is_object()) return json_err(400, "expected an object");
+                for (const char* key : {"playlistTabs", "cartPages"}) {
+                    if (body.contains(key) && !body[key].is_array())
+                        return json_err(400, std::string{"'"} + key + "' must be an array");
+                }
+                std::vector<int> removed;
+                const json stored = state_.set_project_tabs(body, &removed);
+                broadcast_doc_patch(json{
+                    {"type", "doc_patch"}, {"op", "tabs_changed"},
+                    {"playlistTabs", stored["playlistTabs"]},
+                    {"cartPages", stored["cartPages"]},
+                });
+                // Carts that went with a removed page.
+                for (const int slot : removed) {
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
+                    });
+                }
+                if (!removed.empty()) broadcast_cart_keys();
+                return json_ok(stored);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // The cart keys (F-03): the position keys (`cartSlotKeys`, position on a
+    // page → key) and the keys pinned to one cart (`cartPinnedKeys`, raw slot
+    // → key). Their own route, so one operator's change reaches every client
+    // straight away and another client's save can't undo it.
+    CROW_ROUTE(app, "/api/project/cart-keys").methods(crow::HTTPMethod::Get)
+        ([this]{ return json_ok(state_.cart_keys()); });
+    CROW_ROUTE(app, "/api/project/cart-keys").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req){
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.is_object()) return json_err(400, "expected an object");
+                for (const char* key : {"cartSlotKeys", "cartPinnedKeys"}) {
+                    if (body.contains(key) && !body[key].is_object())
+                        return json_err(400, std::string{"'"} + key + "' must be an object");
+                }
+                const json stored = state_.set_cart_keys(body);
+                broadcast_cart_keys();
+                return json_ok(stored);
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     CROW_ROUTE(app, "/api/master/ceiling").methods(crow::HTTPMethod::Post)
@@ -4208,11 +4545,7 @@ void ControlServer::install_routes() {
                 const auto& parts = multipart.parts;
                 if (parts.empty()) return json_err(400, "no multipart parts");
 
-                fs::path media = state_.media_root();
-                fs::create_directories(media);
-
-                json saved = json::array();
-                for (const auto& part : parts) {
+                const auto part_name = [](const auto& part) {
                     // Pick filename from Content-Disposition header.
                     std::string filename = "upload.bin";
                     auto it = part.headers.find("Content-Disposition");
@@ -4225,13 +4558,37 @@ void ControlServer::install_routes() {
                     }
                     // Strip path traversal — treat the filename bytes as UTF-8.
                     fs::path safe_name = liveplay::util::utf8_to_path(filename).filename();
-                    if (safe_name.empty()) safe_name = "upload.bin";
-                    fs::path dest = media / safe_name;
+                    if (safe_name.empty() || safe_name == "." || safe_name == "..") {
+                        safe_name = "upload.bin";
+                    }
+                    return safe_name;
+                };
 
-                    std::ofstream f{dest, std::ios::binary};
-                    if (!f) return json_err(500, "failed to write file");
-                    f.write(part.body.data(), static_cast<std::streamsize>(part.body.size()));
-                    saved.push_back(liveplay::util::path_to_utf8(dest));
+                // Before anything is written, so a mixed batch can't half land.
+                for (const auto& part : parts) {
+                    if (!is_audio_file(part_name(part))) return json_err(415, kUnsupportedAudio);
+                }
+
+                fs::path media = state_.media_root();
+                fs::create_directories(media);
+
+                json saved = json::array();
+                for (const auto& part : parts) {
+                    const fs::path safe_name = part_name(part);
+
+                    // Written aside and moved into place, so it can neither
+                    // overwrite another cue's file (#92) nor be opened half done.
+                    const liveplay::util::MediaTempFile temp{liveplay::util::media_temp_path(media)};
+                    {
+                        std::ofstream f{temp.path, std::ios::binary};
+                        if (!f) return json_err(500, "failed to write file");
+                        f.write(part.body.data(), static_cast<std::streamsize>(part.body.size()));
+                        f.close();
+                        if (!f) return json_err(500, "failed to write file");
+                    }
+                    std::lock_guard lock{impl_->media_publish_mutex};
+                    const auto published = liveplay::util::publish_media_file(temp.path, media, safe_name);
+                    saved.push_back(liveplay::util::path_to_utf8(published.path));
                 }
                 return json_ok(json({{"saved", saved}}));
             } catch (const std::exception& e) { return json_err(400, e.what()); }
@@ -4259,22 +4616,231 @@ void ControlServer::install_routes() {
                 const fs::path media = state_.media_root();
                 if (media.empty()) return json_err(500, "media root not configured");
 
-                fs::create_directories(media);
-                const fs::path dest = media / src.filename();
-
-                // Skip the copy only when src and dest are the same file. Use
-                // weakly_canonical, NOT canonical: canonical() throws when the
-                // path doesn't exist, and dest normally does NOT exist yet on a
-                // first import — that threw, returned 500, and the client fell
-                // back to the original out-of-folder path, so the media never
-                // landed in the project folder (the import bug).
                 std::error_code ec;
-                if (fs::weakly_canonical(src, ec) != fs::weakly_canonical(dest, ec)) {
-                    fs::copy_file(src, dest, fs::copy_options::overwrite_existing);
+                const fs::path wanted = src.filename();
+                if (wanted.empty() || !fs::is_regular_file(src, ec)) {
+                    return json_err(400, "source is not a file");
+                }
+                if (!is_audio_file(wanted)) return json_err(415, kUnsupportedAudio);
+
+                fs::create_directories(media);
+                const fs::path dest = media / wanted;
+
+                // Already the project's own file: nothing to copy. equivalent()
+                // asks the filesystem, so a differently-cased or relative
+                // spelling of the same path still counts.
+                if (fs::exists(dest, ec) && fs::equivalent(src, dest, ec) && !ec) {
+                    return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(dest)}});
                 }
 
-                return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(dest)}});
+                // The same bytes under this name: reuse them, without a copy.
+                if (const auto existing = liveplay::util::find_identical_media(media, wanted, src)) {
+                    return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(*existing)}});
+                }
+
+                // Copied aside and moved into place, so it can neither
+                // overwrite another cue's file (#92) nor be opened half done.
+                const liveplay::util::MediaTempFile temp{liveplay::util::media_temp_path(media)};
+                fs::copy_file(src, temp.path);
+                std::lock_guard lock{impl_->media_publish_mutex};
+                const auto published = liveplay::util::publish_media_file(temp.path, media, wanted);
+                return json_ok(json{{"dest_path", liveplay::util::path_to_utf8(published.path)}});
             } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // ---- Missing media (issue #80) ----
+    // Audio items whose file can't be found. The client polls this to badge
+    // items and offer "Locate missing media…".
+    CROW_ROUTE(app, "/api/media/missing").methods(crow::HTTPMethod::Get)
+        ([this]() {
+            return json_ok(json{{"missing", state_.missing_media()}});
+        });
+
+    // Relink every missing item to a same-named file under a server folder.
+    // Body: { "folder": "/abs/dir", "recursive": true }
+    CROW_ROUTE(app, "/api/media/locate").methods(crow::HTTPMethod::Post)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string folder_str = body.value("folder", std::string{});
+                if (folder_str.empty()) return json_err(400, "missing folder");
+                const fs::path folder = liveplay::util::utf8_to_path(folder_str);
+                if (!path_within_fs_roots(folder)) return json_fs_denied();
+                std::error_code ec;
+                if (!fs::is_directory(folder, ec)) return json_err(404, "no such folder");
+
+                auto result = state_.locate_missing_media(folder, body.value("recursive", true));
+                for (const auto& r : result["relinked"]) {
+                    broadcast_doc_patch(json{
+                        {"type", "doc_patch"}, {"op", "item_updated"},
+                        {"uuid", r["uuid"]}, {"patch", r["patch"]},
+                    });
+                }
+                Logger::info("POST /api/media/locate '{}': {} relinked, {} still missing",
+                             folder_str, result["relinked"].size(), result["missing"].size());
+                return json_ok(result);
+            } catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // ---- Event system (#84) ----
+    // Plugin schemas, built per request so live lists (MIDI ports) are current.
+    CROW_ROUTE(app, "/api/events/plugins").methods(crow::HTTPMethod::Get)
+        ([this]() {
+            return json_ok(json{{"plugins", state_.event_plugins()}});
+        });
+
+    // An API token sees connections with their secrets hidden (#19): it is a
+    // string in somebody else's config file, and an HTTP connection's headers
+    // can carry a password.
+    CROW_ROUTE(app, "/api/events/connections").methods(crow::HTTPMethod::Get)
+        ([this](const crow::request& req) {
+            auto list = state_.event_connections();
+            if (impl_->app.get_context<AuthGuard>(req).principal.is_api())
+                list = core::ProjectState::redact_event_connections(std::move(list));
+            return json_ok(json{{"connections", std::move(list)}});
+        });
+
+    // Replace the project's connections. Body: { connections: [...] }
+    CROW_ROUTE(app, "/api/events/connections").methods(crow::HTTPMethod::Put)
+        ([this](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.contains("connections") || !body["connections"].is_array())
+                    return json_err(400, "missing 'connections' array");
+                auto stored = state_.set_event_connections(body["connections"]);
+                broadcast_event_connections(stored);
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api())
+                    stored = core::ProjectState::redact_event_connections(std::move(stored));
+                return json_ok(json{{"ok", true}, {"connections", stored}});
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Runs `work` off the I/O thread. See Impl::SlowJob.
+    const auto run_slow = [this](std::function<json()> work) -> crow::response {
+        using namespace std::chrono_literals;
+        constexpr std::size_t kMaxRunning = 8;
+        constexpr auto kAnswerDirectlyWithin = 50ms;
+        constexpr auto kKeepUncollected = 2min;
+
+        std::future<json> result;
+        {
+            std::lock_guard lock{impl_->slow_mutex};
+            const auto now = std::chrono::steady_clock::now();
+            std::size_t busy = 0;
+            for (auto it = impl_->slow_jobs.begin(); it != impl_->slow_jobs.end();) {
+                const bool done = it->second.result.wait_for(0ms) == std::future_status::ready;
+                if (!done) ++busy;
+                // Only a finished one: destroying a running future would wait.
+                if (done && now - it->second.started > kKeepUncollected) {
+                    it = impl_->slow_jobs.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if (busy >= kMaxRunning) return json_err(503, "too many tests already running");
+            result = std::async(std::launch::async, std::move(work));
+        }
+        if (result.wait_for(kAnswerDirectlyWithin) == std::future_status::ready) {
+            return json_ok(result.get());
+        }
+        const std::string id = make_download_token();
+        {
+            std::lock_guard lock{impl_->slow_mutex};
+            impl_->slow_jobs.emplace(id, Impl::SlowJob{std::move(result),
+                                                       std::chrono::steady_clock::now()});
+        }
+        return json_ok(json{{"pending", true}, {"jobId", id}});
+    };
+
+    CROW_ROUTE(app, "/api/events/jobs/<string>").methods(crow::HTTPMethod::Get)
+        ([this](const std::string& id) {
+            std::future<json> result;
+            {
+                std::lock_guard lock{impl_->slow_mutex};
+                const auto it = impl_->slow_jobs.find(id);
+                if (it == impl_->slow_jobs.end()) return json_err(404, "no such job");
+                if (it->second.result.wait_for(std::chrono::seconds{0}) != std::future_status::ready) {
+                    return json_ok(json{{"pending", true}, {"jobId", id}});
+                }
+                result = std::move(it->second.result);
+                impl_->slow_jobs.erase(it);
+            }
+            try { return json_ok(result.get()); }
+            catch (const std::exception& e) { return json_err(500, e.what()); }
+        });
+
+    // Fire one event now. Body: { event: {plugin, action, options,
+    // connectionId?}, connection?: {draft connection}, itemUuid? }
+    CROW_ROUTE(app, "/api/events/test").methods(crow::HTTPMethod::Post)
+        ([this, run_slow](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                if (!body.contains("event") || !body["event"].is_object())
+                    return json_err(400, "missing 'event' object");
+                // A draft HTTP connection is any URL at all, requested from
+                // the server's own place on the network. The connection
+                // editor's Test needs that; an API token does not (#20), and
+                // may still test the show's saved connections.
+                // Any plugin: an OSC or X Air draft aims the server's packets
+                // at any host just the same (F-30).
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    body.contains("connection") && body["connection"].is_object())
+                    return json_err(403, "API tokens can't test an unsaved connection");
+                return run_slow([this, body] {
+                    const auto r = state_.test_event(
+                        body["event"],
+                        body.contains("connection") ? body["connection"] : json{},
+                        body.value("itemUuid", std::string{}));
+                    json out{{"ok", r.ok}};
+                    if (!r.ok) out["error"] = r.error;
+                    // "missing" / "rejected": the editor says the credentials
+                    // are the problem. A test never flags the saved
+                    // connection: it may be testing a draft of it.
+                    if (!r.auth.empty()) out["auth"] = r.auth;
+                    return out;
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // A plugin's live option list for a field with "optionsFrom".
+    // Body: { plugin, source, connectionId?, connection?, values? }
+    CROW_ROUTE(app, "/api/events/options").methods(crow::HTTPMethod::Post)
+        ([this, run_slow](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string plugin = body.value("plugin", std::string{});
+                const std::string source = body.value("source", std::string{});
+                if (plugin.empty() || source.empty()) return json_err(400, "missing plugin or source");
+                // Reading options from a draft connection talks to whatever
+                // host it names; a token may only use the show's (F-30).
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    body.contains("connection") && body["connection"].is_object())
+                    return json_err(403, "API tokens can't use an unsaved connection");
+                std::string connection_id;
+                if (body.contains("connectionId") && body["connectionId"].is_string())
+                    connection_id = body["connectionId"].get<std::string>();
+                return run_slow([this, body, plugin, source, connection_id] {
+                    return state_.event_options(
+                        plugin, source, connection_id,
+                        body.contains("connection") ? body["connection"] : json{},
+                        body.contains("values") ? body["values"] : json::object());
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
+        });
+
+    // Devices a plugin finds on the network. Body: { plugin, timeoutMs? }
+    CROW_ROUTE(app, "/api/events/discover").methods(crow::HTTPMethod::Post)
+        ([this, run_slow](const crow::request& req) {
+            try {
+                const auto body = json::parse(req.body);
+                const std::string plugin = body.value("plugin", std::string{});
+                if (plugin.empty()) return json_err(400, "missing plugin");
+                const int ms = std::clamp(body.value("timeoutMs", 1500), 200, 10000);
+                return run_slow([this, plugin, ms] {
+                    return json{{"devices",
+                        state_.event_discover(plugin, std::chrono::milliseconds{ms})}};
+                });
+            } catch (const std::exception& e) { return json_err(400, e.what()); }
         });
 
     // Queue an async waveform computation for the given file. Returns
@@ -4408,7 +4974,12 @@ void ControlServer::install_routes() {
     // theme, settings) plus a server-side decoration of engine cue ids. This
     // is the single GET a remote client needs to render the whole project.
     CROW_ROUTE(app, "/api/project").methods(crow::HTTPMethod::Get)
-        ([this] { return json_ok(state_.full_document()); });
+        ([this](const crow::request& req) {
+            auto doc = state_.full_document();
+            if (impl_->app.get_context<AuthGuard>(req).principal.is_api() && doc.contains("eventConnections"))
+                doc["eventConnections"] = core::ProjectState::redact_event_connections(doc["eventConnections"]);
+            return json_ok(doc);
+        });
 
     // Lightweight header — theme, settings, cart, project name, item count.
     // Clients hit this first so they can paint the workspace shell before
@@ -4419,6 +4990,8 @@ void ControlServer::install_routes() {
             Logger::api_request("Client ({}) -> Server ({}) : GET /api/project/header",
                                 req.remote_ip_address, impl_->server_addr);
             auto hdr = state_.header_document();
+            if (impl_->app.get_context<AuthGuard>(req).principal.is_api() && hdr.contains("eventConnections"))
+                hdr["eventConnections"] = core::ProjectState::redact_event_connections(hdr["eventConnections"]);
             Logger::api_response("Client ({}) <- Server ({}) : GET /api/project/header OK — '{}' ({} items)",
                                  req.remote_ip_address, impl_->server_addr,
                                  hdr.value("name", "?"),
@@ -4479,7 +5052,12 @@ void ControlServer::install_routes() {
                 } else if (j.contains("document")) {
                     Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/load (from document)",
                                         req.remote_ip_address, impl_->server_addr);
-                    if (!state_.load_from_json(j["document"])) {
+                    // A token runs the show it is given; it doesn't bring its
+                    // own (R2-09). Opening a show file stays open to it.
+                    if (impl_->app.get_context<AuthGuard>(req).principal.is_api())
+                        return json_err(403, "API tokens can open a show file, not send a show");
+                    // Never from_disk: a sealed value in a body is not opened.
+                    if (!state_.load_from_json(j["document"], /*from_disk=*/false)) {
                         Logger::error("POST /api/project/load FAILED — document rejected");
                         return json_err(400, "load failed");
                     }
@@ -4835,7 +5413,13 @@ void ControlServer::install_routes() {
                 // see the save call land while the engine still uses stale
                 // values from the previous play.
                 if (j.contains("document") && j["document"].is_object()) {
-                    if (!state_.replace_full_document(j["document"])) {
+                    // An ordinary save: tabs, pages, connections and cart keys
+                    // stay as the server has them (F-03, F-24).
+                    const bool token = impl_->app.get_context<AuthGuard>(req).principal.is_api();
+                    if (token && !state_.is_same_show(j["document"]))
+                        return json_err(403, "API tokens can save the open show, not replace it");
+                    if (!state_.replace_full_document(j["document"], /*keep_live_parts=*/true,
+                                                      /*may_edit_connections=*/!token)) {
                         Logger::warn("POST /api/project/save — embedded document "
                                      "rejected, continuing with existing state");
                     }
@@ -4887,7 +5471,15 @@ void ControlServer::install_routes() {
                 const std::string proj_name = doc.value("name", "?");
                 Logger::api_request("Client ({}) -> Server ({}) : PUT /api/project/document name='{}'",
                                     req.remote_ip_address, impl_->server_addr, proj_name);
-                if (!state_.replace_full_document(doc)) {
+                // An API token can't change event connections (F-30), here
+                // any more than through PUT /api/events/connections, nor put
+                // another show in place of this one (R2-09): that would take
+                // the show's connections away.
+                const bool token = impl_->app.get_context<AuthGuard>(req).principal.is_api();
+                if (token && !state_.is_same_show(doc))
+                    return json_err(403, "API tokens can update the open show, not replace it");
+                if (!state_.replace_full_document(doc, /*keep_live_parts=*/false,
+                                                  /*may_edit_connections=*/!token)) {
                     Logger::error("PUT /api/project/document — document not accepted");
                     return json_err(400, "document not accepted");
                 }
@@ -4931,6 +5523,12 @@ void ControlServer::install_routes() {
                 const std::string item_name  = j["item"].value("displayName", std::string{});
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
                 const bool cart_only = j.value("cartOnly", false);
+                // What a cue sends, and with which credentials, is the show's
+                // wiring: a token runs cues, it doesn't add events (R2-09).
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    j["item"].contains("events") && !(j["item"]["events"].is_array() &&
+                                                      j["item"]["events"].empty()))
+                    return json_err(403, "API tokens can't add a cue's events");
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items uuid='{}' name='{}'{}{}",
                                     req.remote_ip_address, impl_->server_addr, item_uuid,
                                     item_name, parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'",
@@ -4947,6 +5545,8 @@ void ControlServer::install_routes() {
                     {"item", j["item"]},
                     {"cueId", cue_id.value},
                 });
+                // Its events may carry (or lack) a connection's credentials.
+                state_.refresh_connection_auth();
                 return json_ok(json({
                     {"ok",    true},
                     {"uuid",  item_uuid},
@@ -4964,6 +5564,13 @@ void ControlServer::install_routes() {
                 auto patch = json::parse(req.body);
                 Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/items/{}",
                                     req.remote_ip_address, impl_->server_addr, uuid);
+                // A token may send back what it was shown, not new events
+                // (R2-09): those would reach a saved connection's device with
+                // its credentials.
+                if (patch.is_object() && patch.contains("events") &&
+                    impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    patch["events"] != state_.item_events_for_token(uuid))
+                    return json_err(403, "API tokens can't change a cue's events");
                 if (!state_.update_item(uuid, patch)) {
                     Logger::warn("PATCH /api/project/items/{} — item not found", uuid);
                     return json_err(404, "item not found");
@@ -4974,6 +5581,7 @@ void ControlServer::install_routes() {
                     {"type", "doc_patch"}, {"op", "item_updated"},
                     {"uuid", uuid}, {"patch", patch},
                 });
+                if (patch.contains("events")) state_.refresh_connection_auth();
                 return json_ok(json({{"ok", true}, {"uuid", uuid}}));
             } catch (const std::exception& e) {
                 Logger::error("PATCH /api/project/items/{} threw: {}", uuid, e.what());
@@ -4994,6 +5602,7 @@ void ControlServer::install_routes() {
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "item_removed"}, {"uuid", uuid},
             });
+            state_.refresh_connection_auth();
             return json_ok(json({{"ok", true}, {"uuid", uuid}}));
         });
 
@@ -5188,7 +5797,13 @@ void ControlServer::install_routes() {
                 }
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/cart slot={} itemUuid='{}'",
                                     req.remote_ip_address, impl_->server_addr, slot, uuid);
-                state_.set_cart_slot(slot, uuid);
+                // A refused slot (out of range) was answered 200 and broadcast
+                // as if it had been bound (F-42). So was one no page shows,
+                // which then couldn't be fired (R2-10).
+                if (!state_.cart_slot_is_shown(slot))
+                    return json_err(400, "no cart page shows that slot");
+                if (!state_.set_cart_slot(slot, uuid))
+                    return json_err(400, "slot out of range");
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/cart OK — slot={} uuid='{}'",
                                      req.remote_ip_address, impl_->server_addr, slot, uuid);
                 broadcast_doc_patch(json{
@@ -5215,6 +5830,8 @@ void ControlServer::install_routes() {
             broadcast_doc_patch(json{
                 {"type", "doc_patch"}, {"op", "cart_slot_cleared"}, {"slot", slot},
             });
+            // A cleared cart takes its pinned key with it (F-13).
+            if (!state_.drop_pins_without_carts().is_null()) broadcast_cart_keys();
             return json_ok(json({{"ok", true}, {"slot", slot}}));
         });
 
@@ -5245,7 +5862,12 @@ void ControlServer::install_routes() {
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/preview itemUuid='{}'",
                                     req.remote_ip_address, impl_->server_addr, uuid);
                 Logger::playback("PREVIEW START: {}", item_playback_info(uuid, state_));
-                const bool ok = state_.start_preview(uuid);
+                // Optional: start at this source-file second instead of the
+                // in-point (the Playback tab's "Preview from cursor").
+                std::optional<double> start_seconds;
+                if (j.contains("startSeconds") && j["startSeconds"].is_number())
+                    start_seconds = j["startSeconds"].get<double>();
+                const bool ok = state_.start_preview(uuid, start_seconds);
                 if (!ok) {
                     Logger::warn("PREVIEW START failed for item_uuid='{}' — no device or item not found", uuid);
                     return json_err(400, "preview could not start (item not found, or the Preview bus has no strip)");
@@ -5457,6 +6079,7 @@ void ControlServer::install_routes() {
               Logger::info("WS client #{} disconnected ({}); {} remaining",
                            id, reason, impl_->ws_clients.size());
           }
+          broadcast_client_views();
           // The other half of the union: the last operator wanting loudness
           // leaving is what lets the DSP stop again.
           refresh_user_meter_modes();
@@ -5505,6 +6128,21 @@ void ControlServer::install_routes() {
                   it->second.meter_hz    = (hz == 0) ? 0 : std::min(hz, ceiling);
                   it->second.meter_accum = 0;
                   return it->second.meter_hz == 0 ? ceiling : it->second.meter_hz;
+              };
+              session.set_view = [this, &conn](const std::string& tab,
+                                               const std::string& page) -> std::uint64_t {
+                  std::uint64_t id = 0;
+                  {
+                      std::lock_guard lock{impl_->ws_mutex};
+                      auto it = impl_->ws_clients.find(&conn);
+                      if (it == impl_->ws_clients.end()) return 0;
+                      it->second.has_view          = true;
+                      it->second.view_playlist_tab = tab;
+                      it->second.view_cart_page    = page;
+                      id = it->second.id;
+                  }
+                  broadcast_client_views();
+                  return id;
               };
               direct_reply = handle_ws_message(conn, data, engine_, state_, impl_->server_addr,
                                                [this](const json& p) { broadcast_doc_patch(p); },

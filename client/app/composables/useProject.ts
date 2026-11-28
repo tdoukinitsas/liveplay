@@ -18,6 +18,7 @@
 // =====================================================================
 import { v4 as uuidv4 } from 'uuid';
 import { markRaw, nextTick, toRaw, triggerRef } from 'vue';
+import { insertIndexForTab, keepingGotoTargets, tabsOf } from '~/utils/tabs';
 import type {
   Project,
   AudioItem,
@@ -62,13 +63,19 @@ import {
 export const isSecondaryWindow = typeof window !== 'undefined'
   ? (() => {
       const q = new URLSearchParams(window.location.search);
-      return q.get('cartWindow') === '1' || q.get('mixerWindow') === '1';
+      return q.get('cartWindow') === '1' || q.get('mixerWindow') === '1'
+        || q.get('playlistWindow') === '1';
     })()
   : false;
 
 let _syncWatchersInstalled = false;
 let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _captureBaselinesFn: () => void = () => {};
+// The item stream that is current; see streamItemPages.
+let _itemStreamSeq = 0;
+// The stream still filling the project (its seq), or 0 when none is: while
+// one is open this window holds only part of the show (R2-07).
+let _itemStreamOpen = 0;
 // Bridges endItemBatch (outer composable scope) to syncItemsDiff (defined
 // inside the one-time sync-watcher init block) — see endItemBatch's comment
 // for why calling this directly, not just captureBaselines, matters.
@@ -97,6 +104,9 @@ let _uninstallItemsWatcherFn: null | (() => void) = null;
 // ---------------------------------------------------------------------------
 let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _saveDebounceWaiters: Array<(ok: boolean) => void> = [];
+// Which show the pending save was asked for (see showIdentity): a save
+// scheduled for one show never goes out once another is open (R2-07).
+let _saveDebounceShow = '';
 
 // UUIDs of items that were just added in this session and are waiting for
 // their first waveform so that auto-process (trim + normalise) can run.
@@ -294,11 +304,11 @@ export const useProject = () => {
   };
 
   // ---- Preview controls (delegate to server) ----------------------------
-  async function startPreview(itemUuid: string) {
+  async function startPreview(itemUuid: string, startSeconds?: number) {
     if (!itemUuid) return;
     const server = useLiveplayServer();
     try {
-      const res = await server.startPreview(itemUuid);
+      const res = await server.startPreview(itemUuid, startSeconds);
       previewItemUuid.value = itemUuid;
       previewCueId.value = (res as any)?.cueId ?? '';
     } catch (e) {
@@ -402,7 +412,9 @@ export const useProject = () => {
   const selectAllItems = () => {
     if (!currentProject.value) return;
     selectionContext.value = 'playlist';
-    const all = getAllItemsFlat(currentProject.value.items);
+    // The tab this window shows: Ctrl+A then Delete must not take cues the
+    // operator can't see on other tabs.
+    const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
     selectedItems.value.clear();
     for (const it of all) selectedItems.value.add(it.uuid);
     if (all.length > 0) {
@@ -411,6 +423,9 @@ export const useProject = () => {
       selectionAnchorUuid = last.uuid;
     }
   };
+
+  // Show Mode (useUiMode): the live view, where the show can't be edited.
+  const inShowMode = () => useState<string>('useUiMode.uiMode').value === 'playback';
 
   // Get all items as a flat array (for shift-select)
   const getAllItemsFlat = (items?: (AudioItem | GroupItem)[]): BaseItem[] => {
@@ -444,6 +459,18 @@ export const useProject = () => {
     const reassign = (it: any) => {
       it.uuid = uuidv4();
       delete it.waveform;
+      // Event ids too: firing feedback is keyed by event id, so a copy sharing
+      // its original's ids would flash and report errors for both. The copy
+      // says where it came from, so the server gives it the original's own
+      // stored credential, not another event's on the same connection (R2-19);
+      // the server takes `copiedFrom` off again.
+      if (Array.isArray(it.events)) {
+        for (const ev of it.events) {
+          if (!ev) continue;
+          if (ev.id) ev.copiedFrom = ev.id;
+          ev.id = uuidv4();
+        }
+      }
       if (it.type === 'group' && Array.isArray(it.children)) it.children.forEach(reassign);
     };
     reassign(clone);
@@ -471,19 +498,23 @@ export const useProject = () => {
   // Duplicate the given items in place (each clone inserted right after its
   // original, in the same parent). New selection becomes the clones. Ctrl+D.
   const duplicateItems = (uuids: string[]) => {
-    if (!currentProject.value || uuids.length === 0) return;
+    if (!currentProject.value || uuids.length === 0 || inShowMode()) return;
     const newUuids: string[] = [];
-    // Insert after each original independently. Re-resolving the container for
-    // every uuid keeps positions correct even as earlier inserts shift things.
-    for (const uuid of uuids) {
-      const c = findContainer(uuid);
-      if (!c) continue;
-      const clone = cloneItemWithNewIds(c.arr[c.i]);
-      c.arr.splice(c.i + 1, 0, clone);
-      newUuids.push(clone.uuid);
-    }
+    // Every cue after a copy moves down one: a "go to index" pointing at one
+    // of them follows it.
+    keepingGotoTargets(currentProject.value.items, findItemByIndex, () => {
+      // Insert after each original independently. Re-resolving the container for
+      // every uuid keeps positions correct even as earlier inserts shift things.
+      for (const uuid of uuids) {
+        const c = findContainer(uuid);
+        if (!c) continue;
+        const clone = cloneItemWithNewIds(c.arr[c.i]);
+        c.arr.splice(c.i + 1, 0, clone);
+        newUuids.push(clone.uuid);
+      }
+      updateIndices(currentProject.value!.items);
+    }, findItemByUuid);
     if (newUuids.length === 0) return;
-    updateIndices(currentProject.value.items);
     selectionContext.value = 'playlist';
     selectedItems.value.clear();
     for (const u of newUuids) selectedItems.value.add(u);
@@ -538,7 +569,7 @@ export const useProject = () => {
   // pasted item gets fresh UUIDs so it can coexist with the source — even
   // when pasting back into the same project / a different LivePlay instance.
   const pasteItemsFromClipboard = async (): Promise<number> => {
-    if (!import.meta.client || !currentProject.value) return 0;
+    if (!import.meta.client || !currentProject.value || inShowMode()) return 0;
     let text = '';
     try { text = await navigator.clipboard.readText(); } catch (e) {
       console.warn('[useProject] read clipboard failed:', e);
@@ -547,12 +578,28 @@ export const useProject = () => {
     const parsed = parseItemsFromText(text);
     if (parsed.length === 0) return 0;
     const newUuids: string[] = [];
-    for (const it of parsed) {
-      const clone = cloneItemWithNewIds(it);
-      currentProject.value.items.push(clone);
-      newUuids.push(clone.uuid);
-    }
-    updateIndices(currentProject.value.items);
+    const project = currentProject.value;
+    // Pasting onto an earlier tab moves every cue after it down one: a "go to
+    // index" pointing at one of them follows it rather than landing on
+    // whatever takes its place (F-10).
+    keepingGotoTargets(project.items, findItemByIndex, () => {
+      for (const it of parsed) {
+        const clone = cloneItemWithNewIds(it);
+        // Onto the tab this window is showing, wherever it was copied from.
+        const tabs = tabsOf(project);
+        if (tabs.length > 1) {
+          const shown = useState<string | null>('showTabs.activePlaylistTab').value;
+          const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
+          clone.tabId = tabId;
+          project.items.splice(insertIndexForTab(project.items, tabs, tabId), 0, clone);
+        } else {
+          delete clone.tabId;
+          project.items.push(clone);
+        }
+        newUuids.push(clone.uuid);
+      }
+      updateIndices(project.items);
+    }, findItemByUuid);
     selectionContext.value = 'playlist';
     selectedItems.value.clear();
     for (const u of newUuids) selectedItems.value.add(u);
@@ -594,12 +641,18 @@ export const useProject = () => {
 
       const newProject: Project = {
         name,
-        version: '2.0.0',
+        // The show-file format (F-08): a 2.6 show, so the server doesn't take
+        // it for an older one to upgrade (legacy duck timing, F-07).
+        version: '2.6.0',
+        // A new show is a new show, wherever it is saved (R2-12): nothing of
+        // another show's is carried into it on the server.
+        showId: uuidv4(),
         folderPath,
         items: [],
         cartItems: [],
         cartSlotKeys: { ...DEFAULT_CART_SLOT_KEYS },
         cartOnlyItems: [],
+        eventConnections: [],
         // No `theme` here (U4): a new show inherits the desk it is being made
         // at, and putting the current colours into a fresh document would be
         // writing a personal preference into a portable file all over again.
@@ -770,22 +823,27 @@ export const useProject = () => {
   // to the renderer between pages via requestAnimationFrame so the
   // playlist paints incrementally rather than blocking on one giant tick.
   // Safe to call multiple times — bails if currentProject becomes null.
-  let itemStreamSeq = 0;
   async function streamItemPages(server: any, totalHint: number) {
-    const mySeq = ++itemStreamSeq;
+    // Renderer-wide, not per useProject() call: a resume can start one
+    // stream from the project_changed handler and another from the rejoin,
+    // and two streams pushing into one project listed every cue twice.
+    const mySeq = ++_itemStreamSeq;
+    // Until the last page lands, this window holds part of a show: no save
+    // may send it (R2-07).
+    _itemStreamOpen = mySeq;
     const PAGE = 100;
     let offset = 0;
     try {
       while (true) {
         // Abort if another openProject started, or the project was closed.
-        if (mySeq !== itemStreamSeq) return;
+        if (mySeq !== _itemStreamSeq) return;
         if (!currentProject.value) return;
         let page: { offset: number; limit: number; total: number; items: any[] };
         try { page = await server.fetchProjectItemsPage(offset, PAGE); }
         catch (e) { console.warn('[useProject] item page fetch failed:', e); return; }
 
         if (!Array.isArray(page.items) || page.items.length === 0) break;
-        if (mySeq !== itemStreamSeq || !currentProject.value) return;
+        if (mySeq !== _itemStreamSeq || !currentProject.value) return;
 
         // Push under the hydrating flag so the diff-watcher doesn't echo
         // these items right back to the server as "client adds".
@@ -865,19 +923,40 @@ export const useProject = () => {
       void totalHint; // currently informational only
     } catch (e) {
       console.warn('[useProject] streamItemPages crashed:', e);
+    } finally {
+      if (_itemStreamOpen === mySeq) _itemStreamOpen = 0;
     }
   }
+
+  // A header that doesn't list the event connections (a server whose header
+  // route predates them, or one that only exposes them on their own route)
+  // still has to put them in the document before anything saves it back.
+  // Not under isHydrating: no sync watcher looks at this field. A failure
+  // leaves it undefined, so saves keep omitting it rather than wiping it.
+  const backfillEventConnections = async (epoch: number) => {
+    try {
+      const list = await useLiveplayServer().fetchEventConnections();
+      if (epoch !== projectEpoch.value || !currentProject.value) return;
+      if (!currentProject.value.eventConnections) currentProject.value.eventConnections = list;
+    } catch {
+      // An older server with no events at all: nothing to carry.
+    }
+  };
 
   // Apply a header-only response to currentProject. Items array is left
   // empty for streamItemPages() to populate.
   const applyServerHeader = (header: any) => {
     if (!header || typeof header !== 'object') return;
-    if (header.server?.projectFilePath) {
-      projectFilePathRef.value = header.server.projectFilePath;
+    // The server's path, empty included: keeping the old show's path when it
+    // reports none would make the next save write this show over that file.
+    if (header.server && typeof header.server === 'object') {
+      projectFilePathRef.value = header.server.projectFilePath ?? '';
     }
     const project: Project = {
       name:           header.name ?? 'Untitled',
-      version:        header.version ?? '2.0.0',
+      version:        header.version ?? '2.6.0',
+      // The show's identity, as the server holds it (R2-12).
+      showId:         typeof header.showId === 'string' && header.showId ? header.showId : undefined,
       folderPath:     header.folderPath ?? '',
       // Passed through, not asserted: whatever the server says the loaded
       // document is at comes back out on the next save.
@@ -890,6 +969,14 @@ export const useProject = () => {
       // more, and neither is written back.
       playbackKeys:   header.playbackKeys,
       cartOnlyItems:  header.cartOnlyItems ?? [],
+      // Left undefined when the header doesn't carry it, never defaulted to
+      // []: buildDocumentSnapshot omits an undefined list, whereas an empty
+      // one sent back on the next save would erase the show's connections.
+      eventConnections: Array.isArray(header.eventConnections) ? header.eventConnections : undefined,
+      playlistTabs:   header.playlistTabs?.length ? header.playlistTabs : undefined,
+      cartPages:      header.cartPages?.length ? header.cartPages : undefined,
+      cartPinnedKeys: header.cartPinnedKeys ?? undefined,
+      tabLimits:      header.tabLimits ?? undefined,
       theme:          header.theme,
       createdAt:      header.createdAt ?? new Date().toISOString(),
       lastModified:   header.lastModified ?? new Date().toISOString(),
@@ -916,6 +1003,7 @@ export const useProject = () => {
     // same project leaves name and folderPath identical, so this counter is
     // the only edge those consumers can key off.
     projectEpoch.value++;
+    if (!project.eventConnections) void backfillEventConnections(projectEpoch.value);
     // A freshly loaded/created project matches its on-disk file.
     hasUnsavedChanges.value = false;
   };
@@ -978,6 +1066,9 @@ export const useProject = () => {
     return {
       name:          currentProject.value.name,
       version:       currentProject.value.version,
+      // Which show this is (R2-12): the server tells "this show saved again"
+      // from "another show" by it, not by the folder it is in.
+      ...(currentProject.value.showId ? { showId: currentProject.value.showId } : {}),
       folderPath:    currentProject.value.folderPath,
       // Declares which routing era this document comes from. Without it the
       // server cannot tell this save from a pre-bus project being pushed over
@@ -987,12 +1078,22 @@ export const useProject = () => {
       items:         itemsToJSON(currentProject.value.items) ?? [],
       cartItems:     toJSON(currentProject.value.cartItems) ?? [],
       cartSlotKeys:  toJSON((currentProject.value as any).cartSlotKeys),
+      cartPinnedKeys: toJSON(currentProject.value.cartPinnedKeys) ?? {},
+      // Always sent, as [] when there are none: this snapshot replaces the
+      // server's document, and that is how removing the last one is said.
+      playlistTabs:  toJSON(currentProject.value.playlistTabs) ?? [],
+      cartPages:     toJSON(currentProject.value.cartPages) ?? [],
       // `theme` and `playbackKeys` are deliberately absent (U4). The server
       // drops them on save regardless, so sending them would be this client
       // asserting ownership of values it no longer owns — and R1 is the point
       // of the exercise, not the erasure.
       cartOnlyItems: itemsToJSON(currentProject.value.cartOnlyItems) ?? [],
       settings:      showSettingsOnly((currentProject.value as any).settings),
+      // Edited through its own route, but carried here because this snapshot
+      // REPLACES the server's document. Omitted (not []) while unknown.
+      ...(Array.isArray(currentProject.value.eventConnections)
+        ? { eventConnections: toJSON(currentProject.value.eventConnections) }
+        : {}),
       createdAt:     currentProject.value.createdAt,
       lastModified:  currentProject.value.lastModified,
     };
@@ -1067,6 +1168,13 @@ export const useProject = () => {
   const doSaveProjectNow = async (): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
+      // Half a show is still arriving (another client just opened one, or
+      // this window is resuming): saving now would write the part that has
+      // arrived over the whole show's file (R2-07).
+      if (_itemStreamOpen !== 0) {
+        console.warn('[useProject] save skipped: the show is still loading');
+        return false;
+      }
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();
@@ -1104,9 +1212,73 @@ export const useProject = () => {
     _saveDebounceTimer = null;
     const waiters = _saveDebounceWaiters;
     _saveDebounceWaiters = [];
-    const ok = await doSaveProjectNow();
+    const ok = _saveDebounceShow === showIdentity() ? await doSaveProjectNow() : false;
     for (const w of waiters) w(ok);
     return ok;
+  };
+
+  // Drop the save that is waiting, without sending it: the show it was for
+  // has gone (another client opened or closed one). Its callers hear false.
+  const cancelPendingSave = () => {
+    if (_saveDebounceTimer !== null) clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = null;
+    const waiters = _saveDebounceWaiters;
+    _saveDebounceWaiters = [];
+    for (const w of waiters) w(false);
+  };
+
+  // Which show this window holds: its showId, or (from a server that
+  // predates showIds) its folder and name.
+  const showIdentity = (): string => {
+    const p = currentProject.value as any;
+    if (!p) return '';
+    return p.showId ? `id:${p.showId}` : `path:${p.folderPath ?? ''}|${p.name ?? ''}`;
+  };
+
+  // Apply an item change the server already made (an item_updated doc_patch,
+  // or a relink it just reported) to this client's copy, without echoing it
+  // back. Playlist items and cart-only ones alike: a cart-only item lives in
+  // the cart store, which saveProject() copies back into the document, so
+  // patching only the document would be undone by the next save. Never takes
+  // the waveform: peaks are client-owned (see restoreWaveform).
+  const applyServerItemPatch = (uuid: string, patch: Record<string, any> | null | undefined) => {
+    const p = currentProject.value;
+    if (!p || !uuid) return;
+    const incoming = { ...(patch ?? {}) };
+    delete incoming.waveform;
+    isHydrating.value = true;
+    try {
+      const find = (arr: any[]): any => {
+        for (const it of arr) {
+          if (it.uuid === uuid) return it;
+          if (it.type === 'group' && Array.isArray(it.children)) {
+            const hit = find(it.children);
+            if (hit) return hit;
+          }
+        }
+        return null;
+      };
+      const item = find(p.items ?? []);
+      if (item) {
+        Object.assign(item, incoming);
+        restoreWaveform(item);
+      }
+      // In place, as every cart edit is: the store holds the document's own
+      // objects, and re-setting the same one tells the store it changed.
+      const { getCartOnlyItem, updateCartOnlyItem } = useCartItems();
+      const cartItem = getCartOnlyItem(uuid);
+      if (cartItem) {
+        Object.assign(cartItem, incoming);
+        restoreWaveform(cartItem);
+        updateCartOnlyItem(uuid, cartItem);
+      }
+      const docCartItem = Array.isArray(p.cartOnlyItems)
+        ? p.cartOnlyItems.find((i: any) => i.uuid === uuid) : null;
+      if (docCartItem && docCartItem !== cartItem) Object.assign(docCartItem, incoming);
+    } finally {
+      // As applyDocPatch: let this tick's watchers still see hydrating=true.
+      queueMicrotask(() => { isHydrating.value = false; });
+    }
   };
 
   // Save the current project — the server already has the document, it just
@@ -1148,10 +1320,13 @@ export const useProject = () => {
 
     if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
     const result = new Promise<boolean>((resolve) => { _saveDebounceWaiters.push(resolve); });
+    _saveDebounceShow = showIdentity();
     _saveDebounceTimer = setTimeout(() => {
       _saveDebounceTimer = null;
       const waiters = _saveDebounceWaiters;
       _saveDebounceWaiters = [];
+      // Another show arrived in the meantime: this save was for the old one.
+      if (_saveDebounceShow !== showIdentity()) { for (const w of waiters) w(false); return; }
       void doSaveProjectNow().then(ok => { for (const w of waiters) w(ok); });
     }, 300);
     return result;
@@ -1181,11 +1356,32 @@ export const useProject = () => {
     try { await flushPendingSave(); }
     catch (e) { console.warn('[useProject] closeProject flush failed:', e); }
 
+    forgetProjectLocally();
+
+    // Ask the server to drop its in-memory project too. If we don't do this,
+    // tryRejoinExistingProject() on the welcome screen would immediately
+    // pull the user right back into the project we just dismissed.
+    try {
+      const server = useLiveplayServer();
+      if (server.connected) {
+        await server.closeProjectOnServer();
+      }
+    } catch (e) {
+      console.warn('[useProject] closeProjectOnServer failed:', e);
+    }
+  };
+
+  // This window's half of closing a show: what it holds goes, the server's
+  // is left alone. Also what happens when another client closes the show.
+  const forgetProjectLocally = () => {
     // Tear down the items deep-watcher before nulling the project so the
     // null assignment doesn't trigger one last (now meaningless) sync.
     // The watcher is re-installed by streamItemPages when the next
     // project is opened.
     uninstallItemsWatcherFn();
+    _itemStreamSeq++;   // any stream still running belongs to the old show
+    _itemStreamOpen = 0;
+    cancelPendingSave();   // and so does any save still waiting (R2-07)
 
     currentProject.value = null;
     selectedItem.value = null;
@@ -1211,18 +1407,6 @@ export const useProject = () => {
         (window as any).electronAPI.syncProjectData(null);
       }
     } catch { /* noop */ }
-
-    // Ask the server to drop its in-memory project too. If we don't do this,
-    // tryRejoinExistingProject() on the welcome screen would immediately
-    // pull the user right back into the project we just dismissed.
-    try {
-      const server = useLiveplayServer();
-      if (server.connected) {
-        await server.closeProjectOnServer();
-      }
-    } catch (e) {
-      console.warn('[useProject] closeProjectOnServer failed:', e);
-    }
   };
 
   // Update item indices recursively
@@ -1252,8 +1436,23 @@ export const useProject = () => {
         updateIndices(parent.children, parentIndex);
       }
     } else {
-      currentProject.value.items.push(item);
-      updateIndices(currentProject.value.items);
+      // Onto the tab this window is showing, keeping `items` in tab order.
+      const project = currentProject.value;
+      const tabs = tabsOf(project);
+      if (tabs.length > 1) {
+        const shown = useState<string | null>('showTabs.activePlaylistTab').value;
+        const tabId = tabs.some(tab => tab.id === shown) ? shown! : tabs[0]!.id;
+        item.tabId = tabId;
+        // An earlier tab: every cue after it moves down one, and a "go to
+        // index" pointing at one of them follows it (F-10).
+        keepingGotoTargets(project.items, findItemByIndex, () => {
+          project.items.splice(insertIndexForTab(project.items, tabs, tabId), 0, item);
+          updateIndices(project.items);
+        }, findItemByUuid);
+      } else {
+        project.items.push(item);
+        updateIndices(project.items);
+      }
     }
   };
 
@@ -1275,6 +1474,14 @@ export const useProject = () => {
 
   // Remove an item
   const removeItem = (uuid: string) => {
+    if (!currentProject.value) return;
+    // The cues after it move up one: a "go to index" pointing at one of them
+    // follows it rather than landing on whatever takes its place.
+    keepingGotoTargets(currentProject.value.items, findItemByIndex,
+                       () => removeItemNow(uuid), findItemByUuid);
+  };
+
+  const removeItemNow = (uuid: string) => {
     if (!currentProject.value) return;
 
     const removeFromArray = (items: (AudioItem | GroupItem)[]): boolean => {
@@ -1308,8 +1515,19 @@ export const useProject = () => {
   // can be in both); it mirrors CartSlot's single-slot delete for a batch.
   const deleteCartItems = (uuids: string[]) => {
     if (!currentProject.value || uuids.length === 0) return;
-    const { removeCartOnlyItem } = useCartItems();
+    const { removeCartOnlyItem, getCartOnlyItem } = useCartItems();
     const targets = new Set(uuids);
+    // A detached cart window or page pop-out has no sync watcher of its own:
+    // tell the server here, or the delete lives only in this window.
+    if (isSecondaryWindow) {
+      const server = useLiveplayServer();
+      for (const ci of currentProject.value.cartItems) {
+        if (targets.has(ci.itemUuid)) void server.clearCartSlot(ci.slot).catch(() => {});
+      }
+      for (const u of uuids) {
+        if (getCartOnlyItem(u)) void server.removeProjectItem(u).catch(() => {});
+      }
+    }
     for (const u of uuids) {
       removeCartOnlyItem(u);
       selectedItems.value.delete(u);
@@ -1356,6 +1574,8 @@ export const useProject = () => {
   // outright; a multi-selection opens the confirm dialog without the "Delete
   // Only" choice. The active selectionContext decides playlist vs cart.
   const requestDeleteFromKeyboard = (): boolean => {
+    // Show Mode is for running the show: nothing is deleted from it.
+    if (inShowMode()) return false;
     const size = selectedItems.value.size;
     if (size === 0) return false;
     if (size === 1) {
@@ -1443,20 +1663,24 @@ export const useProject = () => {
 
     const item = findItemByIndex(fromIndex);
     if (!item) return;
+    const project = currentProject.value;
 
-    removeItem(item.uuid);
-
-    if (toIndex.length === 1) {
-      currentProject.value.items.splice(toIndex[0], 0, item);
-      updateIndices(currentProject.value.items);
-    } else {
-      const parentIndex = toIndex.slice(0, -1);
-      const parent = findItemByIndex(parentIndex);
-      if (parent && parent.type === 'group') {
-        parent.children.splice(toIndex[toIndex.length - 1], 0, item);
-        updateIndices(parent.children, parentIndex);
+    // Out and back in as one change: every "go to index" follows its cue
+    // (R2-04). removeItem's own remap is overwritten by this one.
+    keepingGotoTargets(project.items, findItemByIndex, () => {
+      removeItemNow(item.uuid);
+      if (toIndex.length === 1) {
+        project.items.splice(toIndex[0], 0, item);
+        updateIndices(project.items);
+      } else {
+        const parentIndex = toIndex.slice(0, -1);
+        const parent = findItemByIndex(parentIndex);
+        if (parent && parent.type === 'group') {
+          parent.children.splice(toIndex[toIndex.length - 1], 0, item);
+          updateIndices(parent.children, parentIndex);
+        }
       }
-    }
+    }, findItemByUuid);
   };
 
   // ----------------------------------------------------------------------
@@ -1497,6 +1721,11 @@ export const useProject = () => {
     let itemsTimer:    ReturnType<typeof setTimeout> | null = null;
     let cartTimer:     ReturnType<typeof setTimeout> | null = null;
     let settingsTimer: ReturnType<typeof setTimeout> | null = null;
+    // The show those timers' edits belong to.
+    let pendingSyncEpoch = -1;
+    // Settles once every new cue in the diffs started so far is on the server.
+    // Only the adds: a diff's later per-item updates can take seconds.
+    let itemAddsSent: Promise<unknown> = Promise.resolve();
     // Diff baselines per section. Each is a plain (proxy-stripped) snapshot
     // of the section as it last left this client. Reset on hydrate.
     let lastItems:    any = null;
@@ -1504,16 +1733,40 @@ export const useProject = () => {
     let lastCartOnly: any = null;
     let lastSettings: any = null;
 
+    // F-31: an edit in progress (a fader or handle being dragged) holds the
+    // items sync off until it ends. A patch from another client landing in
+    // the meantime re-captures the baselines from what's on screen, which
+    // already includes the drag, so the end of the drag found nothing to send
+    // and the server kept the old value. So, during a batch, an item the
+    // patch didn't touch keeps its old baseline here, for the diff at the end
+    // of the batch to compare against.
+    const remoteTouched = new Set<string>();
+    const batchOverrides = new Map<string, any>();
+    const ownFields = (it: any) =>
+      (it ? { ...it, index: undefined, ...(it.type === 'group' ? { children: undefined } : {}) } : it);
+
     // After hydrate, capture per-section baselines so the per-section
     // watchers don't fire spuriously on the assignment.
     const captureBaselines = () => {
       const p = currentProject.value;
+      const before = _suppressItemSyncCount.value > 0 && lastItems
+        ? flatten(lastItems, lastCartOnly) : null;
       // Strip waveform peaks from the items baseline — they are large
       // read-only server blobs that must never be included in the diff.
       lastItems    = itemsToJSON(p?.items);
       lastCart     = toJSON(p?.cartItems);
       lastCartOnly = itemsToJSON(p?.cartOnlyItems);
       lastSettings = toJSON((p as any)?.settings);
+      if (before) {
+        for (const [uuid, now] of flatten(lastItems, lastCartOnly)) {
+          const was = before.get(uuid);
+          if (!was || remoteTouched.has(uuid) || batchOverrides.has(uuid)) continue;
+          if (stableJson(ownFields(was.item)) !== stableJson(ownFields(now.item))) {
+            batchOverrides.set(uuid, was.item);
+          }
+        }
+      }
+      remoteTouched.clear();
     };
     watch(isHydrating, (h) => { if (!h) captureBaselines(); });
     // Expose a refresh hook for streamItemPages — after it finishes
@@ -1546,10 +1799,29 @@ export const useProject = () => {
       return search(p.items, p.items);
     };
 
+    // Applying a patch ends by re-capturing the baselines from what's on screen,
+    // which would mark an edit still waiting on its debounce as already sent, so
+    // it would never reach the server. With autosave off nothing else carries
+    // it: a short imported file's waveform_ready lands inside that window, and
+    // the cue then appeared in the playlist but had no cue in the engine. So
+    // send what's waiting first. Each sync snapshots and rotates its baseline
+    // synchronously, before its first await, so it can't pick up the patch.
+    const flushPendingSync = () => {
+      if (isHydrating.value || pendingSyncEpoch !== projectEpoch.value) return;
+      if (itemsTimer) runItemsDiff().catch(e => console.warn('[useProject] items flush failed:', e));
+      if (cartTimer) { clearTimeout(cartTimer); cartTimer = null; void syncCart(); }
+      if (settingsTimer) { clearTimeout(settingsTimer); settingsTimer = null; void syncSettings(); }
+    };
+
     const applyDocPatch = (patch: any) => {
       const p = currentProject.value;
       if (!p) return;
       const op = patch?.op;
+      // Not for a new show: what's waiting belongs to the one being replaced.
+      if (op !== 'project_changed') flushPendingSync();
+      // During an edit batch, what this patch changes is the other client's,
+      // not ours to send (F-31).
+      if (_suppressItemSyncCount.value > 0 && typeof patch?.uuid === 'string') remoteTouched.add(patch.uuid);
       // All patch application happens under isHydrating so the local
       // diff-watcher doesn't echo these back to the server as fresh edits.
       isHydrating.value = true;
@@ -1592,21 +1864,15 @@ export const useProject = () => {
             break;
           }
           case 'item_updated': {
-            const hit = findItemAndParent(patch.uuid);
-            if (!hit) return;
             // The waveform is client/worker-owned: its peaks are generated
             // locally and deliberately stripped from every sync payload, so
             // the server's echo of an item carries `waveform: null`. Applying
             // that here would wipe the locally-loaded waveform on EVERY
             // property edit (the diff-watcher PATCHes the item → the server
-            // broadcasts item_updated right back). Never let a server patch
-            // touch the local waveform — keep whatever we already have.
-            const incoming = { ...(patch.patch ?? {}) };
-            if ('waveform' in incoming) delete incoming.waveform;
-            Object.assign(hit.item, incoming);
-            // Defensive: if this item somehow has no peaks anymore, restore
-            // them from the session cache.
-            restoreWaveform(hit.item);
+            // broadcasts item_updated right back). applyServerItemPatch never
+            // lets a server patch touch the local waveform, and restores it
+            // from the session cache if it somehow went missing.
+            applyServerItemPatch(patch.uuid, patch.patch);
             break;
           }
           case 'item_removed': {
@@ -1665,6 +1931,17 @@ export const useProject = () => {
             p.cartItems = (p.cartItems ?? []).filter((c: any) => c.slot !== slot);
             break;
           }
+          case 'cart_keys_changed': {
+            // Every client, the one that changed them included, adopts the
+            // server's checked copy (F-03).
+            if (patch.cartSlotKeys && typeof patch.cartSlotKeys === 'object') {
+              (p as any).cartSlotKeys = patch.cartSlotKeys;
+            }
+            if (patch.cartPinnedKeys && typeof patch.cartPinnedKeys === 'object') {
+              p.cartPinnedKeys = patch.cartPinnedKeys;
+            }
+            break;
+          }
           // `theme_patched` is gone with U4 — see PATCH /api/project/theme.
           // The equivalent now is `prefs_changed`, handled by usePreferences,
           // and it reaches only the sessions belonging to the same person.
@@ -1695,6 +1972,8 @@ export const useProject = () => {
                 // been transiently dropped (which is what caused the re-request);
                 // the cache is only cleared on item removal / project change.
                 const hadWaveform = _waveformCache.has(patch.item_uuid);
+                const AUTO_FIELDS = ['duration', 'inPoint', 'outPoint', 'volume', 'startNextTime'];
+                const beforeAuto = AUTO_FIELDS.map(k => (target as any)[k]);
 
                 (target as any).waveform = markRaw(built!);
                 // Seed the session cache so this waveform survives later
@@ -1737,6 +2016,20 @@ export const useProject = () => {
                     // Re-anchor the import-default start-next marker to the
                     // final (possibly auto-trimmed) out point.
                     anchorStartNextMarker(target as AudioItem);
+
+                    // A local edit made while applying a server patch, so the
+                    // baseline absorbs it: send it, or the screen shows a trim
+                    // and level the engine never got. After the cue's own add,
+                    // which may still be on its way.
+                    const autoPatch = Object.fromEntries(AUTO_FIELDS
+                      .filter((k, i) => (target as any)[k] !== beforeAuto[i])
+                      .map(k => [k, (target as any)[k]]));
+                    if (Object.keys(autoPatch).length) {
+                      const uuid = patch.item_uuid;
+                      void itemAddsSent
+                        .then(() => server().updateProjectItem(uuid, autoPatch))
+                        .catch(e => console.warn('[useProject] auto-process sync failed:', e));
+                    }
                   }
                 }
                 triggerWaveformUpdate();
@@ -1751,9 +2044,30 @@ export const useProject = () => {
             // Handled in useAudioEngine.onDocPatch — server-authoritative.
             break;
           case 'master_gain_changed':
-          case 'custom_action_http':
             // Handled in useAudioEngine.onDocPatch.
             break;
+          case 'event_connections_changed': {
+            // Every client, the one that saved included, adopts the server's
+            // list here: it is what this client's next whole-document save
+            // will carry back.
+            if (Array.isArray(patch.connections)) p.eventConnections = patch.connections;
+            break;
+          }
+          case 'event_fired':
+            // Handled in useEvents (feedback only, nothing in the document).
+            break;
+          case 'tabs_changed': {
+            // Our own edit is still waiting to go: this echo is older than
+            // what's on screen, and would rewind it.
+            if (useState<boolean>('showTabs.localEditPending').value) break;
+            if (Array.isArray(patch.playlistTabs)) {
+              p.playlistTabs = patch.playlistTabs.length ? patch.playlistTabs : undefined;
+            }
+            if (Array.isArray(patch.cartPages)) {
+              p.cartPages = patch.cartPages.length ? patch.cartPages : undefined;
+            }
+            break;
+          }
           case 'preview_started': {
             previewItemUuid.value = patch.itemUuid || '';
             previewCueId.value = patch.cueId || '';
@@ -1765,13 +2079,18 @@ export const useProject = () => {
             break;
           }
           case 'advance_pending': {
-            const from = typeof msg.fromUuid === 'string' ? msg.fromUuid : '';
+            // `patch`, not `msg`: there is no `msg` here, and the ReferenceError
+            // meant the "Next in" countdown never showed (F-15).
+            const from = typeof patch.fromUuid === 'string' ? patch.fromUuid : '';
             advancePending.value = from
-              ? { fromUuid: from, dueAt: Date.now() + (Number(msg.dueInMs) || 0) }
+              ? { fromUuid: from, dueAt: Date.now() + (Number(patch.dueInMs) || 0) }
               : null;
             break;
           }
           case 'project_changed': {
+            // A save this window had waiting was for the show that has just
+            // been replaced: it must never be sent over the new one (R2-07).
+            cancelPendingSave();
             // New project → all cached waveforms are invalid.
             server().invalidateWaveformCache();
             // A new project was loaded server-side by some other client.
@@ -1784,6 +2103,15 @@ export const useProject = () => {
               try {
                 const header = await server().fetchProjectHeader();
                 if (!header) return;
+                // Another client closed the show: close it here too, rather
+                // than sit in an empty "Untitled" that still has the old file
+                // to save over.
+                // (A new show not yet saved has no file and no cues either,
+                // but it names its folder.)
+                if (!header.hasOpenProject && !header.folderPath) {
+                  if (currentProject.value) forgetProjectLocally();
+                  return;
+                }
                 isHydrating.value = true;
                 try {
                   applyServerHeader(header);
@@ -1791,9 +2119,12 @@ export const useProject = () => {
                   await nextTick();
                   isHydrating.value = false;
                 }
-                if (header.hasOpenProject) {
-                  void streamItemPages(server(), header.itemCount ?? 0);
-                }
+                // The new show's cart-only cues, as an open does: the old
+                // show's would otherwise be what the next save sends.
+                const { clearCartOnlyItems, addCartOnlyItem } = useCartItems();
+                clearCartOnlyItems();
+                for (const item of currentProject.value?.cartOnlyItems ?? []) addCartOnlyItem(item);
+                void streamItemPages(server(), header.itemCount ?? 0);
               } catch (e) {
                 console.warn('[useProject] project_changed refetch failed:', e);
               }
@@ -1826,38 +2157,48 @@ export const useProject = () => {
     // adoptFromProject() below and dropped by the server on the next save.
 
     // ---- Settings ----
+    const syncSettings = async () => {
+      const next = toJSON((currentProject.value as any)?.settings);
+      if (stableJson(next) === stableJson(lastSettings)) return;
+      lastSettings = next;
+      try { await server().patchSettings(next ?? {}); }
+      catch (e) { console.warn('[useProject] patchSettings failed:', e); }
+    };
     watch(() => (currentProject.value as any)?.settings, () => {
       if (isHydrating.value || !currentProject.value) return;
       if (settingsTimer) clearTimeout(settingsTimer);
-      settingsTimer = setTimeout(async () => {
-        const next = toJSON((currentProject.value as any)?.settings);
-        if (stableJson(next) === stableJson(lastSettings)) return;
-        lastSettings = next;
-        try { await server().patchSettings(next ?? {}); }
-        catch (e) { console.warn('[useProject] patchSettings failed:', e); }
-      }, 250);
+      pendingSyncEpoch = projectEpoch.value;
+      settingsTimer = setTimeout(() => { settingsTimer = null; void syncSettings(); }, 250);
     }, { deep: true });
 
     // ---- Cart slot bindings ----
+    const syncCart = async () => {
+      const next = toJSON(currentProject.value?.cartItems) ?? [];
+      if (stableJson(next) === stableJson(lastCart)) return;
+      // The pins as they are now: clearing a cart's old slot on the server
+      // drops its pin there (and tells us), before it can be moved along.
+      const pinsBefore = { ...(currentProject.value?.cartPinnedKeys ?? {}) };
+      const prev = lastCart ?? [];
+      lastCart = next;
+      const cartByPrev = new Map<number, string>();
+      const cartByCurr = new Map<number, string>();
+      for (const c of prev)  if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
+      for (const c of next)  if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
+      for (const [slot] of cartByPrev) {
+        if (!cartByCurr.has(slot)) { try { await server().clearCartSlot(slot); } catch {} }
+      }
+      for (const [slot, uuid] of cartByCurr) {
+        if (cartByPrev.get(slot) !== uuid) { try { await server().setCartSlot(slot, uuid); } catch {} }
+      }
+      // A cart that moved takes its pinned key along; a cleared one drops it
+      // (F-13). After the bindings, which the server checks pins against.
+      useCartHotkeys().reconcilePinnedKeys(cartByPrev, cartByCurr, pinsBefore);
+    };
     watch(() => currentProject.value?.cartItems, () => {
       if (isHydrating.value || !currentProject.value) return;
       if (cartTimer) clearTimeout(cartTimer);
-      cartTimer = setTimeout(async () => {
-        const next = toJSON(currentProject.value?.cartItems) ?? [];
-        if (stableJson(next) === stableJson(lastCart)) return;
-        const prev = lastCart ?? [];
-        lastCart = next;
-        const cartByPrev = new Map<number, string>();
-        const cartByCurr = new Map<number, string>();
-        for (const c of prev)  if (typeof c?.slot === 'number') cartByPrev.set(c.slot, c.itemUuid ?? '');
-        for (const c of next)  if (typeof c?.slot === 'number') cartByCurr.set(c.slot, c.itemUuid ?? '');
-        for (const [slot] of cartByPrev) {
-          if (!cartByCurr.has(slot)) { try { await server().clearCartSlot(slot); } catch {} }
-        }
-        for (const [slot, uuid] of cartByCurr) {
-          if (cartByPrev.get(slot) !== uuid) { try { await server().setCartSlot(slot, uuid); } catch {} }
-        }
-      }, 250);
+      pendingSyncEpoch = projectEpoch.value;
+      cartTimer = setTimeout(() => { cartTimer = null; void syncCart(); }, 250);
     }, { deep: true });
 
     // ---- Items + cart-only items (structural / per-item property changes) ----
@@ -1876,9 +2217,18 @@ export const useProject = () => {
     const scheduleItemsDiff = () => {
       if (isHydrating.value || _suppressItemSyncCount.value > 0 || !currentProject.value) return;
       if (itemsTimer) clearTimeout(itemsTimer);
-      itemsTimer = setTimeout(() => syncItemsDiff().catch(e =>
+      pendingSyncEpoch = projectEpoch.value;
+      itemsTimer = setTimeout(() => runItemsDiff().catch(e =>
         console.warn('[useProject] items diff failed:', e)
       ), 300);
+    };
+
+    const runItemsDiff = () => {
+      if (itemsTimer) { clearTimeout(itemsTimer); itemsTimer = null; }
+      let addsSent: () => void = () => {};
+      const adds = new Promise<void>((resolve) => { addsSent = resolve; });
+      itemAddsSent = Promise.allSettled([itemAddsSent, adds]);
+      return syncItemsDiff(addsSent).finally(addsSent);
     };
 
     let stopItemsWatcher:    null | (() => void) = null;
@@ -1915,7 +2265,7 @@ export const useProject = () => {
       return m;
     };
 
-    async function syncItemsDiff() {
+    async function syncItemsDiff(onAddsSent?: () => void) {
       const srv = server();
       if (!srv.connected) return;
       const p = currentProject.value;
@@ -1925,10 +2275,16 @@ export const useProject = () => {
 
       const items_changed    = stableJson(nextItems)    !== stableJson(lastItems);
       const cartonly_changed = stableJson(nextCartOnly) !== stableJson(lastCartOnly);
-      if (!items_changed && !cartonly_changed) return;
+      if (!items_changed && !cartonly_changed && batchOverrides.size === 0) return;
 
       const prev = flatten(lastItems, lastCartOnly);
       const curr = flatten(nextItems, nextCartOnly);
+      // Edits a patch re-baselined mid-batch still go out (F-31).
+      for (const [uuid, was] of batchOverrides) {
+        const entry = prev.get(uuid);
+        if (entry) entry.item = was;
+      }
+      batchOverrides.clear();
 
       // Rotate baselines BEFORE awaiting any API calls so a subsequent
       // watcher fire while we're mid-sync sees the new baseline.
@@ -1957,6 +2313,7 @@ export const useProject = () => {
         if (prev.has(uuid)) continue;
         try { await srv.addProjectItem(item, parentUuid, cartOnly); } catch {}
       }
+      onAddsSent?.();
 
       // 4. Updates: items whose content changed (not cross-parent, not new).
       //
@@ -1974,13 +2331,19 @@ export const useProject = () => {
       // should only ever carry the group's own metadata, never children.
       const withoutChildren = (it: any) =>
         it && it.type === 'group' ? { ...it, children: undefined } : it;
+      // An item's `index` is its position, which every client and the server
+      // work out for themselves (updateIndices after every structural patch;
+      // the server walks the tree). A cue added to an early tab moves every
+      // later index, and sending each of those as an item update took seconds
+      // in a long show for nothing: the reorder below says it once.
+      const withoutPosition = (it: any) => (it ? { ...it, index: undefined } : it);
       for (const [uuid, { item, parentUuid, cartOnly }] of curr) {
         const before = prev.get(uuid);
         if (!before) continue;
         if (before.parentUuid !== parentUuid || before.cartOnly !== cartOnly) continue; // handled in step 1
         const beforeCompare = withoutChildren(before.item);
         const nowCompare    = withoutChildren(item);
-        if (stableJson(beforeCompare) === stableJson(nowCompare)) continue;
+        if (stableJson(withoutPosition(beforeCompare)) === stableJson(withoutPosition(nowCompare))) continue;
         try { await srv.updateProjectItem(uuid, nowCompare); } catch {}
       }
 
@@ -2010,14 +2373,19 @@ export const useProject = () => {
         // like a reorder.
         const prevCommon = prevOrder.filter(u => curr.has(u));
         const currCommon = currOrder.filter(u => prev.has(u));
+        // The server appends what was added. An item added anywhere else (onto
+        // an earlier playlist tab, say) needs the order sent too, or the server
+        // and every other client keep it at the end (F-10).
+        const asServerHasIt = [...currCommon, ...currOrder.filter(u => !prev.has(u))];
 
-        if (stableJson(prevCommon) !== stableJson(currCommon)) {
+        if (stableJson(prevCommon) !== stableJson(currCommon) ||
+            stableJson(asServerHasIt) !== stableJson(currOrder)) {
           // Send the full current order for this parent (server ignores unknown uuids).
           try { await srv.reorderProjectItems(currOrder, parentUuid); } catch {}
         }
       }
     }
-    _syncItemsDiffFn = syncItemsDiff;
+    _syncItemsDiffFn = runItemsDiff;
 
     // ---- Fallback for keys without granular endpoints ----
     // Only fires when one of the specific "no-endpoint-yet" fields changes
@@ -2028,9 +2396,13 @@ export const useProject = () => {
     // and goes to their profile. cartSlotKeys STAYS — a cart wall is the
     // show's layout, and the slot that fires the door slam has to be the same
     // slot for whoever is at the desk tonight.
+    //
+    // The cart keys have had their own route since F-03 (useCartHotkeys), so
+    // only the name is left. The document it pushes leaves out every part
+    // with its own route (tabs, pages, connections, cart keys): the server
+    // keeps its copy of those, which may be newer than this client's.
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     watch([
-      () => (currentProject.value as any)?.cartSlotKeys,
       () => currentProject.value?.name,
     ], () => {
       if (isHydrating.value || !currentProject.value) return;
@@ -2040,7 +2412,11 @@ export const useProject = () => {
         if (!p) return;
         // Only push the whole document for these rare fields. The cost is
         // acceptable here precisely because the trigger fires rarely.
-        try { await server().replaceProjectDocument(toJSON(p)); }
+        const doc: any = toJSON(p);
+        for (const key of ['playlistTabs', 'cartPages', 'eventConnections', 'cartSlotKeys', 'cartPinnedKeys']) {
+          delete doc[key];
+        }
+        try { await server().replaceProjectDocument(doc); }
         catch (e) { console.warn('[useProject] fallback PUT failed:', e); }
       }, 800);
     }, { deep: true });
@@ -2110,6 +2486,7 @@ export const useProject = () => {
     openProject,
     tryRejoinExistingProject,
     resumeProjectOnServer,
+    applyServerItemPatch,
     saveProject,
     flushPendingSave,
     hasUnsavedChanges,

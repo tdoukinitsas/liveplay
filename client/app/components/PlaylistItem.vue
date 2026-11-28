@@ -86,16 +86,19 @@
           :title="busBadge.title"
         ></span>
         <span
+          v-if="mediaMissing"
+          class="material-symbols-rounded media-missing-icon"
+          :title="t('missingMedia.badge')"
+          draggable="false"
+          @click.stop
+        >link_off</span>
+        <span
           v-if="isPeaking"
           class="material-symbols-rounded peak-warning-icon"
           :title="t('properties.peakWarning')"
           draggable="false"
           @click.stop
         >bomb</span>
-
-        <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
-        <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
-        <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
 
         <!-- Behavior indicators (for audio items) -->
         <div v-if="item.type === 'audio'" class="behavior-indicators">
@@ -153,6 +156,9 @@
           >replay</span>
         </div>
         
+        <span v-if="isPlaying" class="status-pill playing">{{ t('status.playing') }}</span>
+        <span v-else-if="isQueuedNext" class="status-pill up-next">{{ t('status.upNext') }}</span>
+        <span v-if="isPreviewing" class="status-pill preview">{{ t('status.previewing') }}</span>
         <span v-if="item.type === 'audio'" class="item-duration">{{ durationDisplay }}</span>
         <!-- A group's run time, the sum of what it will play (#63): visible
              collapsed, so a walk-in or interval playlist can be sized at a
@@ -249,6 +255,7 @@ import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { runTime, formatRunTime } from '~/utils/groupTiming';
 import { drawRowWaveform } from '~/utils/rowWaveform';
+import { keepingGotoTargets } from '~/utils/tabs';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -335,6 +342,10 @@ const indexDisplay = computed(() => {
 // True when the item's effective loudness is significantly above the
 // recommended target for the active output target. Reactive: recomputes
 // whenever the output target or volume changes mid-session.
+// The server can't find this item's media file (issue #80).
+const { isMissing } = useMissingMedia();
+const mediaMissing = computed(() => props.item.type === 'audio' && isMissing(props.item.uuid));
+
 const isPeaking = computed(() => {
   if (props.item.type !== 'audio') return false;
   const audio = props.item as AudioItem;
@@ -517,6 +528,11 @@ watch([
   () => (props.item as AudioItem).inPoint,
   () => (props.item as AudioItem).outPoint,
   () => (props.item as AudioItem).waveform?.peaks,
+  // The composite shape (rowWaveform.ts): fades and volume automation.
+  () => (props.item as AudioItem).playFade,
+  () => (props.item as AudioItem).stopFade,
+  () => (props.item as AudioItem).crossFade,
+  () => (props.item as AudioItem).volumeAutomation,
 ], () => {
   if (isVisible && props.item.type === 'audio') nextTick(drawWaveform);
 });
@@ -576,6 +592,9 @@ const warningState = computed(() => {
 
 // Helper to convert hex to rgba
 const hexToRgba = (hex: string, alpha: number) => {
+  // A cue made through the API may have no colour, or not a #rrggbb one:
+  // that must not stop the whole list drawing.
+  if (typeof hex !== 'string' || !/^#[0-9a-f]{6}/i.test(hex)) hex = '#808080';
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -753,26 +772,32 @@ const handleDrop = (e: DragEvent) => {
     const y = e.clientY - rect.top;
     const height = rect.height;
     const { updateIndices, deleteCartItems } = useProject();
+    const project = currentProject.value;
 
-    if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
-      const groupItem = props.item as GroupItem;
-      groupItem.children.push(clone);
-      updateIndices(groupItem.children, groupItem.index);
-    } else {
-      const insertAfter = y >= height / 2;
-      let parentArray = currentProject.value.items;
-      let parentIndex: number[] = [];
-      if (props.item.index.length > 1) {
-        const parentGroup = findItemByIndex(props.item.index.slice(0, -1));
-        if (parentGroup && parentGroup.type === 'group') {
-          parentArray = (parentGroup as GroupItem).children;
-          parentIndex = (parentGroup as GroupItem).index;
+    // The cues after the drop move down one: a "go to index" aimed at one of
+    // them follows it, as for add and paste (N-C14).
+    keepingGotoTargets(project.items, findItemByIndex, () => {
+      if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
+        const groupItem = props.item as GroupItem;
+        groupItem.children.push(clone);
+        updateIndices(groupItem.children, groupItem.index);
+      } else {
+        const insertAfter = y >= height / 2;
+        let parentArray = project.items;
+        let parentIndex: number[] = [];
+        if (props.item.index.length > 1) {
+          const parentGroup = findItemByIndex(props.item.index.slice(0, -1));
+          if (parentGroup && parentGroup.type === 'group') {
+            parentArray = (parentGroup as GroupItem).children;
+            parentIndex = (parentGroup as GroupItem).index;
+          }
         }
+        const pos = parentArray.findIndex(i => i.uuid === props.item.uuid);
+        if (parentArray === project.items) clone.tabId = props.item.tabId;
+        parentArray.splice(insertAfter ? pos + 1 : pos, 0, clone);
+        updateIndices(parentArray, parentIndex);
       }
-      const pos = parentArray.findIndex(i => i.uuid === props.item.uuid);
-      parentArray.splice(insertAfter ? pos + 1 : pos, 0, clone);
-      updateIndices(parentArray, parentIndex);
-    }
+    }, findItemByUuid);
 
     // Unassign the originating cart slot (also persists via saveProject).
     deleteCartItems([cartUuid]);
@@ -803,68 +828,74 @@ const handleDrop = (e: DragEvent) => {
   const itemObjects = itemsToMove
     .map(uuid => findItemByUuid(uuid))
     .filter(item => item !== null);
-  
+
   if (itemObjects.length === 0) return;
-  
-  // Remove all items from their current locations (in reverse order to maintain indices)
-  for (let i = itemObjects.length - 1; i >= 0; i--) {
-    const item = itemObjects[i];
-    if (item) {
-      removeItem(item.uuid);
-    }
-  }
-  
-  // Determine insertion point
+
+  // A group can't go inside itself. Dropped on one of its own cues, it was
+  // taken out of the playlist and then put into its own child, and it
+  // vanished with everything in it.
+  if (itemObjects.some(item => item?.type === 'group' && groupContains(item as GroupItem, props.item.uuid))) return;
+
+  // Determine insertion point, before anything is removed: removing re-numbers
+  // the playlist, so the target's parent is held as the list itself rather
+  // than looked up by an index that may have moved.
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   const y = e.clientY - rect.top;
   const height = rect.height;
-  
-  if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
-    // Drop inside group
-    const groupItem = props.item as GroupItem;
-    itemObjects.forEach(item => {
+  const intoGroup = props.item.type === 'group' && y > height * 0.3 && y < height * 0.7;
+  const target = findParentOf(props.item.uuid, currentProject.value.items, null);
+  if (!target) return;
+
+  // The whole move, out and back in, is one change to every "go to index"
+  // target: each follows the cue it pointed at to wherever it ends up.
+  // Taking the cues out re-aimed the targets on its own and the insert then
+  // shifted them again, so after dragging B below C a cue aimed at D went to
+  // B (R2-04). keepingGotoTargets resolves by uuid at the end, so the ones
+  // removeItem applies on the way are simply overwritten.
+  const project = currentProject.value;
+  const { updateIndices } = useProject();
+  keepingGotoTargets(project.items, findItemByIndex, () => {
+    // Remove all items from their current locations (in reverse order to maintain indices)
+    for (let i = itemObjects.length - 1; i >= 0; i--) {
+      const item = itemObjects[i];
       if (item) {
-        groupItem.children.push(item);
-      }
-    });
-    const { updateIndices } = useProject();
-    updateIndices(groupItem.children, groupItem.index);
-  } else {
-    // Find parent array and insert before/after
-    const insertAfter = y >= height / 2;
-    const targetIndex = props.item.index;
-    
-    // Find parent array (either root items or group children)
-    let parentArray = currentProject.value.items;
-    let parentIndex: number[] = [];
-    
-    if (targetIndex.length > 1) {
-      // Item is in a group, find the parent group
-      const parentGroupIndex = targetIndex.slice(0, -1);
-      const parentGroup = findItemByIndex(parentGroupIndex);
-      if (parentGroup && parentGroup.type === 'group') {
-        const groupParent = parentGroup as GroupItem;
-        parentArray = groupParent.children;
-        parentIndex = groupParent.index;
+        removeItem(item.uuid);
       }
     }
-    
-    // Find position in parent array
-    const itemPosInArray = parentArray.findIndex(i => i.uuid === props.item.uuid);
-    let insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
-    
-    // Insert all items at the position
-    itemObjects.forEach((item, idx) => {
-      if (item) {
-        parentArray.splice(insertPos + idx, 0, item);
-      }
-    });
-    
-    // Update all indices
-    const { updateIndices } = useProject();
-    updateIndices(parentArray, parentIndex);
-  }
-  
+
+    if (intoGroup) {
+      // Drop inside group
+      const groupItem = props.item as GroupItem;
+      itemObjects.forEach(item => {
+        if (item) {
+          groupItem.children.push(item);
+        }
+      });
+      updateIndices(groupItem.children, groupItem.index);
+    } else {
+      // Insert before/after the target, in the list found above. The group's
+      // index is read now: removing may have re-numbered it.
+      const insertAfter = y >= height / 2;
+      const parentArray = target.list;
+      const parentIndex = target.group ? target.group.index : [];
+
+      // Find position in parent array
+      const itemPosInArray = parentArray.findIndex(i => i.uuid === props.item.uuid);
+      const insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
+
+      // Insert all items at the position
+      itemObjects.forEach((item, idx) => {
+        if (item) {
+          if (parentArray === project.items) item.tabId = props.item.tabId;
+          parentArray.splice(insertPos + idx, 0, item);
+        }
+      });
+
+      // Update all indices
+      updateIndices(parentArray, parentIndex);
+    }
+  }, findItemByUuid);
+
   // Save project
   const { saveProject } = useProject();
   saveProject();
@@ -883,6 +914,26 @@ const getAllItemsFlattened = (items: (AudioItem | GroupItem)[]): (AudioItem | Gr
   return result;
 };
 
+// Whether `uuid` is anywhere inside `group`, at any depth.
+const groupContains = (group: GroupItem, uuid: string): boolean =>
+  group.children.some(c => c.uuid === uuid || (c.type === 'group' && groupContains(c as GroupItem, uuid)));
+
+// The list an item sits in, and the group that list belongs to (null at the top).
+const findParentOf = (
+  uuid: string,
+  list: (AudioItem | GroupItem)[],
+  group: GroupItem | null,
+): { list: (AudioItem | GroupItem)[]; group: GroupItem | null } | null => {
+  for (const it of list) {
+    if (it.uuid === uuid) return { list, group };
+    if (it.type === 'group') {
+      const hit = findParentOf(uuid, (it as GroupItem).children, it as GroupItem);
+      if (hit) return hit;
+    }
+  }
+  return null;
+};
+
 // Helper to find item by index
 const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   if (!currentProject.value) return null;
@@ -899,7 +950,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 <style scoped>
 .playlist-item {
   border-radius: var(--border-radius-sm);
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
   transition: all var(--transition-fast);
   position: relative;
   overflow: hidden;
@@ -995,8 +1046,9 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm) var(--spacing-md);
-  min-height: 44px;
+  font-size: calc(1rem * var(--playlist-item-scale, 1));
+  padding: calc(var(--spacing-sm) * var(--playlist-item-scale, 1)) calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+  min-height: calc(44px * var(--playlist-item-scale, 1));
   position: relative;
   z-index: 5;
   cursor: pointer;
@@ -1005,7 +1057,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 .item-left {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: calc(var(--spacing-sm) * var(--playlist-item-scale, 1));
   flex: 1;
   z-index: 5;
   min-width: 0;
@@ -1038,7 +1090,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  margin: 0 var(--spacing-sm);
+  margin: 0 calc(var(--spacing-sm) * var(--playlist-item-scale, 1));
 }
 .item-timecol .item-duration { margin: 0; }
 /* tabular-nums so the counter does not jitter sideways as it counts up, the
@@ -1051,12 +1103,12 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .expand-btn {
-  width: 20px;
-  height: 20px;
+  width: calc(20px * var(--playlist-item-scale, 1));
+  height: calc(20px * var(--playlist-item-scale, 1));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--playlist-item-scale, 1));
   color: var(--color-text-secondary);
   
   &:hover {
@@ -1068,7 +1120,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   font-size: 12px;
   font-size: 1.5em;
   color: var(--color-text-secondary);
-  min-width: 40px;
+  min-width: calc(40px * var(--playlist-item-scale, 1));
 }
 
 .item-icon {
@@ -1078,7 +1130,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   color: var(--color-text-secondary);
   
   .material-symbols-rounded {
-    font-size: 20px;
+    font-size: calc(20px * var(--playlist-item-scale, 1));
   }
 }
 
@@ -1097,8 +1149,17 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 }
 
+/* The theme's warning colour, and sized with the row like the icons beside it. */
+.media-missing-icon {
+  font-size: calc(18px * var(--playlist-item-scale, 1));
+  color: var(--color-warning);
+  flex-shrink: 0;
+  cursor: help;
+  line-height: 1;
+}
+
 .peak-warning-icon {
-  font-size: 18px;
+  font-size: calc(18px * var(--playlist-item-scale, 1));
   color: #ff3b5c;
   flex-shrink: 0;
   cursor: help;
@@ -1108,8 +1169,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 /* D19: bus-routing badge — a small coloured dot shown only when the row
    carries an EXPLICIT busId of its own (never for inherited routing). */
 .bus-badge {
-  width: 8px;
-  height: 8px;
+  width: calc(8px * var(--playlist-item-scale, 1));
+  height: calc(8px * var(--playlist-item-scale, 1));
   border-radius: 50%;
   flex-shrink: 0;
   cursor: help;
@@ -1118,7 +1179,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 .item-duration {
   font-size: 1.5em;
   color: var(--color-text-secondary);
-  margin: 0 var(--spacing-sm);
+  margin: 0;
   white-space: nowrap;
   /* Fixed-width, right-aligned column so the leading "-" shown during the
      playing countdown widens the text without shoving the flags around, and
@@ -1130,12 +1191,12 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
 .behavior-indicators {
   display: flex;
-  gap: 2px;
+  gap: calc(2px * var(--playlist-item-scale, 1));
   align-items: center;
   flex-shrink: 0;
 
   .behavior-icon {
-    font-size: 14px;
+    font-size: calc(14px * var(--playlist-item-scale, 1));
     color: var(--color-text-secondary);
     opacity: 0.7;
   }
@@ -1149,13 +1210,13 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 .status-pill {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: calc(2px * var(--playlist-item-scale, 1)) calc(8px * var(--playlist-item-scale, 1));
   border-radius: 2px;
-  font-size: 14px;
+  font-size: calc(14px * var(--playlist-item-scale, 1));
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  height: 30px;
+  height: calc(30px * var(--playlist-item-scale, 1));
 
   &.playing {
     background-color: var(--color-danger);
@@ -1178,7 +1239,7 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 
 .item-actions {
   display: flex;
-  gap: var(--spacing-xs);
+  gap: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
   z-index: 5;
   flex-shrink: 0;
 }
@@ -1188,7 +1249,16 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 }
 
 .group-children {
-  padding-left: var(--spacing-md);
+  padding-left: calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+}
+
+.playlist-item :deep(.action-btn--playlist) {
+  width: calc(32px * var(--playlist-item-scale, 1));
+  height: calc(32px * var(--playlist-item-scale, 1));
+
+  .material-symbols-rounded {
+    font-size: calc(18px * var(--playlist-item-scale, 1));
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1199,8 +1269,8 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
 /* ------------------------------------------------------------------ */
 .playlist-item.show-mode {
   .item-content {
-    min-height: 68px;
-    padding: var(--spacing-md) var(--spacing-lg);
+    min-height: calc(68px * var(--playlist-item-scale, 1));
+    padding: calc(var(--spacing-md) * var(--playlist-item-scale, 1)) calc(var(--spacing-lg) * var(--playlist-item-scale, 1));
   }
 
   .item-name {
@@ -1212,13 +1282,13 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
   }
 
   .status-pill {
-    font-size: 15px;
-    height: 34px;
-    padding: 2px 12px;
+    font-size: calc(15px * var(--playlist-item-scale, 1));
+    height: calc(34px * var(--playlist-item-scale, 1));
+    padding: calc(2px * var(--playlist-item-scale, 1)) calc(12px * var(--playlist-item-scale, 1));
   }
 
   .behavior-icon {
-    font-size: 20px !important;
+    font-size: calc(20px * var(--playlist-item-scale, 1)) !important;
   }
 
   /* Enlarge the remaining action buttons (preview, play/stop, set-next) for
@@ -1226,21 +1296,43 @@ const findItemByIndex = (index: number[]): AudioItem | GroupItem | null => {
      misjudging horizontal position. :deep() reaches into the ActionButton
      child component's root. */
   :deep(.action-btn--playlist) {
-    width: 112px;
-    height: 56px;
+    width: calc(112px * var(--playlist-item-scale, 1));
+    height: calc(56px * var(--playlist-item-scale, 1));
 
     .material-symbols-rounded {
-      font-size: 28px;
+      font-size: calc(28px * var(--playlist-item-scale, 1));
     }
   }
 
   .item-actions {
-    gap: var(--spacing-sm);
+    gap: calc(var(--spacing-sm) * var(--playlist-item-scale, 1));
   }
 
   /* Not selectable — row is a playback surface, not a list to click into. */
   .item-content {
     cursor: default;
+  }
+}
+
+@media (max-width: 1050px) {
+  .playlist-item.show-mode {
+    .item-content {
+      min-height: calc(56px * var(--playlist-item-scale, 1));
+      padding: calc(var(--spacing-sm) * var(--playlist-item-scale, 1)) calc(var(--spacing-md) * var(--playlist-item-scale, 1));
+    }
+
+    .item-actions {
+      gap: calc(var(--spacing-xs) * var(--playlist-item-scale, 1));
+    }
+
+    :deep(.action-btn--playlist) {
+      width: calc(44px * var(--playlist-item-scale, 1));
+      height: calc(44px * var(--playlist-item-scale, 1));
+
+      .material-symbols-rounded {
+        font-size: calc(22px * var(--playlist-item-scale, 1));
+      }
+    }
   }
 }
 </style>

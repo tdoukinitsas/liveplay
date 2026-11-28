@@ -70,8 +70,13 @@ function onDocDown(e: MouseEvent) {
   if (el.value && el.value.contains(e.target as Node)) return;
   emit('close');
 }
+// The Escape that closes the panel is used up doing so: by default Escape is
+// also Stop All, and closing a colour menu must not stop the show.
 function onKey(e: KeyboardEvent) {
-  if (props.open && e.key === 'Escape') emit('close');
+  if (!props.open || e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopPropagation();
+  emit('close');
 }
 function bind() {
   window.addEventListener('mousedown', onDocDown, true);

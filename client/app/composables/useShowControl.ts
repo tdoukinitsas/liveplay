@@ -31,6 +31,7 @@
 // Wired once per renderer from plugins/liveplay-server.client.ts.
 // =====================================================================
 import type { UiMode } from '~/composables/useUiMode';
+import { ALWAYS_SHOW_MODE } from '~/composables/useUiMode';
 
 // Renderer-scoped, not per-call: the plugin calls this once, but guard anyway
 // so an accidental second call can't double-subscribe to the WS streams.
@@ -42,7 +43,7 @@ export const useShowControl = () => {
   // The same state keys useProject / useUiMode / useLocalization own.
   const selectedItemUuid = useState<string | null>('selectedItemUuid', () => null);
   const selectedItems    = useState<Set<string>>('selectedItems', () => new Set());
-  const uiMode           = useState<UiMode>('useUiMode.uiMode', () => 'edit');
+  const uiMode           = useState<UiMode>('useUiMode.uiMode', () => (ALWAYS_SHOW_MODE ? 'playback' : 'edit'));
   const currentLocale    = useState<string>('locale', () => 'en');
 
   const showMode = computed(() => uiMode.value === 'playback');
@@ -55,10 +56,23 @@ export const useShowControl = () => {
   const selectPrev = () => selectStep(-1);
   const setShowMode    = (enabled: boolean) => server.setShowMode(enabled);
   const toggleShowMode = () => server.setShowMode();
+  // Select ▲/▼ from this window's keys and MIDI: the server's own step rule
+  // (F-05), kept to the playlist tab this window is showing, so a key and a
+  // Companion button can never disagree. MIDI (`fromMidi`) keeps to the tab
+  // the operator last looked at in any window, since only the main window
+  // handles it (R2-05). False when there is no server to ask.
+  const selectStepInView = (delta: number, fromMidi = false): boolean => {
+    if (!server.connected) return false;
+    const tabs = useShowTabs();
+    server.stepSelection(delta, {
+      tabId: fromMidi ? tabs.midiPlaylistTabId.value : tabs.activePlaylistTabId.value,
+    });
+    return true;
+  };
 
   if (_wired || !import.meta.client) {
     return { selectedItemUuid, showMode, currentLocale,
-             select, selectStep, selectNext, selectPrev, setShowMode, toggleShowMode };
+             select, selectStep, selectStepInView, selectNext, selectPrev, setShowMode, toggleShowMode };
   }
   _wired = true;
 
@@ -88,6 +102,8 @@ export const useShowControl = () => {
   };
 
   const applyShowMode = (enabled: boolean) => {
+    // A popped-out playlist tab stays in Show Mode whatever the rig is in.
+    if (ALWAYS_SHOW_MODE) return;
     const next: UiMode = enabled ? 'playback' : 'edit';
     if (uiMode.value === next) return;
     applyFromServer(() => { uiMode.value = next; });
@@ -167,5 +183,5 @@ export const useShowControl = () => {
   });
 
   return { selectedItemUuid, showMode, currentLocale,
-           select, selectStep, selectNext, selectPrev, setShowMode, toggleShowMode };
+           select, selectStep, selectStepInView, selectNext, selectPrev, setShowMode, toggleShowMode };
 };

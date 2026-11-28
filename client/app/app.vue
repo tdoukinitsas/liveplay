@@ -48,6 +48,18 @@
       <ConnectionLostModal />
     </template>
 
+    <!-- A playlist tab in its own window: for running the show, so it stays in
+         Show Mode. Its cues fire and stop over this window's own socket. -->
+    <template v-else-if="isPlaylistWindow">
+      <div class="cart-window-root">
+        <PlaylistView v-if="currentProject" :is-detached-window="true" />
+        <div v-else class="cart-window-loading">
+          <span class="material-symbols-rounded">queue_music</span>
+        </div>
+      </div>
+      <ConnectionLostModal />
+    </template>
+
     <!-- Normal mode -->
     <template v-else>
       <WelcomeScreen v-if="!currentProject" />
@@ -127,6 +139,9 @@
          → resume from where we left off, or go back to the welcome screen. -->
     <SessionRecoveryModal />
 
+    <!-- An event connection needs its credentials entered again (F-23). -->
+    <ConnectionSignInNotice />
+
     <!-- App-quit confirmation: unsaved changes, then (in local mode) whether
          to also shut the local audio server down. -->
     <QuitConfirmModal
@@ -142,6 +157,15 @@
       :message="t('quitModal.serverMessage')"
       :buttons="quitServerButtons"
       @pick="onQuitServerPick"
+    />
+
+    <!-- A project file was opened from the OS while a show is open (#83). -->
+    <QuitConfirmModal
+      :visible="!!openOverShowRequest"
+      :title="openOverShowTitle"
+      :message="openOverShowMessage"
+      :buttons="openOverShowButtons"
+      @pick="onOpenOverShowPick"
     />
 
     <!-- Import: server vs client choice (only for remote servers). -->
@@ -168,13 +192,18 @@
       @close="importServerPickerOpen = false"
     />
     </template>
+
+    <!-- Outside the window branches: files can be dropped on a detached cart. -->
+    <ImportNotice />
   </div>
 </template>
 
 <script setup lang="ts">
 import 'material-symbols';
+import { accentForTheme } from '~/utils/accentPalette';
 import CartPlayer from './components/CartPlayer.vue';
 import MixerPanel from './components/MixerPanel.vue';
+import PlaylistView from './components/PlaylistView.vue';
 
 const {
   currentProject, saveProject, flushPendingSave, openProject, closeProject, confirmUnsavedChanges,
@@ -191,18 +220,70 @@ const {
 const pendingFileOpen = useState<{ path: string; kind: 'liveplay' | 'lpa' } | null>(
   'liveplay:pendingFileOpen', () => null);
 
-// Route a double-clicked file to the welcome-screen flow. If a project is
-// already open we close it first (after the unsaved-changes prompt) so
-// WelcomeScreen re-mounts and picks up the pending file.
-async function routePendingFile(data: { filePath: string; kind: 'liveplay' | 'lpa' }) {
-  if (!data?.filePath) return;
-  pendingFileOpen.value = { path: data.filePath, kind: data.kind };
-  if (currentProject.value) {
-    const ok = await confirmUnsavedChanges();
-    if (!ok) { pendingFileOpen.value = null; return; }
-    await closeProject();
-  }
+// Route a double-clicked file to the welcome-screen flow. With a show open this
+// always asks first (#83): a stray double-click in a file manager must not be
+// able to close a running show. Only once the operator agrees is the file
+// queued and the project closed, so WelcomeScreen re-mounts and picks it up.
+type OpenFileRequest = { filePath: string; kind: 'liveplay' | 'lpa' };
+// The shared state directly: this root component also runs in the detached
+// windows, which have no reason to set up a whole audio engine here.
+const openFileActiveCues = useState<Map<string, { displayName: string }>>('activeCues', () => new Map());
+const openOverShowRequest = ref<OpenFileRequest | null>(null);
+let _openOverShowResolve: ((target: OpenFileRequest | null) => void) | null = null;
+
+const openOverShowFileName = computed(() =>
+  openOverShowRequest.value?.filePath.split(/[\\/]/).pop() ?? '');
+const openOverShowPlaying = computed(() =>
+  Array.from(openFileActiveCues.value.values()).map(c => c.displayName));
+const openOverShowTitle = computed(() => t(
+  openOverShowPlaying.value.length ? 'openFileModal.liveTitle' : 'openFileModal.title'));
+const openOverShowMessage = computed(() => {
+  const file = openOverShowFileName.value;
+  const playing = openOverShowPlaying.value;
+  if (!playing.length) return t('openFileModal.message', { file });
+  const shown = playing.slice(0, 3).join(', ');
+  const cues = playing.length > 3
+    ? t('openFileModal.andMore', { cues: shown, count: playing.length - 3 })
+    : shown;
+  return t('openFileModal.liveMessage', { file, cues });
+});
+const openOverShowButtons = computed(() => [
+  { key: 'cancel', label: t('openFileModal.keep'), variant: 'ghost' as const },
+  {
+    key: 'open',
+    label: t('openFileModal.open'),
+    variant: (openOverShowPlaying.value.length ? 'danger' : 'primary') as 'danger' | 'primary',
+  },
+]);
+
+function onOpenOverShowPick(choice: string) {
+  const target = choice === 'open' ? openOverShowRequest.value : null;
+  const resolve = _openOverShowResolve;
+  _openOverShowResolve = null;
+  openOverShowRequest.value = null;
+  resolve?.(target);
 }
+
+async function routePendingFile(data: OpenFileRequest) {
+  if (!data?.filePath) return;
+  if (!currentProject.value) {
+    pendingFileOpen.value = { path: data.filePath, kind: data.kind };
+    return;
+  }
+
+  // If the dialog is already up, it now asks about the most recent file.
+  openOverShowRequest.value = data;
+  if (_openOverShowResolve) return;
+  const target = await new Promise<OpenFileRequest | null>((resolve) => {
+    _openOverShowResolve = resolve;
+  });
+  if (!target) return;
+
+  if (!(await confirmUnsavedChanges())) return;
+  pendingFileOpen.value = { path: target.filePath, kind: target.kind };
+  await closeProject();
+}
+
 const { cartOnlyItems, clearCartOnlyItems, addCartOnlyItem } = useCartItems();
 import LoadingOverlay from './components/LoadingOverlay.vue';
 import AudioLoadProgress from './components/AudioLoadProgress.vue';
@@ -226,6 +307,11 @@ const isCartWindow = import.meta.client
 // …or the detached mixer window.
 const isMixerWindow = import.meta.client
   ? new URLSearchParams(window.location.search).get('mixerWindow') === '1'
+  : false;
+
+// …or a playlist tab popped out on its own.
+const isPlaylistWindow = import.meta.client
+  ? new URLSearchParams(window.location.search).get('playlistWindow') === '1'
   : false;
 
 // Initialize state viewer for dev mode
@@ -261,8 +347,15 @@ const updateInfo = ref({
 // colours. Without it a detached meter would colour its zones off the EBU
 // defaults and disagree with the same meter in the main window.
 function applyDetachedWindowProjectData(projectData: any) {
-  if (!projectData || !(isCartWindow || isMixerWindow)) return;
-  if (isCartWindow) {
+  if (!(isCartWindow || isMixerWindow || isPlaylistWindow)) return;
+  // The show closed in the main window: nothing of it stays here (the cart
+  // window goes back to its placeholder).
+  if (!projectData) {
+    if (isCartWindow || isPlaylistWindow) clearCartOnlyItems();
+    currentProject.value = null;
+    return;
+  }
+  if (isCartWindow || isPlaylistWindow) {
     clearCartOnlyItems();
     if (Array.isArray(projectData.cartOnlyItems)) {
       for (const item of projectData.cartOnlyItems) {
@@ -273,7 +366,14 @@ function applyDetachedWindowProjectData(projectData: any) {
   // In detached windows, only set currentProject without triggering watchers
   // Use Object.assign to preserve reactivity while avoiding deep-watch triggers
   if (currentProject.value) {
-    Object.assign(currentProject.value, projectData);
+    // A key the main window no longer sends is gone, not unchanged: the copy
+    // goes over JSON, which drops what is undefined. Kept, a show with one tab
+    // opened after one with several kept the old show's tabs, pages and keys.
+    const current = currentProject.value as unknown as Record<string, unknown>;
+    for (const key of Object.keys(current)) {
+      if (!(key in projectData)) delete current[key];
+    }
+    Object.assign(current, projectData);
   } else {
     currentProject.value = projectData;
   }
@@ -292,7 +392,7 @@ onMounted(() => {
     // updates. Both the cart and mixer windows stop here — the listeners
     // below (menu commands, updates, file association, quit flow) belong to
     // the main window and would double-fire if a second window took them too.
-    if (isCartWindow || isMixerWindow) {
+    if (isCartWindow || isMixerWindow || isPlaylistWindow) {
       window.electronAPI.getCartWindowProjectData().then((projectData: any) => {
         applyDetachedWindowProjectData(projectData);
       });
@@ -643,7 +743,13 @@ watch([resolvedThemeMode, () => userTheme.value?.accentColor], ([mode, accent]) 
   // resolved to nothing and anything transparent showed the window's white.
   if (import.meta.client) document.documentElement.setAttribute('data-theme', mode);
   if (import.meta.client && accent) {
-    document.documentElement.style.setProperty('--color-accent-custom', accent);
+    // Drawn per theme, not as stored: a neon lime that reads on #161616 is
+    // darkened just enough to read on #f3f3f3 — see utils/accentPalette.ts.
+    const drawn = accentForTheme(accent, mode);
+    const root = document.documentElement.style;
+    root.setProperty('--color-accent-custom', drawn.accent);
+    root.setProperty('--color-accent-hover-custom', drawn.hover);
+    root.setProperty('--color-on-accent', drawn.onAccent);
   }
 }, { immediate: true });
 
@@ -659,12 +765,21 @@ watch(currentLocale, () => {
 // Chromium requires preventDefault() on EVERY dragover event (including on
 // intermediate elements) for the drop event to fire. Using capture phase
 // ensures this runs before any component handlers.
+//
+// Which means a drop now lands anywhere, and one that no drop target takes
+// (a file or a link let go over the header, a gap, a cart in Show Mode) was
+// opened by the window as a page: the show gone, and a window that could no
+// longer be closed. So no drop is ever the window's own. Cancelling it here
+// only stops that: the drop targets still get the event and its data.
 onMounted(() => {
   if (import.meta.client) {
     document.addEventListener('dragenter', (e) => {
       e.preventDefault();
     }, true);
     document.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    }, true);
+    document.addEventListener('drop', (e) => {
       e.preventDefault();
     }, true);
   }

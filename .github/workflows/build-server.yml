@@ -8,10 +8,12 @@ on:
     paths:
       - 'server/**'
       - '.github/workflows/build-server.yml'
+      - 'scripts/verify-mac-server.sh'
   pull_request:
     paths:
       - 'server/**'
       - '.github/workflows/build-server.yml'
+      - 'scripts/verify-mac-server.sh'
   workflow_dispatch:
 
 # Cancel superseded runs on the same ref to save CI minutes.
@@ -39,7 +41,8 @@ jobs:
           - os: macos-latest
             label: macOS Apple Silicon (Clang)
             triplet: arm64-osx
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
+            cmake_args: ""
+            server_arch: arm64
             artifact_name: liveplay-server-macos-arm64
             binary_glob: |
               server/build/liveplay-server
@@ -49,7 +52,8 @@ jobs:
           - os: macos-latest
             label: macOS Intel (Clang)
             triplet: x64-osx
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES=x86_64"
+            cmake_args: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            server_arch: x86_64
             artifact_name: liveplay-server-macos-x64
             rosetta: true
             binary_glob: |
@@ -168,6 +172,11 @@ jobs:
         working-directory: server
         run: ./build/liveplay-server --help
 
+      # Arch, minimum-OS and newer-libc++-import checks (issue #81).
+      - name: Verify macOS binary
+        if: runner.os == 'macOS'
+        run: bash scripts/verify-mac-server.sh server/build/liveplay-server ${{ matrix.server_arch }}
+
       - name: Smoke test (--help) Windows
         if: runner.os == 'Windows'
         working-directory: server
@@ -205,3 +214,33 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: artifact/
           retention-days: 14
+
+  # The build runners have the newest macOS, where a symbol the binary wrongly
+  # imports from a newer libc++ exists anyway, so their --help passes regardless.
+  # Run the artifacts on macOS 15 too: 2.5.x crashed before main() there (#81).
+  smoke-older-macos:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            label: Smoke on macOS 15 (x64)
+            artifact_name: liveplay-server-macos-x64
+          - os: macos-15
+            label: Smoke on macOS 15 (arm64)
+            artifact_name: liveplay-server-macos-arm64
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.label }}
+    steps:
+      - name: Download server
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ./server-bin
+
+      - name: Run --help
+        run: |
+          chmod +x ./server-bin/liveplay-server
+          echo "Host: $(sw_vers -productVersion) $(uname -m)"
+          ./server-bin/liveplay-server --help

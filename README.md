@@ -8,8 +8,8 @@
 
 ## Features
 
-- **Playlist and carts:** nested cue groups, one-touch buttons, trim points, fades, loops, crossfades and next-cue actions.
-- **Show Mode:** a simplified playback view; detachable cart and mixer windows.
+- **Playlist and carts:** nested cue groups, playlist tabs, cart pages of 4 to 64 carts, one-touch buttons, trim points, fades, loops, crossfades and next-cue actions.
+- **Show Mode:** a simplified playback view; detachable cart and mixer windows, and any playlist tab or cart page in a window of its own.
 - **Mixing:** mono/stereo buses, EQ, gate, compressor, stereo width, pre-fade listening and auxiliary sends.
 - **Outputs:** logical output names mapped to channels on one or more audio interfaces.
 - **Monitoring:** cue, bus and output meters; loudness targets and a master limiter.
@@ -31,6 +31,8 @@ Download the installer matching your platform from [Releases](https://github.com
 
 The desktop package includes the audio server. A local installation does not require a separate server setup.
 
+macOS builds need macOS 13.3 (Ventura) or later.
+
 The repository's packaging does not configure Windows signing; macOS signing is disabled. If an installer is blocked, verify that it came from the project's release page before allowing it. On Windows, SmartScreen may offer **More info → Run anyway**. For a quarantined macOS installation you have verified, run:
 
 ```sh
@@ -42,23 +44,27 @@ See [packaging and signing](SIGNING.md) for contributor details.
 ## Start a show
 
 1. Launch LivePlay and create a project in a folder for the show.
-2. Open **Settings → Outputs** and map the show's logical outputs to your audio hardware.
+2. Open **Settings → Hardware Outputs** and map the show's logical outputs to your audio hardware.
 3. Import audio or drop files into the playlist.
 4. Select a cue and set its trim points, level, fades and end behavior.
 5. Assign frequently used cues to cart buttons. Configure keyboard or MIDI controls if needed.
 6. Check the output meters and audition through the Preview output.
 7. Save the project, then switch to **Show Mode** for playback.
 
+To resize playlist rows without changing the window or playlist width, hover over the playlist and use **Ctrl/Cmd + mouse wheel** or **Ctrl/Cmd + Plus/Minus**. Use **Ctrl/Cmd + 0** to reset to 100%. This scale is saved locally on the current computer.
+
 ## Important settings
 
 | Setting | What to check |
 |---|---|
-| Outputs | Map **Main Out** to the audience feed and **Preview Out** to headphones. An unmapped Main Out can use the default audio device; an unmapped Preview Out is silent. |
-| Project / Output Target | Select the intended delivery target: EBU R128, Streaming, Radio, Netflix, or Live. This affects target levels and limiting. |
+| Hardware Outputs | Map **Main Out** to the audience feed and **Preview Out** to headphones. An unmapped Main Out can use the default audio device; an unmapped Preview Out is silent. |
+| Audio & Metering / Output target | Select the intended delivery target: EBU R128, Streaming, Radio, Netflix, or Live. This affects target levels and limiting. |
 | Playback / Stop All | The project default is a 1-second Stop All fade, with preview also stopped. Individual cue stops use the cue's stop/fade settings. |
 | Server | Choose the local server or a remote server address. Server boot configuration edits require a restart. |
-| Users | On a shared network, create an administrator account and configure access. With authentication disabled, network clients can use administrative operations. |
-| Appearance / Keyboard / Surfaces | Adjust presentation, keyboard bindings and MIDI controls for the operator and machine. |
+| Accounts | On a shared network, create an administrator account and configure access. With authentication disabled, network clients can use administrative operations. |
+| Appearance / Keyboard / Control Surfaces | Adjust presentation, the mixer layout, keyboard bindings and MIDI controls for the operator and machine. |
+
+Each Settings pane says who its settings belong to (you, this show, this computer or the server), and every setting has a short description under it. In a cue's Properties panel, descriptions sit behind the ⓘ beside a field's label.
 
 Audio plays on the **server computer**. Remote file dialogs and media paths refer to that computer. Check its audio interface, output mapping and media availability before the show.
 

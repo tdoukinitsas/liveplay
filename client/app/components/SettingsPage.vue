@@ -2,7 +2,19 @@
   <!-- Note: NOT inside <Teleport> — Vue scoped styles don't reach teleported
        nodes, which would leave this unstyled in production builds. Same
        constraint the modals it replaces were written under. -->
-  <div v-if="isOpen" class="settings-page" role="dialog" aria-modal="true" :aria-label="t('settings.title')">
+  <!-- data-own-keys: Settings covers the workspace, so its keys are its own.
+       Space or Enter on a button here presses that button, and never also
+       runs GO or Play Selected behind it (utils/hotkeyGuard). -->
+  <div
+    v-if="isOpen"
+    ref="rootEl"
+    class="settings-page"
+    role="dialog"
+    aria-modal="true"
+    tabindex="-1"
+    data-own-keys
+    :aria-label="t('settings.title')"
+  >
     <header class="settings-page-header">
       <h2>{{ t('settings.title') }}</h2>
       <button class="close-x" :aria-label="t('settings.close')" @click="close">✕</button>
@@ -30,10 +42,10 @@
         <SettingsPaneAppearance v-if="section === 'appearance'" />
         <SettingsPanePlayback v-else-if="section === 'playback'" />
         <SettingsPaneAudio v-else-if="section === 'audio'" />
-    <SettingsPaneMixer v-else-if="section === 'mixer'" />
         <SettingsPaneOutputs v-else-if="section === 'outputs'" />
         <SettingsPaneKeyboard v-else-if="section === 'keyboard'" />
         <SettingsPaneSurfaces v-else-if="section === 'surfaces'" />
+        <SettingsPaneConnections v-else-if="section === 'connections'" />
         <SettingsPaneProject v-else-if="section === 'project'" />
         <SettingsPaneServer v-else-if="section === 'server'" />
         <SettingsPaneUsers v-else-if="section === 'users'" />
@@ -47,10 +59,10 @@
 import SettingsPaneAppearance from './SettingsPaneAppearance.vue';
 import SettingsPanePlayback from './SettingsPanePlayback.vue';
 import SettingsPaneAudio from './SettingsPaneAudio.vue';
-import SettingsPaneMixer from './SettingsPaneMixer.vue';
 import SettingsPaneOutputs from './SettingsPaneOutputs.vue';
 import SettingsPaneKeyboard from './SettingsPaneKeyboard.vue';
 import SettingsPaneSurfaces from './SettingsPaneSurfaces.vue';
+import SettingsPaneConnections from './SettingsPaneConnections.vue';
 import SettingsPaneProject from './SettingsPaneProject.vue';
 import SettingsPaneServer from './SettingsPaneServer.vue';
 import SettingsPaneUsers from './SettingsPaneUsers.vue';
@@ -59,20 +71,47 @@ import SettingsPaneAbout from './SettingsPaneAbout.vue';
 const { t } = useLocalization();
 const { section, isOpen, show, close, sections } = useSettingsPage();
 
+const rootEl = ref<HTMLElement | null>(null);
+
+// Opened from the workspace, focus is still on something behind (a cue, a
+// button): take it, so the keys pressed in here are Settings' own.
+watch(isOpen, (open) => {
+  if (!open || !import.meta.client) return;
+  void nextTick(() => {
+    const root = rootEl.value;
+    if (root && !root.contains(document.activeElement)) root.focus({ preventScroll: true });
+  });
+}, { immediate: true });
+
 // Escape closes, matching every other dismissable surface in the app. Capture
 // phase for the same reason the modals use it: the playback hotkey handler
 // listens on window in the bubble phase, and Escape is the stop-all default —
 // closing Settings must not also panic the show.
+//
+// On document rather than window: this component is mounted with the app, so
+// a window listener here was registered before any pane's. Window capture
+// runs before document capture whatever the order, so a pane's own Escape
+// (cancelling a key capture or a MIDI Learn) is always seen first.
 function onKeydown(e: KeyboardEvent) {
   if (!isOpen.value) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
     close();
+    return;
   }
+  // Focus that fell to the page (a button here went away or was disabled
+  // under it) comes back to Settings, so the workspace's shortcuts leave this
+  // key alone. Delete and Backspace go no further at all: behind Settings
+  // they would delete the selected cue. A key in a dialog opened over
+  // Settings has focus there, not on the page, and is left alone.
+  const active = document.activeElement;
+  if (active && active !== document.body) return;
+  rootEl.value?.focus({ preventScroll: true });
+  if (e.key === 'Delete' || e.key === 'Backspace') e.stopPropagation();
 }
-onMounted(() => window.addEventListener('keydown', onKeydown, true));
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true));
+onMounted(() => document.addEventListener('keydown', onKeydown, true));
+onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown, true));
 </script>
 
 <style scoped>
@@ -84,6 +123,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true));
   color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
+  /* It takes focus only to hold the keys (see onKeydown), not to be seen. */
+  outline: none;
 }
 
 .settings-page-header {
@@ -183,6 +224,52 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, true));
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+  /* Room for the owner badge (.settings-scope) beside the title. */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* A group of settings inside a pane: one look on every pane, so "Stop All" on
+   Playback and "Accounts" on Accounts read as the same kind of thing. The rule
+   above it is what separates groups; the negative bottom margin pulls the
+   group's first field up under it against the pane's 18px gap. */
+.settings-panes :deep(.settings-group-title) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 -6px;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-border);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary);
+}
+
+/* Who a setting belongs to: You, This show, This computer or Server. On the
+   pane title when the whole pane has one owner, otherwise on each group's
+   heading — never on a single field. SettingsScope.vue renders it. */
+.settings-panes :deep(.settings-scope) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.settings-panes :deep(.settings-scope .material-symbols-rounded) {
+  font-size: 13px;
+  color: inherit;
 }
 .settings-panes :deep(.settings-pane-intro) {
   margin: -10px 0 0;

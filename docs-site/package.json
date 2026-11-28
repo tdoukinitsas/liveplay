@@ -1,12 +1,12 @@
 {
   "name": "liveplay-docs",
-  "version": "2.5.3",
+  "version": "2.6.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/copy-screenshots.mjs && nuxt dev",
-    "build": "node scripts/copy-screenshots.mjs && nuxt generate",
-    "generate": "node scripts/copy-screenshots.mjs && nuxt generate",
+    "dev": "node scripts/copy-screenshots.mjs && node scripts/generate-seo.mjs && nuxt dev",
+    "build": "node scripts/copy-screenshots.mjs && node scripts/generate-seo.mjs && nuxt generate",
+    "generate": "node scripts/copy-screenshots.mjs && node scripts/generate-seo.mjs && nuxt generate",
     "preview": "nuxt preview"
   },
   "dependencies": {

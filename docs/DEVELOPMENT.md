@@ -57,6 +57,10 @@ The `debug` preset writes to `server/build-debug`. The root `server:configure` c
 | Window geometry | `node client/tests/window-bounds-tests.js` |
 | Settings placement | `node client/tests/settings-form-placement-tests.js` |
 | Mixer regressions | `node client/tests/mixer-regression-tests.js` |
+| Opening files from the OS | `node client/tests/open-file-args-tests.js` |
+| Accent palette | `node client/tests/accent-palette-tests.mjs` |
+| Playable formats agree (server, renderer, Electron dialog) | `node client/tests/audio-formats-tests.js` |
+| Which keys reach the transport from a focused control | `node client/tests/hotkey-guard-tests.js` |
 | Server unit suites | Configure with `-DLIVEPLAY_BUILD_TESTS=ON`, build, then run CTest |
 | Audio integration | [E2E guide](../server/tests/e2e/README.md); many suites require an audio device |
 | Documentation site | `npm run generate` from `docs-site/` |
@@ -70,7 +74,7 @@ cmake --build --preset vs2022
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Use `default` instead of `vs2022` for the Ninja build. There are nine registered CTest suites: meter, device_name, mixer, biquad, dynamics, stereo, drift, topo and waveform.
+Use `default` instead of `vs2022` for the Ninja build. There are fourteen registered CTest suites: meter, device_name, media_names, show_tabs, secret_headers, secrets, mixer, biquad, dynamics, stereo, drift, topo, envelope and waveform.
 
 ## Repository map
 
@@ -80,7 +84,8 @@ Use `default` instead of `vs2022` for the Ninja build. There are nine registered
 | `client/electron/` | Desktop main process and preload bridges |
 | `client/locales/` | Application translations |
 | `server/src/audio/` | Playback, mixing, metering, limiting and LTC |
-| `server/src/core/` | Project, configuration, output map, users and preferences |
+| `server/src/core/` | Project, configuration, output map, users, preferences and credential sealing |
+| `server/src/events/` | Event dispatcher, scheduler and the in-tree plugins (OSC, MIDI, HTTP, X Air, LivePlay); see the [plugin guide](EVENT_PLUGINS.md) |
 | `server/src/net/` | Crow HTTP/WebSocket and discovery |
 | `server/src/meta/` | Metadata and waveform generation |
 | `server/include/liveplay/` | Server headers and DSP helpers |

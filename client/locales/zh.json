@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "隐藏标题栏中的“距离静音”倒计时。",
     "transitionMode": "默认过渡模式",
     "transitionModeHelp": "新导入的曲目如何过渡到下一首。可在“属性”中为每首曲目单独更改。",
+    "goContinuesFrom": "多个提示同时播放时的 GO",
+    "goContinuesFromEarliest": "从最先开始的提示继续",
+    "goContinuesFromLatest": "从最后开始的提示继续",
+    "goContinuesFromHelp": "当有多个提示在播放且没有设置“下一个”时，GO 和“下一个”从哪个提示继续。控制面板和 MIDI 遵循同样的选择。",
     "transitionModeCrossfade": "交叉淡化到下一首",
     "transitionModeStartNext": "在标记处开始下一首",
     "autoCueNext": "始终将下一个条目设为待播",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "此应用所连接的服务器，以及（仅限管理员）其配置。",
     "sectionUsers": "账户",
     "sectionUsersHelp": "谁可以使用此服务器，以及他们可以更改什么。",
+    "stopAllFiresEvents": "“全部停止”触发“结束时”事件",
+    "stopAllFiresEventsHelp": "关闭时，“全部停止”所停止的 Cue 不会触发“结束时”事件。开启时会触发，但都不能启动其他 Cue。在“全部停止”完成前再次按下即为紧急停止：所有内容立即停止，且不触发任何事件。",
     "stopAllStopsPreview": "“全部停止”同时停止预听",
     "stopAllStopsPreviewHelp": "关闭时，“全部停止”不会停止您正在预听的 Cue。",
     "sectionAppearance": "外观",
@@ -169,13 +175,30 @@
     "accentColorHelp": "用于选中项、正在播放的 Cue 和高亮显示。",
     "accentColorSwatch": "强调色 {color}",
     "sectionAbout": "关于",
-    "sectionAboutHelp": "版本、致谢和许可证。"
+    "sectionAboutHelp": "版本、致谢和许可证。",
+    "sectionConnections": "连接",
+    "stopAllUsesItemFade": "被停止的提示音使用各自的停止按钮淡出",
+    "stopAllUsesItemFadeHelp": "开启后，Stop All 和“停止所有其他”闪避模式会让每个提示音按其自己的停止按钮淡出时间淡出。没有设置的提示音使用 Stop All 淡出。连按两次 Stop All 仍会立即停止一切。",
+    "thisComputer": "本机",
+    "scopeYou": "个人",
+    "scopeShow": "本演出",
+    "scopeServer": "服务器",
+    "groupLanguageLayout": "语言与布局",
+    "groupDisplay": "显示",
+    "groupGoUpNext": "GO 与待播",
+    "groupNewCues": "新 Cue",
+    "groupLoudness": "响度与电平表",
+    "groupRouting": "路由与时间码",
+    "groupConnection": "连接",
+    "sectionPlaybackIntro": "Cue 如何开始、停止以及相互衔接，以及新 Cue 的初始设置。",
+    "disableAutoVolumeAndTrimHelp": "新 Cue 保留文件本身的电平和长度。您仍可在每个 Cue 的“播放”选项卡中调整电平或修剪。"
   },
   "common": {
     "default": "默认",
     "loading": "加载中…",
     "error": "错误",
-    "cancel": "取消"
+    "cancel": "取消",
+    "moreInfo": "更多信息"
   },
   "project": {
     "enterName": "输入项目名称",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "已路由到一条缺失的总线",
     "newGroup": "新分组"
   },
+  "tabs": {
+    "playlistLabel": "播放列表标签页",
+    "cartLabel": "盒式播放器页面",
+    "add_playlist": "添加播放列表标签页",
+    "add_cart": "添加盒式播放器页面",
+    "limitReached": "标签页数量已达上限。",
+    "defaultPlaylist": "播放列表 {n}",
+    "defaultPage": "第 {n} 页",
+    "edit": "编辑标签页",
+    "name": "名称",
+    "colour": "颜色",
+    "noColour": "无颜色",
+    "cartCount": "盒式播放器数量",
+    "fewer": "减少盒式播放器",
+    "more": "增加盒式播放器",
+    "cartCountFloor": "不能少于 {n}：该位置上有盒式播放器。",
+    "atEnd": "最后一个 Cue 之后",
+    "atEndWrap": "返回此标签页顶部",
+    "atEndContinue": "继续到下一个标签页",
+    "atEndStop": "停止",
+    "popOut": "在新窗口中打开",
+    "delete": "删除标签页",
+    "deleteYes": "删除",
+    "deleteEmpty": "删除“{name}”？",
+    "deleteConfirm_playlist": "删除“{name}”及其 {count} 个条目？",
+    "deleteConfirm_cart": "删除“{name}”及其 {count} 个盒式播放器？",
+    "deletePlaying": "此标签页上有内容正在播放。请先停止。",
+    "upNextOn": "待播：{name}",
+    "following": "正在跟随 {name}",
+    "followLost": "{name} 已离线",
+    "followStop": "停止跟随",
+    "followSetting": "跟随其他操作员的标签页",
+    "followOff": "关",
+    "followOffline": "离线",
+    "followHelp": "此窗口显示与所选操作员相同的播放列表标签页和盒式播放器页面。自行点击标签页将停止跟随。",
+    "followThisComputer": "仅保存在本机。",
+    "followSession": "{name}（会话 {n}）",
+    "editPage": "编辑页面",
+    "deletePage": "删除页面",
+    "limitReachedPages": "页面数量已达上限。",
+    "deletePlayingPage": "此页面上有内容正在播放。请先停止。",
+    "deleteConfirmCue": "删除“{name}”及其中的 Cue？",
+    "deleteConfirmCues": "删除“{name}”及其中的 {count} 个 Cue？",
+    "deleteConfirmCart": "删除“{name}”及其中的盒式播放器？",
+    "deleteConfirmCarts": "删除“{name}”及其中的 {count} 个盒式播放器？",
+    "colourN": "颜色 {n}",
+    "pageFull": "“{name}”已满"
+  },
   "cart": {
     "title": "盒式播放器",
+    "clickToImportOrPlaylist": "点击导入，或将条目、分组或播放列表标签页拖到此处",
+    "startPlaylist": "让此盒式播放器启动播放列表",
+    "playlistSlot": "此盒式播放器启动整个播放列表标签页",
     "emptySlot": "点击导入，或将条目拖到此处",
     "clickToImport": "点击导入，或将条目拖到此处",
     "configureHotkeys": "配置快捷键",
@@ -217,7 +291,8 @@
     "conflict": "已分配给槽位 {slot}",
     "reserved": "此组合键为系统保留",
     "resetDefaults": "重置为默认值",
-    "groupSlot": "播放列表分组：从此槽位播放整个分组"
+    "groupSlot": "播放列表分组：从此槽位播放整个分组",
+    "choosePlaylist": "启动哪个播放列表？"
   },
   "behaviors": {
     "startPlayNext": "开始：播放下一个",
@@ -239,6 +314,21 @@
     "startNextTitle": "开始下一首：{time}",
     "loadingWaveform": "正在加载波形…"
   },
+  "automation": {
+    "enable": "音量自动化",
+    "enableHint": "在波形上绘制音量包络。取消勾选会旁路它，并保留关键帧。",
+    "addKeyframe": "添加关键帧",
+    "addKeyframeHint": "在光标处添加关键帧；提示音播放时则在播放头处添加。",
+    "removeKeyframe": "删除关键帧",
+    "removeKeyframeHint": "删除选中的关键帧，或光标处的关键帧。右键点击关键帧或按 Delete 键效果相同。",
+    "clear": "清除",
+    "clearHint": "删除所有关键帧。",
+    "clearConfirm": "要删除此提示音的所有音量自动化关键帧吗？",
+    "previewFromCursor": "从光标处预听",
+    "previewFromCursorHint": "在预听总线上从光标处播放此提示音（包含自动化）。点击波形以放置光标。",
+    "previewUnavailable": "需要一条路由到输出的预听总线。请在调音台中设置。",
+    "stopPreview": "停止预听"
+  },
   "properties": {
     "title": "属性",
     "resize": "调整属性面板大小",
@@ -255,8 +345,8 @@
     "startBehavior": "开始行为",
     "duckingBehavior": "闪避行为",
     "fadeOutDuration": "淡出时长",
-    "duckFadeIn": "闪避淡入",
-    "duckFadeOut": "闪避淡出",
+    "duckFadeIn": "压低用时（秒）",
+    "duckFadeOut": "恢复用时（秒）",
     "children": "子项",
     "seconds": "秒",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "在这段秒数内将循环结尾交叉淡化到开头。0 表示不交叉淡化直接循环。",
     "loopCrossfadeNeedsLoop": "将此 Cue 的结束行为设为“循环”即可使用循环交叉淡化。",
     "advanceDelay": "播放下一个前等待（秒）",
-    "advanceDelayHint": "此 Cue 结束后，先等待这段时间，再由其结束行为启动下一个 Cue。设置了交叉淡化或“开始下一首”时忽略此项。"
+    "advanceDelayHint": "此 Cue 结束后，先等待这段时间，再由其结束行为启动下一个 Cue。设置了交叉淡化或“开始下一首”时忽略此项。",
+    "duckTimesHint": "此提示音开始时其他提示音压低所需的时间，以及结束时恢复所需的时间。",
+    "volumeHelp": "此 Cue 的电平。拖动推子，或输入 dB 电平，如 -6.5（静音为 -inf）。",
+    "playFadeHelp": "每次开始时，在这么多秒内淡入。0 表示以满电平开始。",
+    "stopFadeHelp": "在出点之前，用这么多秒淡出。0 表示以满电平播放到结束。",
+    "crossFadeHelp": "在出点之前的这么多秒内，此 Cue 淡出，同时下一个 Cue 在其上淡入。0 表示无重叠地切换。",
+    "startNextHelp": "播放到达标记时，下一个 Cue 开始，而此 Cue 继续播放：电台式的衔接。",
+    "duckModeHelp": "启动此 Cue 时如何处理其他正在播放的 Cue：停止它们、不做处理，或在它结束前将它们降低到闪避电平。",
+    "apiTriggerUrlHelp": "向此地址发送 GET 或 POST 请求，即可从其他系统、脚本或浏览器播放此 Cue。",
+    "groupTrim": "修剪",
+    "groupFades": "淡变",
+    "groupStopLoop": "停止与循环",
+    "groupTransition": "过渡"
   },
   "playback": {
     "panic": "停止所有 Cue",
@@ -449,7 +551,8 @@
     "noDevices": "未找到输出设备",
     "silentServer": "在系统托盘中静默运行服务器",
     "silentServerHelp": "启动服务器时不显示控制台窗口。系统托盘（macOS 上为菜单栏）中的图标会显示服务器正在运行，即使关闭 LivePlay 后也是如此；通过其菜单可以显示控制台、打开日志或停止服务器。下次启动服务器时生效。",
-    "silentServerForced": "由于 LivePlay 以 --silent 启动，本次会话中已开启。"
+    "silentServerForced": "由于 LivePlay 以 --silent 启动，本次会话中已开启。",
+    "localPortHelp": "本机音频引擎监听的端口。仅当其他程序已占用该端口时才需更改。"
   },
   "serverConfig": {
     "title": "服务器配置",
@@ -647,6 +750,7 @@
     "currentVersion": "当前版本",
     "newVersion": "新版本",
     "whatsNew": "更新内容",
+    "seeWhatsNew": "查看 {version} 新功能",
     "updatePrompt": "LivePlay 有新版本可用。是否立即下载并安装？",
     "manualUpdatePrompt": "LivePlay 有新版本可用。点击下方访问下载页面。",
     "downloading": "正在下载更新",
@@ -689,6 +793,9 @@
     "title": "配置控制",
     "tabKeyboard": "键盘",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "固定到盒式播放器的按键",
+    "pinnedCartsHelp": "固定按键可从任意页面触发该盒式播放器。上方按键触发当前显示页面上的某个位置。",
+    "keyInUse": "该按键已被占用。",
     "sectionCartSlots": "盒式播放器槽位",
     "sectionPlayback": "播放",
     "sectionVolume": "音量",
@@ -721,7 +828,10 @@
     "playNext": "播放下一个",
     "volumeMultiplier": "音量倍数",
     "volumeMultiplierHint": "每个 MIDI 步进对应的 dB 数。对于步进很小的编码器或滚轮，请调高此值。",
-    "nextIn": "{seconds} 秒后下一个"
+    "nextIn": "{seconds} 秒后下一个",
+    "stopCurrentCue": "停止当前 Cue",
+    "conflictPinned": "已固定到 {cart}",
+    "midiDeviceHelp": "LivePlay 监听的控制器。“所有设备”会监听每个已连接的控制器。"
   },
   "selectProject": {
     "title": "选择项目",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "导入音频",
+    "notPlayable": "未导入：{files}。LivePlay 可播放 WAV、AIFF、FLAC 和 MP3 文件。",
     "tabServer": "服务器上",
     "tabUpload": "从此计算机上传",
     "serverHint": "服务器上的文件。双击文件夹将其打开。选择文件（按住 Shift 或 Ctrl/Cmd 点击可多选），然后点击“导入所选”。",
@@ -809,6 +920,15 @@
     "serverCloseServer": "关闭服务器",
     "serverCloseClient": "仅关闭客户端",
     "return": "返回项目"
+  },
+  "openFileModal": {
+    "title": "打开此文件？",
+    "message": "打开 {file} 将关闭当前演出。",
+    "liveTitle": "演出正在播放",
+    "liveMessage": "正在播放：{cues}。打开 {file} 将关闭此演出并停止其音频。",
+    "andMore": "{cues} 及另外 {count} 项",
+    "keep": "保留当前演出",
+    "open": "关闭演出并打开"
   },
   "deleteSelection": {
     "title": "删除条目",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}：点击或拖动以打开",
     "emptyTitle": "所有面板都已折叠",
     "emptyHint": "点击或拖动边缘的面板条，或使用顶部的按钮来打开面板。"
+  },
+  "missingMedia": {
+    "badge": "媒体文件缺失。请在“属性”中替换，或使用“查找缺失媒体”。",
+    "banner": "找不到 {count} 个媒体文件。",
+    "locate": "查找…",
+    "locateHint": "选择一个文件夹，按文件名搜索缺失的文件。项目之外的文件会复制到项目的媒体文件夹中。",
+    "locateResult": "已重新链接 {relinked} 个条目。仍有 {missing} 个缺失。",
+    "locateFailed": "无法搜索该文件夹：{error}",
+    "replace": "替换媒体文件",
+    "replaceFailed": "无法替换媒体文件：{error}",
+    "propertiesHint": "服务器找不到此文件。请使用替换按钮重新选择。"
+  },
+  "events": {
+    "tab": "事件",
+    "addEvent": "添加事件",
+    "addEventHint": "在光标处添加事件。点击波形以放置光标。",
+    "addTriggerEvent": "按触发方式添加…",
+    "cursor": "光标",
+    "cursorHint": "在波形上点击或拖动以移动光标，或以 m:ss.mmm 格式或秒数输入时间。",
+    "manageConnections": "管理连接…",
+    "multiSelect": "请只选择一个条目以编辑其事件。",
+    "noEvents": "还没有事件。点击波形放置光标，然后按“添加事件”。",
+    "selectEvent": "选择一个事件以进行编辑。",
+    "unsupported": "此服务器不支持事件。请更新 LivePlay 服务器以使用此功能。",
+    "noPlugins": "服务器上没有事件插件。",
+    "loadFailed": "无法从服务器加载事件插件。",
+    "loading": "正在加载事件插件…",
+    "retry": "重试",
+    "trigger": {
+      "label": "触发方式",
+      "time": "在指定时间",
+      "start": "开始时",
+      "end": "结束时",
+      "pause": "暂停时",
+      "resume": "继续时"
+    },
+    "name": "名称",
+    "enabled": "启用",
+    "time": "时间",
+    "timeHint": "文件中的位置，格式为 m:ss.mmm 或秒数。位于播放区段之外的事件永远不会触发。",
+    "useCursor": "移到光标处",
+    "plugin": "插件",
+    "connection": "连接",
+    "noConnection": "无连接",
+    "connectionMissing": "未找到连接",
+    "connectionDisabled": "此连接已禁用，因此该事件不会触发。",
+    "noConnectionsForPlugin": "还没有 {plugin} 连接。",
+    "action": "操作",
+    "preset": "预设",
+    "presetNone": "无（自定义）",
+    "presetSave": "将这些设置保存为预设",
+    "presetSaveConfirm": "保存预设",
+    "presetMissing": "未找到预设",
+    "presetMissingHelp": "此事件的预设已不存在，因此不会触发。请选择其他预设或“无”。",
+    "presetInUse": "使用预设“{name}”",
+    "presetEdit": "编辑预设",
+    "presetDetach": "改为自定义",
+    "unknownPlugin": "此事件使用插件“{plugin}”，但此服务器上没有该插件。它不会触发。",
+    "outsideTrim": "位于播放区段之外：此事件不会触发。",
+    "placeholdersHelp": "文本字段可使用 {item.name}、{item.uuid}、{trigger} 和 {time}；事件触发时由服务器填入实际值。",
+    "test": "测试",
+    "testing": "正在测试…",
+    "testOk": "已发送。",
+    "testFailed": "失败：{error}",
+    "duplicate": "复制",
+    "delete": "删除",
+    "lastOk": "上次触发于 {time}：成功",
+    "lastError": "上次触发于 {time}：失败：{error}",
+    "form": {
+      "none": "—",
+      "missingItem": "（未找到条目）",
+      "cartItem": "盒式播放器 {slot} · {name}",
+      "addRow": "添加",
+      "removeRow": "移除",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "refreshOptions": "从设备重新读取列表"
+    },
+    "connections": {
+      "intro": "事件的发送目标：灯光台、MIDI 端口、Webhook。每个连接只需为演出设置一次，即可供任意数量的事件使用。",
+      "noProject": "打开一个项目以管理其连接。",
+      "empty": "还没有连接。",
+      "add": "添加连接",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "新建 {plugin} 连接",
+      "editTitle": "编辑“{name}”",
+      "name": "名称",
+      "enabled": "启用",
+      "disabled": "已禁用",
+      "edit": "编辑",
+      "save": "保存",
+      "cancel": "取消",
+      "delete": "删除",
+      "deleteConfirm": "删除“{name}”？",
+      "deleteInUse": "有 {count} 个事件使用“{name}”。在为它们指定其他连接之前，这些事件不会触发。仍要删除吗？",
+      "usage": "{count} 个事件",
+      "unused": "未使用",
+      "unknownPlugin": "未知类型“{plugin}”",
+      "noFields": "此类型无需设置。",
+      "addressDropsCredentials": "保存这个新地址会从此连接及使用它的事件中移除已存储的凭据。系统会要求你重新输入。",
+      "testWith": "用于测试的操作",
+      "saveFailed": "无法保存连接：{error}",
+      "discover": "在网络上查找",
+      "discoverNone": "未找到任何设备。请确认设备已开机，并与服务器位于同一网络。",
+      "discoverFailed": "无法搜索网络：{error}",
+      "discoverUsed": "正在使用 {device}。",
+      "presets": "预设",
+      "presetsHelp": "可在多个事件中重复使用的设置。更改预设后，所有使用它的事件都会随之更新。",
+      "presetAdd": "添加预设",
+      "presetName": "预设名称",
+      "presetDone": "完成",
+      "presetDelete": "删除预设（其事件会保留这些设置）",
+      "enabledFor": "启用 {name}",
+      "editNamed": "编辑 {name}",
+      "deleteNamed": "删除 {name}",
+      "authRejected": "凭据被拒绝",
+      "authMissing": "需要凭据",
+      "signIn": "登录",
+      "signInRejectedHelp": "设备拒绝了这些凭据。请在“请求头”中重新输入；已保存的凭据显示为圆点。",
+      "signInMissingHelp": "此演出的凭据是在另一台计算机上加密的，因此本机无法使用。请在“请求头”中重新输入。",
+      "signInMany": "有 {count} 个连接需要重新输入凭据。",
+      "signInRejected": "“{name}”拒绝了其凭据。请重新登录，以便其事件继续正常工作。",
+      "signInMissing": "需要在本机上输入“{name}”的凭据。",
+      "signInWaiting": "“{name}”需要登录。保存或取消对此连接的更改后，登录界面会在这里打开。",
+      "signInLater": "暂不",
+      "signInDiscard": "放弃更改并登录",
+      "nameHelp": "为事件选择连接时，此连接显示的名称。",
+      "enabledHelp": "关闭后，不会向此连接发送任何内容，其事件也不会触发。"
+    },
+    "zoom": "缩放",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomFit": "显示整个文件",
+    "scroll": "滚动时间线",
+    "navHint": "滚动以缩放 · Shift+滚动或中键拖动以平移",
+    "deleted": "已删除“{name}”。",
+    "undo": "撤销",
+    "deviceTimeout": "设备未及时响应。",
+    "headers": {
+      "name": "名称",
+      "value": "值",
+      "valueFor": "{name} 的值",
+      "secret": "加密保存，显示为圆点",
+      "secretPlaceholder": "密码、令牌或密钥",
+      "remove": "移除请求头",
+      "add": "添加请求头",
+      "rawLine": "请求头行"
+    },
+    "groupWhen": "时机",
+    "groupCommand": "命令",
+    "triggerHelp": "事件何时触发：文件中的某个时间点，或在 Cue 开始、暂停、继续或结束时。"
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "基于 UDP 的 Open Sound Control：灯光台、QLab、Companion 等。",
+      "actions": {
+        "message": "发送消息"
+      },
+      "connection": {
+        "host": {
+          "label": "主机"
+        },
+        "port": {
+          "label": "端口"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "地址"
+        },
+        "args": {
+          "label": "参数",
+          "help": "字符串值可使用 {item.name}、{item.uuid}、{trigger} 和 {time}。"
+        },
+        "type": {
+          "label": "类型"
+        },
+        "value": {
+          "label": "值"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "整数",
+          "f": "浮点数",
+          "s": "字符串",
+          "T": "True（真）",
+          "F": "False（假）",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "从服务器所在计算机输出 MIDI：音符、CC、程序变更、MIDI Show Control、SysEx。",
+      "actions": {
+        "note-on": "音符开",
+        "note-off": "音符关",
+        "control-change": "控制变更",
+        "program-change": "程序变更",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx（原始数据）"
+      },
+      "summaries": {
+        "note-on": "通道 {channel} 音符 {note}",
+        "note-off": "通道 {channel} 音符 {note}",
+        "control-change": "通道 {channel} CC {controller} = {value}",
+        "program-change": "通道 {channel} 程序 {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "输出端口",
+          "help": "LivePlay 服务器所在计算机上的端口，按名称匹配。"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "通道"
+        },
+        "note": {
+          "label": "音符"
+        },
+        "velocity": {
+          "label": "力度"
+        },
+        "controller": {
+          "label": "控制器"
+        },
+        "value": {
+          "label": "值"
+        },
+        "program": {
+          "label": "程序"
+        },
+        "deviceId": {
+          "label": "设备 ID",
+          "help": "127 表示所有设备。"
+        },
+        "commandFormat": {
+          "label": "命令格式"
+        },
+        "command": {
+          "label": "命令"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Cue 列表"
+        },
+        "path": {
+          "label": "Cue 路径"
+        },
+        "data": {
+          "label": "字节（hex）"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "灯光（通用）",
+          "moving-lights": "电脑灯",
+          "sound": "音响（通用）",
+          "video": "视频（通用）",
+          "all": "所有类型"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "向任何提供 Web API 的设备发送 HTTP 请求：Companion、媒体服务器、家庭自动化等。",
+      "actions": {
+        "request": "请求"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "基础 URL",
+          "help": "仅支持 http://；暂不支持 HTTPS。"
+        },
+        "headers": {
+          "label": "请求头",
+          "help": "随每个请求发送。密码、令牌和密钥会加密保存并显示为圆点。"
+        },
+        "timeoutMs": {
+          "label": "超时（ms）"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "方法"
+        },
+        "path": {
+          "label": "路径"
+        },
+        "headers": {
+          "label": "请求头",
+          "help": "添加到连接的请求头中。"
+        },
+        "contentType": {
+          "label": "正文类型"
+        },
+        "body": {
+          "label": "正文",
+          "help": "可使用 {item.name}、{item.uuid}、{trigger} 和 {time}。"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "无",
+          "application/x-www-form-urlencoded": "表单",
+          "text/plain": "文本"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "本演出：启动、停止和压低 Cue，并操作内部调音台。",
+      "actions": {
+        "play-item": "播放 Cue",
+        "stop-item": "停止 Cue",
+        "stop-all": "全部停止",
+        "pause-item": "暂停 Cue",
+        "resume-item": "继续 Cue",
+        "arm-next": "设为待播",
+        "duck-item": "压低 Cue",
+        "bus-level": "设置总线推子",
+        "bus-mute": "总线静音 / 取消静音",
+        "bus-send": "设置发送电平",
+        "bus-route": "路由总线",
+        "bus-dsp": "设置总线处理",
+        "master-level": "设置主控电平",
+        "stop-fade-mode": "设置 Stop All 淡出模式"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        },
+        "level": {
+          "label": "电平",
+          "help": "相对于 Cue 自身的音量：0 恢复原音量，-90 使其静音。仅作用于正在播放的 Cue，不会更改其保存的音量。"
+        },
+        "fade": {
+          "label": "交叉淡化",
+          "help": "0 表示立即改变；更长的时间会从当前值渐变。"
+        },
+        "bus": {
+          "label": "总线"
+        },
+        "state": {
+          "label": "状态"
+        },
+        "send": {
+          "label": "发送到",
+          "help": "该总线现有的发送；请先在调音台中添加。"
+        },
+        "to": {
+          "label": "送往"
+        },
+        "param": {
+          "label": "设置项"
+        },
+        "value": {
+          "label": "值",
+          "help": "使用该设置自身的单位；开关为 0（关）或 1（开）。"
+        },
+        "mode": {
+          "label": "被停止的提示音淡出方式",
+          "help": "设置 > 播放：Stop All 和“停止所有其他”闪避使用的淡出。紧急停止总是立即切断。"
+        },
+        "stopFade": {
+          "label": "被停止的提示音淡出方式"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "静音",
+          "unmute": "取消静音"
+        },
+        "param": {
+          "eqEnabled": "EQ 开启 (0/1)",
+          "dynEnabled": "动态开启 (0/1)",
+          "hpf_freq": "高通频率 (20–2000 Hz)",
+          "lpf_freq": "低通频率 (1000–24000 Hz)",
+          "gate_on": "噪声门开启 (0/1)",
+          "gate_threshold": "噪声门阈值 (-80–0 dB)",
+          "gate_range": "噪声门范围 (-80–0 dB)",
+          "comp_on": "压缩器开启 (0/1)",
+          "comp_threshold": "压缩器阈值 (-60–0 dB)",
+          "comp_ratio": "压缩器比率 (1–60 :1)",
+          "comp_makeup": "压缩器补偿增益 (-12–24 dB)",
+          "width_width": "立体声宽度 (0–2 ×)"
+        },
+        "mode": {
+          "item": "每个提示音自己的停止按钮淡出",
+          "global": "Stop All 淡出",
+          "toggle": "在两者之间切换"
+        },
+        "stopFade": {
+          "show": "Stop All 淡出",
+          "cue": "每个提示音自己的停止按钮淡出，或立即停止"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12、XR16、XR18 和 Midas MR 调音台：快照、推子、发送、FX、路由和 USB 录音机。",
+      "actions": {
+        "snapshot": "调用快照",
+        "fader": "设置推子",
+        "send": "设置发送电平",
+        "mute": "静音 / 取消静音",
+        "recorder": "USB 录音机",
+        "fx-type": "设置 FX 类型",
+        "fx-param": "设置 FX 参数",
+        "route-output": "路由输出",
+        "route-main": "路由主输出",
+        "check": "检查连接"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "调音台地址"
+        },
+        "port": {
+          "label": "端口"
+        },
+        "maxLevelDb": {
+          "label": "最大电平",
+          "help": "事件设置的推子或发送电平都不会超过此值。"
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "快照"
+        },
+        "strip": {
+          "label": "通道"
+        },
+        "level": {
+          "label": "电平",
+          "help": "-90 表示关闭（-inf）。受连接的最大电平限制。"
+        },
+        "fade": {
+          "label": "交叉淡化",
+          "help": "0 表示立即改变；更长的时间会从当前值渐变。"
+        },
+        "send": {
+          "label": "发送到"
+        },
+        "state": {
+          "label": "状态"
+        },
+        "command": {
+          "label": "命令",
+          "help": "录制到调音台上插入的 USB 驱动器。"
+        },
+        "slot": {
+          "label": "FX 槽位"
+        },
+        "type": {
+          "label": "效果"
+        },
+        "param": {
+          "label": "参数"
+        },
+        "value": {
+          "label": "值",
+          "help": "使用参数自身的单位（显示在旁边）；开关为 0/1，选项从 0 开始计数。"
+        },
+        "output": {
+          "label": "输出"
+        },
+        "source": {
+          "label": "信号源",
+          "help": "USB 发送不能使用 USB 返回作为信号源。"
+        },
+        "tap": {
+          "label": "取样点"
+        },
+        "assign": {
+          "label": "主输出信号源"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "静音",
+          "unmute": "取消静音"
+        },
+        "command": {
+          "record": "录音",
+          "stop": "停止",
+          "record-pause": "暂停录音",
+          "play": "播放",
+          "play-pause": "暂停播放"
+        },
+        "tap": {
+          "keep": "不更改",
+          "0": "模拟输入",
+          "1": "模拟输入 + 静音",
+          "2": "输入",
+          "3": "输入 + 静音",
+          "4": "EQ 前",
+          "5": "EQ 前 + 静音",
+          "6": "EQ 后",
+          "7": "EQ 后 + 静音",
+          "8": "推子前",
+          "9": "推子前 + 静音",
+          "10": "推子后"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "监听",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

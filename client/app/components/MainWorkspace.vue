@@ -175,6 +175,8 @@
 </template>
 
 <script setup lang="ts">
+import { isTabTarget, itemsOnTab, tabIdOfTarget, tabsOf } from '~/utils/tabs';
+import { shouldIgnoreHotkey } from '~/utils/hotkeyGuard';
 import LocationChoiceModal from './LocationChoiceModal.vue';
 import ServerFilePickerModal from './ServerFilePickerModal.vue';
 import {
@@ -196,6 +198,7 @@ const {
   copyItemsToClipboard,
   pasteItemsFromClipboard,
   requestDeleteFromKeyboard,
+  projectEpoch,
 } = useProject();
 const { triggerByUuid, triggerByIndex, stopCue, stopAllCues, playCue } = useAudioEngine();
 const { getCartItem, cartOnlyItems, updateCartOnlyItem } = useCartItems();
@@ -778,12 +781,57 @@ const isCartWindowMode = import.meta.client
   ? new URLSearchParams(window.location.search).get('cartWindow') === '1'
   : false;
 
-watch(currentProject, (project) => {
+// Playlist tabs open in their own windows, which need their cues' waveforms.
+const poppedOutPlaylistTabs = ref<string[]>([]);
+if (import.meta.client) {
+  (window as any).electronAPI?.onTabWindowsChanged?.((_e: unknown, keys: string[]) => {
+    poppedOutPlaylistTabs.value = keys
+      .filter(k => k.startsWith('playlist:'))
+      .map(k => k.slice('playlist:'.length));
+  });
+}
+
+// Another show loaded while this one was open (from another client, say):
+// the tab windows belonged to the old one. Closing the project is handled in
+// the main process, which sees the sync go to null. The epoch also moves when
+// the same show is re-read (a reconnect, a document re-sent), which must leave
+// the windows alone, hence comparing where the show lives. The folder, as the
+// server reports it every time; a pop-out whose tab isn't in the new show
+// closes itself anyway (useShowTabs).
+// Which show, by its id (R2-12); by the folder only for a server that sends
+// none. Two shows in one folder are two shows: a pop-out of the first one's
+// "default" tab used to survive a switch to the other (N-C13).
+const shownShowKey = () => {
+  const p = currentProject.value as any;
+  return p?.showId ? `id:${p.showId}` : `path:${p?.folderPath ?? ''}`;
+};
+let shownShow = shownShowKey();
+watch(projectEpoch, () => {
+  const key = shownShowKey();
+  if (key !== shownShow && import.meta.client && !isCartWindowMode) {
+    (window as any).electronAPI?.closeTabWindows?.();
+  }
+  shownShow = key;
+});
+
+watch([currentProject, poppedOutPlaylistTabs], ([project]) => {
   // Only sync from main window, not from detached cart window
   if (!import.meta.client || !window.electronAPI || !project || isCartWindowMode) return;
   const cartReferenced = new Set<string>(
     (project.cartItems || []).map((ci: any) => ci.itemUuid).filter(Boolean)
   );
+  const tabs = tabsOf(project);
+  const keepAll = (list: any[]) => {
+    for (const it of list) {
+      cartReferenced.add(it.uuid);
+      if (it.children) keepAll(it.children);
+    }
+  };
+  for (const tabId of poppedOutPlaylistTabs.value) keepAll(itemsOnTab(project.items || [], tabs, tabId));
+  // Carts bound to a whole tab show its cues too.
+  for (const c of project.cartItems || []) {
+    if (isTabTarget(c.itemUuid)) keepAll(itemsOnTab(project.items || [], tabs, tabIdOfTarget(c.itemUuid)));
+  }
   const data = {
     ...project,
     items: stripWaveformsKeeping(project.items || [], cartReferenced),
@@ -794,16 +842,12 @@ watch(currentProject, (project) => {
   window.electronAPI.syncProjectData(JSON.parse(JSON.stringify(data)));
 }, { deep: true, immediate: true });
 
-// True when the user is typing in a text field — selection/clipboard
-// shortcuts must defer to native editing behaviour there.
-const isTextInputFocused = (): boolean => {
-  const el = document.activeElement as HTMLElement | null;
-  if (!el) return false;
-  const tag = el.tagName.toLowerCase();
-  return tag === 'input' || tag === 'textarea' || el.isContentEditable;
-};
-
+// Which keys are not ours (typing in a field, choosing in a select or a list,
+// a popover's own Esc, a key something already handled) is decided in one
+// place, utils/hotkeyGuard, shared with the transport and cart keys.
 const handleKeydown = (e: KeyboardEvent) => {
+  if (e.defaultPrevented) return;
+
   // Save on F1 key (alternative to big play button)
   if (e.key === 'F1') {
     e.preventDefault();
@@ -814,19 +858,26 @@ const handleKeydown = (e: KeyboardEvent) => {
     return;
   }
 
+  // Everything below defers to the control with focus: native editing in a
+  // field, a select or a list of events choosing with its own keys.
+  if (shouldIgnoreHotkey(e)) return;
+
+  // Show Mode locks the show: nothing here may delete, duplicate or paste.
+  // Selecting and copying change nothing, so they still work.
+  const locked = uiMode.value === 'playback';
+
   // Delete / Backspace removes the current selection. A multi-selection opens
-  // the confirm dialog; a single item is removed outright. Must defer to
-  // native editing inside text fields.
+  // the confirm dialog; a single item is removed outright.
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (isTextInputFocused() || !currentProject.value) return;
+    if (!currentProject.value || locked) return;
     if (requestDeleteFromKeyboard()) e.preventDefault();
     return;
   }
 
-  // Selection / clipboard shortcuts. These all require a project and must not
-  // fire while editing text (so native Ctrl+A/C/V keep working in inputs).
+  // Selection / clipboard shortcuts. These all require a project (and, per
+  // the guard above, keep native Ctrl+A/C/V working in inputs).
   const ctrl = e.ctrlKey || e.metaKey;
-  if (!ctrl || e.altKey || !currentProject.value || isTextInputFocused()) return;
+  if (!ctrl || e.altKey || !currentProject.value) return;
 
   const key = e.key.toLowerCase();
 
@@ -835,6 +886,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     selectAllItems();
   } else if (key === 'd') {
     e.preventDefault();
+    if (locked) return;
     const uuids = Array.from(selectedItems.value);
     if (uuids.length > 0) duplicateItems(uuids);
   } else if (key === 'c') {
@@ -845,6 +897,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     }
   } else if (key === 'v') {
     e.preventDefault();
+    if (locked) return;
     void pasteItemsFromClipboard();
   }
 };
@@ -906,8 +959,10 @@ function openOutputMap() {
 // a project is open, which was the real precondition all along.
 //
 // Exactly one owner per window. The detached cart window has no MainWorkspace,
-// so CartPlayer still mounts them there, and only when detached — so the two
-// never both claim the same window.
+// so CartPlayer still mounts the keys there, and only when detached — so the
+// two never both claim the same window. MIDI has one owner for the whole app:
+// this, in the main window. Every window that listens hears every message, so
+// a second listener fired each GO twice.
 const { mount: mountHotkeys, unmount: unmountHotkeys } = useCartHotkeys();
 const { mount: mountMidi, unmount: unmountMidi } = useMidiController();
 

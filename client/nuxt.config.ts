@@ -33,7 +33,10 @@ export default defineNuxtConfig({
     // assets/ lives at the project root (shared with Electron), so use the
     // rootDir alias (~~) rather than the srcDir alias (~), which now points
     // at app/ under Nuxt 4.
-    '~~/assets/styles/main.scss'
+    '~~/assets/styles/main.scss',
+    // The Properties panel's timeline editors (Playback, Events) share one
+    // frame; see the header of the file.
+    '~~/assets/styles/timeline.scss'
   ],
 
   vite: {

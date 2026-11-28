@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "Fsheh numërimin mbrapsht „Heshtje pas” në kokën e faqes.",
     "transitionMode": "Kalimi i parazgjedhur",
     "transitionModeHelp": "Si kalojnë te pjesa tjetër pjesët e sapoimportuara. Mund ta ndryshoni për çdo pjesë te Vetitë.",
+    "goContinuesFrom": "GO me disa cue që luajnë",
+    "goContinuesFromEarliest": "Vazhdo nga cue që nisi i pari",
+    "goContinuesFromLatest": "Vazhdo nga cue që nisi i fundit",
+    "goContinuesFromHelp": "Kur luajnë më shumë se një cue dhe asgjë nuk është vendosur si Tjetri, nga cili vazhdojnë GO dhe Tjetri. Sipërfaqet e kontrollit dhe MIDI ndjekin të njëjtën zgjedhje.",
     "transitionModeCrossfade": "Crossfade te tjetra",
     "transitionModeStartNext": "Nis tjetrën te shënuesi",
     "autoCueNext": "Cakto gjithmonë elementin pasues si Në radhë",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "Serveri me të cilin është lidhur aplikacioni dhe, për administratorët, konfigurimi i tij.",
     "sectionUsers": "Llogaritë",
     "sectionUsersHelp": "Kush mund ta përdorë këtë server dhe çfarë mund të ndryshojë.",
+    "stopAllFiresEvents": "Ndalo të gjitha aktivizon ngjarjet «Kur mbaron»",
+    "stopAllFiresEventsHelp": "Kur është i çaktivizuar, cue-të që ndalon Ndalo të gjitha nuk aktivizojnë ngjarje «Kur mbaron». Kur është i aktivizuar, i aktivizojnë, por asnjë nuk mund të nisë një cue tjetër. Shtypja sërish e Ndalo të gjitha para se të mbarojë është panik: gjithçka ndalon menjëherë dhe asnjë ngjarje nuk aktivizohet.",
     "stopAllStopsPreview": "Ndalo të gjitha ndalon edhe paradëgjimin",
     "stopAllStopsPreviewHelp": "Kur është i çaktivizuar, Ndalo të gjitha nuk e ndalon një cue që po e paradëgjoni.",
     "sectionAppearance": "Pamja",
@@ -169,13 +175,30 @@
     "accentColorHelp": "Përdoret për përzgjedhjet, cue-të që luhen dhe theksimet.",
     "accentColorSwatch": "Ngjyra e theksit {color}",
     "sectionAbout": "Rreth",
-    "sectionAboutHelp": "Versioni, kontribuesit dhe licenca."
+    "sectionAboutHelp": "Versioni, kontribuesit dhe licenca.",
+    "sectionConnections": "Lidhjet",
+    "stopAllUsesItemFade": "Cue-të e ndaluara përdorin zbehjen e tyre të butonit Stop",
+    "stopAllUsesItemFadeHelp": "Kur është aktive, Stop All dhe mënyra e ducking-ut “Ndalo të gjitha të tjerat” e zbehin çdo cue me zbehjen e tij të butonit Stop. Cue-të pa një të tillë përdorin zbehjen e Stop All. Shtypja dy herë e Stop All gjithsesi i ndalon të gjitha menjëherë.",
+    "thisComputer": "Ky kompjuter",
+    "scopeYou": "Personale",
+    "scopeShow": "Kjo shfaqje",
+    "scopeServer": "Serveri",
+    "groupLanguageLayout": "Gjuha dhe struktura",
+    "groupDisplay": "Pamja në ekran",
+    "groupGoUpNext": "GO dhe Në radhë",
+    "groupNewCues": "Cue të reja",
+    "groupLoudness": "Fortësia dhe matja",
+    "groupRouting": "Drejtimi dhe timecode",
+    "groupConnection": "Lidhja",
+    "sectionPlaybackIntro": "Si nisin, ndalojnë dhe ia lënë radhën njëra-tjetrës cue-të, dhe me çfarë cilësimesh nisin cue-të e reja.",
+    "disableAutoVolumeAndTrimHelp": "Cue-të e reja mbajnë nivelin dhe gjatësinë e vetë skedarit. Mund ta nivelizoni ose ta shkurtoni çdo cue te skeda e saj Luajtja."
   },
   "common": {
     "default": "parazgjedhje",
     "loading": "Po ngarkohet…",
     "error": "Gabim",
-    "cancel": "Anulo"
+    "cancel": "Anulo",
+    "moreInfo": "Më shumë informacion"
   },
   "project": {
     "enterName": "Shkruani emrin e projektit",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "Drejtuar te një bus që mungon",
     "newGroup": "Grup i ri"
   },
+  "tabs": {
+    "playlistLabel": "Skedat e listës së luajtjes",
+    "cartLabel": "Faqet e cart-it",
+    "add_playlist": "Shto skedë të listës së luajtjes",
+    "add_cart": "Shto faqe cart-i",
+    "limitReached": "Keni arritur numrin maksimal të skedave.",
+    "defaultPlaylist": "Lista e luajtjes {n}",
+    "defaultPage": "Faqja {n}",
+    "edit": "Përpuno skedën",
+    "name": "Emri",
+    "colour": "Ngjyra",
+    "noColour": "Pa ngjyrë",
+    "cartCount": "Numri i cart-eve",
+    "fewer": "Më pak cart-e",
+    "more": "Më shumë cart-e",
+    "cartCountFloor": "Nuk mund të zbresë nën {n}: ka një cart në atë vend.",
+    "atEnd": "Pas cue-së së fundit",
+    "atEndWrap": "Kthehu në krye të kësaj skede",
+    "atEndContinue": "Vazhdo te skeda tjetër",
+    "atEndStop": "Ndalo",
+    "popOut": "Hape në dritare të re",
+    "delete": "Fshi skedën",
+    "deleteYes": "Fshi",
+    "deleteEmpty": "Të fshihet „{name}”?",
+    "deleteConfirm_playlist": "Të fshihet „{name}” dhe elementet e saj ({count})?",
+    "deleteConfirm_cart": "Të fshihet „{name}” dhe cart-et e saj ({count})?",
+    "deletePlaying": "Diçka po luhet në këtë skedë. Ndaleni më parë.",
+    "upNextOn": "Në radhë: {name}",
+    "following": "Po ndiqet {name}",
+    "followLost": "{name} është jashtë linje",
+    "followStop": "Ndalo ndjekjen",
+    "followSetting": "Ndiq skedat e një operatori tjetër",
+    "followOff": "Joaktiv",
+    "followOffline": "jashtë linje",
+    "followHelp": "Kjo dritare shfaq të njëjtën skedë të listës së luajtjes dhe të njëjtën faqe cart-i si operatori që zgjidhni. Nëse klikoni vetë në një skedë, ndjekja ndalet.",
+    "followThisComputer": "Ruhet vetëm në këtë kompjuter.",
+    "followSession": "{name} (sesioni {n})",
+    "editPage": "Përpuno faqen",
+    "deletePage": "Fshi faqen",
+    "limitReachedPages": "Keni arritur numrin maksimal të faqeve.",
+    "deletePlayingPage": "Diçka po luhet në këtë faqe. Ndaleni më parë.",
+    "deleteConfirmCue": "Të fshihet „{name}” dhe cue-ja e saj?",
+    "deleteConfirmCues": "Të fshihet „{name}” dhe {count} cue-të e saj?",
+    "deleteConfirmCart": "Të fshihet „{name}” dhe cart-i i saj?",
+    "deleteConfirmCarts": "Të fshihet „{name}” dhe {count} cart-et e saj?",
+    "colourN": "Ngjyra {n}",
+    "pageFull": "„{name}” është plot"
+  },
   "cart": {
     "title": "Cart player",
+    "clickToImportOrPlaylist": "Klikoni për të importuar ose tërhiqni këtu një element, një grup ose një skedë të listës së luajtjes",
+    "startPlaylist": "Bëje këtë cart të nisë një listë luajtjeje",
+    "playlistSlot": "Ky cart nis një skedë të tërë të listës së luajtjes",
     "emptySlot": "Klikoni për të importuar ose tërhiqni një element këtu",
     "clickToImport": "Klikoni për të importuar ose tërhiqni një element këtu",
     "configureHotkeys": "Konfiguro tastet e shpejta",
@@ -217,7 +291,8 @@
     "conflict": "I caktuar tashmë te vendi {slot}",
     "reserved": "Ky kombinim tastesh është i rezervuar",
     "resetDefaults": "Rikthe parazgjedhjet",
-    "groupSlot": "Grup nga lista e luajtjes: luan të gjithë grupin nga ky vend"
+    "groupSlot": "Grup nga lista e luajtjes: luan të gjithë grupin nga ky vend",
+    "choosePlaylist": "Cila listë luajtjeje të niset?"
   },
   "behaviors": {
     "startPlayNext": "Fillim: luaj pasuesin",
@@ -239,6 +314,21 @@
     "startNextTitle": "Nis tjetrën: {time}",
     "loadingWaveform": "Po ngarkohet forma e valës…"
   },
+  "automation": {
+    "enable": "Automatizimi i volumit",
+    "enableHint": "Vizato një zarf volumi mbi formën e valës. Heqja e shenjës e anashkalon dhe i ruan pikat.",
+    "addKeyframe": "Shto pikë",
+    "addKeyframeHint": "Shto një pikë te kursori, ose te koka e luajtjes ndërsa cue luan.",
+    "removeKeyframe": "Hiq pikën",
+    "removeKeyframeHint": "Hiq pikën e zgjedhur ose atë te kursori. Kliku i djathtë mbi një pikë ose tasti Delete bëjnë të njëjtën gjë.",
+    "clear": "Pastro",
+    "clearHint": "Hiq të gjitha pikat.",
+    "clearConfirm": "Të hiqen të gjitha pikat e automatizimit të volumit në këtë cue?",
+    "previewFromCursor": "Paradëgjim nga kursori",
+    "previewFromCursorHint": "Luaj këtë cue nga kursori në busin e paradëgjimit, bashkë me automatizimin. Kliko në formën e valës për të vendosur kursorin.",
+    "previewUnavailable": "Kërkon një bus paradëgjimi të drejtuar në një dalje. Konfiguroje te mikseri.",
+    "stopPreview": "Ndalo paradëgjimin"
+  },
   "properties": {
     "title": "Vetitë",
     "resize": "Ndrysho madhësinë e panelit të vetive",
@@ -255,8 +345,8 @@
     "startBehavior": "Sjellja në fillim",
     "duckingBehavior": "Sjellja e ducking-ut",
     "fadeOutDuration": "Kohëzgjatja e fade-out",
-    "duckFadeIn": "Fade-in i ducking-ut",
-    "duckFadeOut": "Fade-out i ducking-ut",
+    "duckFadeIn": "Ul gjatë (sekonda)",
+    "duckFadeOut": "Kthehu gjatë (sekonda)",
     "children": "Elementet përbërëse",
     "seconds": "sekonda",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "Bën crossfade nga fundi i përsëritjes te fillimi i saj gjatë kaq sekondave. 0 përsërit pa crossfade.",
     "loopCrossfadeNeedsLoop": "Caktoni sjelljen në fund të këtij cue si Përsërit për të përdorur crossfade-in e përsëritjes.",
     "advanceDelay": "Prit para pasuesit (sekonda)",
-    "advanceDelayHint": "Pasi mbaron ky cue, pritet kaq kohë para se sjellja në fund të nisë cue-në pasues. Shpërfillet kur është caktuar crossfade ose Nis tjetrën."
+    "advanceDelayHint": "Pasi mbaron ky cue, pritet kaq kohë para se sjellja në fund të nisë cue-në pasues. Shpërfillet kur është caktuar crossfade ose Nis tjetrën.",
+    "duckTimesHint": "Sa kohë u duhet cue-ve të tjera të ulen kur nis ky cue dhe të kthehen kur ai mbaron.",
+    "volumeHelp": "Niveli i këtij cue. Tërhiqni fader-in ose shkruani një nivel në dB, p.sh. -6.5 (-inf për heshtje).",
+    "playFadeHelp": "Bën fade-in për cue-në gjatë kaq sekondave sa herë që nis. 0 nis me nivel të plotë.",
+    "stopFadeHelp": "Bën fade-out për cue-në gjatë kaq sekondave para pikës së daljes. 0 e luan deri në fund me nivel të plotë.",
+    "crossFadeHelp": "Gjatë kaq sekondave para pikës së daljes, ky cue zbehet ndërsa tjetri hyn sipër tij. 0 kalon pa mbivendosje.",
+    "startNextHelp": "Kur luajtja arrin te shënuesi, nis cue-ja tjetër ndërsa kjo vazhdon të luajë: një kalim si në radio.",
+    "duckModeHelp": "Çfarë u bën nisja e këtij cue cue-ve të tjera që po luajnë: i ndal, i lë ashtu, ose i ul në nivelin e ducking-ut derisa të mbarojë.",
+    "apiTriggerUrlHelp": "Dërgoni një kërkesë GET ose POST në këtë adresë për ta luajtur cue-në nga një sistem tjetër, një skript ose një shfletues.",
+    "groupTrim": "Shkurtimi",
+    "groupFades": "Zbehjet",
+    "groupStopLoop": "Ndalimi dhe përsëritja",
+    "groupTransition": "Kalimi"
   },
   "playback": {
     "panic": "Ndalo të gjitha cue-të",
@@ -449,7 +551,8 @@
     "noDevices": "Nuk u gjet asnjë pajisje daljeje",
     "silentServer": "Ekzekuto serverin në heshtje në zonën e njoftimeve",
     "silentServerHelp": "Nis serverin pa dritare konsole. Një ikonë në zonën e njoftimeve (shiriti i menysë në macOS) tregon se po punon, edhe pasi mbyllet LivePlay, dhe menyja e saj mund të shfaqë konsolën, të hapë regjistrat ose të ndalë serverin. Hyn në fuqi herën tjetër që niset serveri.",
-    "silentServerForced": "Aktiv për këtë seancë sepse LivePlay u nis me --silent."
+    "silentServerForced": "Aktiv për këtë seancë sepse LivePlay u nis me --silent.",
+    "localPortHelp": "Porta ku dëgjon motori audio i këtij kompjuteri. Ndryshojeni vetëm nëse e përdor tashmë një program tjetër."
   },
   "serverConfig": {
     "title": "Konfigurimi i serverit",
@@ -647,6 +750,7 @@
     "currentVersion": "Versioni aktual",
     "newVersion": "Versioni i ri",
     "whatsNew": "Ç'ka të re",
+    "seeWhatsNew": "Shihni çfarë ka të re në {version}",
     "updatePrompt": "Ka dalë një version i ri i LivePlay. Doni ta shkarkoni dhe ta instaloni tani?",
     "manualUpdatePrompt": "Ka dalë një version i ri i LivePlay. Klikoni më poshtë për të hapur faqen e shkarkimit.",
     "downloading": "Po shkarkohet përditësimi",
@@ -689,6 +793,9 @@
     "title": "Konfiguro kontrollet",
     "tabKeyboard": "Tastiera",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "Taste të fiksuara te një cart",
+    "pinnedCartsHelp": "Një tast i fiksuar aktivizon atë cart nga çdo faqe. Tastet më sipër aktivizojnë një pozicion në faqen e shfaqur.",
+    "keyInUse": "Ky tast është tashmë në përdorim.",
     "sectionCartSlots": "Vendet e cart-it",
     "sectionPlayback": "Luajtja",
     "sectionVolume": "Volumi",
@@ -721,7 +828,10 @@
     "playNext": "Luaj pasuesin",
     "volumeMultiplier": "Shumëzuesi i volumit",
     "volumeMultiplierHint": "dB për çdo hap MIDI. Rriteni për enkoderë ose rrota që lëvizin me hapa të vegjël.",
-    "nextIn": "Tjetri pas {seconds} s"
+    "nextIn": "Tjetri pas {seconds} s",
+    "stopCurrentCue": "Ndalo cue-n aktual",
+    "conflictPinned": "I fiksuar tashmë te {cart}",
+    "midiDeviceHelp": "Kontrolluesi që dëgjon LivePlay. «Të gjitha pajisjet» dëgjon çdo kontrollues të lidhur."
   },
   "selectProject": {
     "title": "Zgjidhni projektin",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "Importo audio",
+    "notPlayable": "Nuk u importua: {files}. LivePlay luan skedarë WAV, AIFF, FLAC dhe MP3.",
     "tabServer": "Në server",
     "tabUpload": "Ngarko nga ky kompjuter",
     "serverHint": "Skedarë në server. Klikoni dy herë mbi një dosje për ta hapur. Përzgjidhni skedarët (Shift ose Ctrl/Cmd + klik për disa), pastaj klikoni Importo të përzgjedhurat.",
@@ -809,6 +920,15 @@
     "serverCloseServer": "Mbyll serverin",
     "serverCloseClient": "Mbyll vetëm klientin",
     "return": "Kthehu te projekti"
+  },
+  "openFileModal": {
+    "title": "Të hapet ky skedar?",
+    "message": "Hapja e {file} mbyll shfaqjen aktuale.",
+    "liveTitle": "Një shfaqje po luhet",
+    "liveMessage": "Po luhet: {cues}. Hapja e {file} mbyll këtë shfaqje dhe ndalon audion e saj.",
+    "andMore": "{cues} dhe {count} të tjera",
+    "keep": "Mbaj shfaqjen aktuale",
+    "open": "Mbyll shfaqjen dhe hap"
   },
   "deleteSelection": {
     "title": "Fshi elementet",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}: klikoni ose tërhiqeni për ta hapur",
     "emptyTitle": "Të gjitha panelet janë të palosura",
     "emptyHint": "Për të hapur një panel, klikoni ose tërhiqni një shirit në anë, ose përdorni butonat në krye."
+  },
+  "missingMedia": {
+    "badge": "Skedari media mungon. Zëvendësojeni te Vetitë ose përdorni Gjej mediat që mungojnë.",
+    "banner": "{count} skedarë media nuk gjenden.",
+    "locate": "Gjej…",
+    "locateHint": "Zgjidhni një dosje ku të kërkohen me emër skedarët që mungojnë. Skedarët jashtë projektit kopjohen në dosjen e tij të medias.",
+    "locateResult": "U rilidhën {relinked} element(e). Mungojnë ende: {missing}.",
+    "locateFailed": "Kërkimi në atë dosje nuk u krye: {error}",
+    "replace": "Zëvendëso skedarin media",
+    "replaceFailed": "Skedari media nuk u zëvendësua dot: {error}",
+    "propertiesHint": "Serveri nuk e gjen këtë skedar. Përdorni butonin e zëvendësimit për ta zgjedhur sërish."
+  },
+  "events": {
+    "tab": "Ngjarjet",
+    "addEvent": "Shto ngjarje",
+    "addEventHint": "Shton një ngjarje te kursori. Klikoni te forma e valës për të vendosur kursorin.",
+    "addTriggerEvent": "Shto kur…",
+    "cursor": "Kursori",
+    "cursorHint": "Klikoni ose tërhiqni te forma e valës për të lëvizur kursorin, ose shkruani një kohë në formatin m:ss.mmm ose në sekonda.",
+    "manageConnections": "Menaxho lidhjet…",
+    "multiSelect": "Përzgjidhni vetëm një element për të përpunuar ngjarjet e tij.",
+    "noEvents": "Ende nuk ka ngjarje. Klikoni te forma e valës për të vendosur kursorin, pastaj shtypni Shto ngjarje.",
+    "selectEvent": "Përzgjidhni një ngjarje për ta përpunuar.",
+    "unsupported": "Ky server nuk i mbështet ngjarjet. Përditësoni serverin LivePlay për t'i përdorur.",
+    "noPlugins": "Serveri nuk ka plugin-e ngjarjesh.",
+    "loadFailed": "Plugin-et e ngjarjeve nuk u ngarkuan dot nga serveri.",
+    "loading": "Po ngarkohen plugin-et e ngjarjeve…",
+    "retry": "Riprovo",
+    "trigger": {
+      "label": "Shkaktari",
+      "time": "Në një kohë të caktuar",
+      "start": "Kur nis",
+      "end": "Kur mbaron",
+      "pause": "Kur pauzohet",
+      "resume": "Kur vazhdon"
+    },
+    "name": "Emri",
+    "enabled": "Aktiv",
+    "time": "Koha",
+    "timeHint": "Pozicioni në skedar, në formatin m:ss.mmm ose në sekonda. Jashtë pikave të hyrjes dhe daljes ngjarja nuk aktivizohet kurrë.",
+    "useCursor": "Zhvendose te kursori",
+    "plugin": "Plugin",
+    "connection": "Lidhja",
+    "noConnection": "Pa lidhje",
+    "connectionMissing": "Lidhja nuk u gjet",
+    "connectionDisabled": "Kjo lidhje është e çaktivizuar, prandaj ngjarja nuk do të aktivizohet.",
+    "noConnectionsForPlugin": "Ende nuk ka lidhje {plugin}.",
+    "action": "Veprimi",
+    "preset": "Paracaktim",
+    "presetNone": "Asnjë (i personalizuar)",
+    "presetSave": "Ruaji këto cilësime si paracaktim",
+    "presetSaveConfirm": "Ruaj paracaktimin",
+    "presetMissing": "Paracaktimi nuk u gjet",
+    "presetMissingHelp": "Paracaktimi i kësaj ngjarjeje nuk ekziston më, prandaj nuk do të aktivizohet. Zgjidhni një paracaktim tjetër ose Asnjë.",
+    "presetInUse": "Përdor paracaktimin „{name}”",
+    "presetEdit": "Përpuno paracaktimin",
+    "presetDetach": "Bëje të personalizuar",
+    "unknownPlugin": "Kjo ngjarje përdor plugin-in „{plugin}”, të cilin ky server nuk e ka. Nuk do të aktivizohet.",
+    "outsideTrim": "Jashtë pikave të hyrjes dhe daljes: kjo ngjarje nuk do të aktivizohet.",
+    "placeholdersHelp": "Fushat e tekstit mund të përdorin {item.name}, {item.uuid}, {trigger} dhe {time}; serveri i plotëson kur aktivizohet ngjarja.",
+    "test": "Testo",
+    "testing": "Po testohet…",
+    "testOk": "U dërgua.",
+    "testFailed": "Dështoi: {error}",
+    "duplicate": "Dyfisho",
+    "delete": "Fshi",
+    "lastOk": "Aktivizimi i fundit në {time}: OK",
+    "lastError": "Aktivizimi i fundit në {time}: dështoi: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(elementi nuk u gjet)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Shto",
+      "removeRow": "Hiq",
+      "moveUp": "Lëviz lart",
+      "moveDown": "Lëviz poshtë",
+      "refreshOptions": "Lexo sërish listën nga pajisja"
+    },
+    "connections": {
+      "intro": "Ku dërgohen ngjarjet: te një konsolë ndriçimi, një portë MIDI, një web hook. Çdo lidhje ujdiset një herë për shfaqjen dhe mund të përdoret nga sa ngjarje të doni.",
+      "noProject": "Hapni një projekt për të menaxhuar lidhjet e tij.",
+      "empty": "Ende nuk ka lidhje.",
+      "add": "Shto lidhje",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Lidhje e re {plugin}",
+      "editTitle": "Përpuno „{name}”",
+      "name": "Emri",
+      "enabled": "Aktive",
+      "disabled": "joaktive",
+      "edit": "Përpuno",
+      "save": "Ruaj",
+      "cancel": "Anulo",
+      "delete": "Fshi",
+      "deleteConfirm": "Të fshihet „{name}”?",
+      "deleteInUse": "„{name}” përdoret nga {count} ngjarje. Ato nuk do të aktivizohen derisa t'u jepet një lidhje tjetër. Të fshihet gjithsesi?",
+      "usage": "{count} ngjarje",
+      "unused": "E papërdorur",
+      "unknownPlugin": "Lloj i panjohur „{plugin}”",
+      "noFields": "Ky lloj nuk ka asgjë për t'u ujdisur.",
+      "addressDropsCredentials": "Ruajtja e kësaj adrese të re heq kredencialet e ruajtura nga kjo lidhje dhe nga ngjarjet që e përdorin. Do t'ju kërkohet t'i fusni përsëri.",
+      "testWith": "Testo me",
+      "saveFailed": "Lidhjet nuk u ruajtën dot: {error}",
+      "discover": "Gjej në rrjet",
+      "discoverNone": "Nuk u gjet asgjë. Kontrolloni që pajisja të jetë e ndezur dhe në të njëjtin rrjet me serverin.",
+      "discoverFailed": "Kërkimi në rrjet nuk u krye: {error}",
+      "discoverUsed": "Po përdoret {device}.",
+      "presets": "Paracaktimet",
+      "presetsHelp": "Cilësime për t’u ripërdorur në ngjarje të ndryshme. Kur ndryshoni një paracaktim, e ndjekin të gjitha ngjarjet që e përdorin.",
+      "presetAdd": "Shto paracaktim",
+      "presetName": "Emri i paracaktimit",
+      "presetDone": "U krye",
+      "presetDelete": "Fshi paracaktimin (ngjarjet e tij i mbajnë këto cilësime)",
+      "enabledFor": "{name} aktive",
+      "editNamed": "Përpuno {name}",
+      "deleteNamed": "Fshi {name}",
+      "authRejected": "Kredencialet u refuzuan",
+      "authMissing": "I duhen kredencialet",
+      "signIn": "Hyr",
+      "signInRejectedHelp": "Pajisja i refuzoi këto kredenciale. Futini sërish te Header-at; ato të ruajturat shfaqen si pika.",
+      "signInMissingHelp": "Kredencialet e kësaj shfaqjeje u enkriptuan në një makinë tjetër, ndaj kjo nuk mund t'i përdorë. Futini sërish te Header-at.",
+      "signInMany": "{count} lidhjeve u duhen futur sërish kredencialet.",
+      "signInRejected": "„{name}” i refuzoi kredencialet. Hyni sërish që ngjarjet e saj të vazhdojnë të funksionojnë.",
+      "signInMissing": "Për „{name}” duhen futur kredencialet në këtë makinë.",
+      "signInWaiting": "„{name}” kërkon hyrje. Do të hapet këtu sapo të ruani ose të anuloni ndryshimet në këtë lidhje.",
+      "signInLater": "Jo tani",
+      "signInDiscard": "Hidh poshtë ndryshimet dhe hyr",
+      "nameHelp": "Emri me të cilin shfaqet kjo lidhje kur zgjidhni një për një ngjarje.",
+      "enabledHelp": "Kur është e çaktivizuar, asgjë nuk dërgohet te kjo lidhje dhe ngjarjet e saj nuk aktivizohen."
+    },
+    "zoom": "Zmadhimi",
+    "zoomIn": "Zmadho",
+    "zoomOut": "Zvogëlo",
+    "zoomFit": "Shfaq gjithë skedarin",
+    "scroll": "Lëviz vijën kohore",
+    "navHint": "Rrotulloni për zmadhim · Shift + rrotullim ose tërheqje me butonin e mesit për ta lëvizur",
+    "deleted": "„{name}” u fshi.",
+    "undo": "Zhbëje",
+    "deviceTimeout": "Pajisja nuk u përgjigj në kohë.",
+    "headers": {
+      "name": "Emri",
+      "value": "Vlera",
+      "valueFor": "Vlera e {name}",
+      "secret": "Ruhet e enkriptuar, shfaqet si pika",
+      "secretPlaceholder": "Fjalëkalim, token ose çelës",
+      "remove": "Hiq header-in",
+      "add": "Shto header",
+      "rawLine": "Rresht header-i"
+    },
+    "groupWhen": "Kur",
+    "groupCommand": "Komanda",
+    "triggerHelp": "Kur aktivizohet ngjarja: në një moment të skedarit, ose kur cue nis, ndalet përkohësisht, rifillon ose mbaron."
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control përmes UDP: konsola ndriçimi, QLab, Companion e të tjera.",
+      "actions": {
+        "message": "Dërgo mesazh"
+      },
+      "connection": {
+        "host": {
+          "label": "Hosti"
+        },
+        "port": {
+          "label": "Porta"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adresa"
+        },
+        "args": {
+          "label": "Argumentet",
+          "help": "Vlerat varg mund të përdorin {item.name}, {item.uuid}, {trigger} dhe {time}."
+        },
+        "type": {
+          "label": "Lloji"
+        },
+        "value": {
+          "label": "Vlera"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Numër i plotë",
+          "f": "Numër dhjetor",
+          "s": "Varg",
+          "T": "E vërtetë",
+          "F": "E rreme",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Dalje MIDI nga kompjuteri i serverit: nota, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (i papërpunuar)"
+      },
+      "summaries": {
+        "note-on": "kan. {channel} nota {note}",
+        "note-off": "kan. {channel} nota {note}",
+        "control-change": "kan. {channel} CC {controller} = {value}",
+        "program-change": "kan. {channel} programi {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Porta e daljes",
+          "help": "Portat e kompjuterit ku punon serveri LivePlay, të përputhura sipas emrit."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanali"
+        },
+        "note": {
+          "label": "Nota"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Kontrolluesi"
+        },
+        "value": {
+          "label": "Vlera"
+        },
+        "program": {
+          "label": "Programi"
+        },
+        "deviceId": {
+          "label": "ID e pajisjes",
+          "help": "127 u drejtohet të gjitha pajisjeve."
+        },
+        "commandFormat": {
+          "label": "Formati i komandës"
+        },
+        "command": {
+          "label": "Komanda"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Lista e cue-ve"
+        },
+        "path": {
+          "label": "Shtegu i cue-së"
+        },
+        "data": {
+          "label": "Bajtë (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Ndriçim (i përgjithshëm)",
+          "moving-lights": "Drita lëvizëse",
+          "sound": "Zë (i përgjithshëm)",
+          "video": "Video (e përgjithshme)",
+          "all": "Të gjitha llojet"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Kërkesa HTTP drejt çdo gjëje me API web: Companion, serverë media, automatizim shtëpiak.",
+      "actions": {
+        "request": "Kërkesë"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL-ja bazë",
+          "help": "Vetëm http://; HTTPS nuk mbështetet ende."
+        },
+        "headers": {
+          "label": "Header-at",
+          "help": "Dërgohen me çdo kërkesë. Fjalëkalimet, tokenët dhe çelësat ruhen të enkriptuar dhe shfaqen si pika."
+        },
+        "timeoutMs": {
+          "label": "Afati (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metoda"
+        },
+        "path": {
+          "label": "Shtegu"
+        },
+        "headers": {
+          "label": "Header-at",
+          "help": "U shtohen header-ave të lidhjes."
+        },
+        "contentType": {
+          "label": "Lloji i trupit"
+        },
+        "body": {
+          "label": "Trupi",
+          "help": "Mund të përdorë {item.name}, {item.uuid}, {trigger} dhe {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Asnjë",
+          "application/x-www-form-urlencoded": "Formular",
+          "text/plain": "Tekst"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Kjo shfaqje: nisja, ndalimi dhe ducking-u i cue-ve, si dhe mikseri i brendshëm.",
+      "actions": {
+        "play-item": "Luaj cue-në",
+        "stop-item": "Ndalo cue-në",
+        "stop-all": "Ndalo të gjitha",
+        "pause-item": "Pauzo cue-në",
+        "resume-item": "Vazhdo cue-në",
+        "arm-next": "Cakto Në radhë",
+        "duck-item": "Ducking për një cue",
+        "bus-level": "Cakto fader-in e bus-it",
+        "bus-mute": "Mute / unmute për një bus",
+        "bus-send": "Cakto nivelin e send-it",
+        "bus-route": "Drejto një bus",
+        "bus-dsp": "Cakto përpunimin e bus-it",
+        "master-level": "Cakto nivelin master",
+        "stop-fade-mode": "Cakto mënyrën e zbehjes së Stop All"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        },
+        "level": {
+          "label": "Niveli",
+          "help": "Në raport me volumin e vetë cue-së: 0 e kthen, -90 e hesht. Vetëm cue-ja që luhet; volumi i ruajtur nuk ndryshon."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 e ndryshon menjëherë; vlerat më të mëdha bëjnë fade nga pozicioni aktual."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Gjendja"
+        },
+        "send": {
+          "label": "Te",
+          "help": "Send-et ekzistuese të bus-it; shtoni fillimisht një te Mikseri."
+        },
+        "to": {
+          "label": "Shkon te"
+        },
+        "param": {
+          "label": "Cilësimi"
+        },
+        "value": {
+          "label": "Vlera",
+          "help": "Në njësinë e vetë cilësimit; çelësat janë 0 (joaktiv) ose 1 (aktiv)."
+        },
+        "mode": {
+          "label": "Cue-të e ndaluara zbehen me",
+          "help": "Cilësimet > Luajtja: me çfarë zbehjeje dalin Stop All dhe ducking-u “ndalo të gjitha të tjerat”. Paniku pret gjithmonë."
+        },
+        "stopFade": {
+          "label": "Cue-të e ndaluara zbehen me"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ aktiv (0/1)",
+          "dynEnabled": "Dinamika aktive (0/1)",
+          "hpf_freq": "Frekuenca high-pass (20–2000 Hz)",
+          "lpf_freq": "Frekuenca low-pass (1000–24000 Hz)",
+          "gate_on": "Gate aktiv (0/1)",
+          "gate_threshold": "Threshold i gate-it (-80–0 dB)",
+          "gate_range": "Range i gate-it (-80–0 dB)",
+          "comp_on": "Compressor aktiv (0/1)",
+          "comp_threshold": "Threshold i compressor-it (-60–0 dB)",
+          "comp_ratio": "Ratio i compressor-it (1–60 :1)",
+          "comp_makeup": "Makeup i compressor-it (-12–24 dB)",
+          "width_width": "Gjerësia stereo (0–2 ×)"
+        },
+        "mode": {
+          "item": "Zbehja e butonit Stop e çdo cue-je",
+          "global": "Zbehja e Stop All",
+          "toggle": "Ndërro mes të dyjave"
+        },
+        "stopFade": {
+          "show": "Zbehja e Stop All",
+          "cue": "Zbehja e butonit Stop e çdo cue-je, ose menjëherë"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Mikserët XR12, XR16, XR18 dhe Midas MR: snapshot-e, fader-a, send-e, FX, drejtimi dhe regjistruesi USB.",
+      "actions": {
+        "snapshot": "Rikthe snapshot-in",
+        "fader": "Cakto fader-in",
+        "send": "Cakto nivelin e send-it",
+        "mute": "Mute / unmute",
+        "recorder": "Regjistruesi USB",
+        "fx-type": "Cakto llojin e FX",
+        "fx-param": "Cakto parametrin e FX",
+        "route-output": "Drejto një dalje",
+        "route-main": "Drejto daljen kryesore",
+        "check": "Kontrollo lidhjen"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Adresa e mikserit"
+        },
+        "port": {
+          "label": "Porta"
+        },
+        "maxLevelDb": {
+          "label": "Niveli maksimal",
+          "help": "Asnjë fader ose send i caktuar nga një ngjarje nuk e kalon këtë nivel."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanali"
+        },
+        "level": {
+          "label": "Niveli",
+          "help": "-90 është off (-inf). Kufizohet nga niveli maksimal i lidhjes."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 e ndryshon menjëherë; vlerat më të mëdha bëjnë fade nga pozicioni aktual."
+        },
+        "send": {
+          "label": "Te"
+        },
+        "state": {
+          "label": "Gjendja"
+        },
+        "command": {
+          "label": "Komanda",
+          "help": "Regjistron në diskun USB në mikser."
+        },
+        "slot": {
+          "label": "Vendi i FX"
+        },
+        "type": {
+          "label": "Efekti"
+        },
+        "param": {
+          "label": "Parametri"
+        },
+        "value": {
+          "label": "Vlera",
+          "help": "Në njësinë e vetë parametrit (shfaqet pranë tij); çelësat janë 0/1, zgjedhjet numërohen nga 0."
+        },
+        "output": {
+          "label": "Dalja"
+        },
+        "source": {
+          "label": "Burimi",
+          "help": "Send-et USB nuk mund të marrin return-et USB."
+        },
+        "tap": {
+          "label": "Pika e marrjes"
+        },
+        "assign": {
+          "label": "Dalja kryesore mbart"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Regjistro",
+          "stop": "Ndalo",
+          "record-pause": "Pauzë regjistrimi",
+          "play": "Luaj",
+          "play-pause": "Pauzë luajtjeje"
+        },
+        "tap": {
+          "keep": "Mos ndrysho",
+          "0": "Hyrje analoge",
+          "1": "Hyrje analoge + mute",
+          "2": "Hyrja",
+          "3": "Hyrja + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

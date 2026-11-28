@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "헤더의 ‘무음까지’ 카운트다운을 숨깁니다.",
     "transitionMode": "기본 전환 모드",
     "transitionModeHelp": "새로 가져온 트랙이 다음 트랙으로 넘어가는 방식입니다. 트랙마다 속성에서 바꿀 수 있습니다.",
+    "goContinuesFrom": "여러 큐 재생 중의 GO",
+    "goContinuesFromEarliest": "가장 먼저 시작한 큐에서 계속",
+    "goContinuesFromLatest": "가장 나중에 시작한 큐에서 계속",
+    "goContinuesFromHelp": "둘 이상의 큐가 재생 중이고 다음 항목이 지정되지 않았을 때 GO와 다음 항목이 어느 큐에서 계속할지 정합니다. 컨트롤 서피스와 MIDI도 같은 선택을 따릅니다.",
     "transitionModeCrossfade": "다음으로 크로스페이드",
     "transitionModeStartNext": "마커에서 다음 시작",
     "autoCueNext": "항상 다음 항목을 대기로 설정",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "이 앱이 연결된 서버와, 관리자용 서버 구성입니다.",
     "sectionUsers": "계정",
     "sectionUsersHelp": "이 서버를 사용할 수 있는 사람과 각자 변경할 수 있는 항목입니다.",
+    "stopAllFiresEvents": "모두 정지 시 ‘종료 시’ 이벤트 실행",
+    "stopAllFiresEventsHelp": "끄면 모두 정지로 멈춘 큐는 ‘종료 시’ 이벤트를 실행하지 않습니다. 켜면 실행하지만 다른 큐를 시작할 수는 없습니다. 모두 정지가 끝나기 전에 다시 누르면 패닉이 되어 모든 것이 즉시 멈추고 어떤 이벤트도 실행되지 않습니다.",
     "stopAllStopsPreview": "모두 정지 시 미리 듣기도 정지",
     "stopAllStopsPreviewHelp": "끄면 모두 정지를 눌러도 미리 듣는 중인 큐는 멈추지 않습니다.",
     "sectionAppearance": "모양",
@@ -169,13 +175,30 @@
     "accentColorHelp": "선택 항목, 재생 중인 큐, 강조 표시에 사용됩니다.",
     "accentColorSwatch": "강조 색 {color}",
     "sectionAbout": "정보",
-    "sectionAboutHelp": "버전, 크레딧, 라이선스입니다."
+    "sectionAboutHelp": "버전, 크레딧, 라이선스입니다.",
+    "sectionConnections": "연결",
+    "stopAllUsesItemFade": "정지되는 큐는 각자의 정지 버튼 페이드를 사용",
+    "stopAllUsesItemFadeHelp": "켜면 Stop All과 '다른 모든 큐 정지' 더킹 모드가 각 큐를 해당 큐의 정지 버튼 페이드로 페이드아웃합니다. 페이드가 없는 큐는 Stop All 페이드를 사용합니다. Stop All을 두 번 누르면 여전히 모든 것이 즉시 정지합니다.",
+    "thisComputer": "이 컴퓨터",
+    "scopeYou": "개인",
+    "scopeShow": "이 쇼",
+    "scopeServer": "서버",
+    "groupLanguageLayout": "언어 및 레이아웃",
+    "groupDisplay": "표시",
+    "groupGoUpNext": "GO 및 대기",
+    "groupNewCues": "새 큐",
+    "groupLoudness": "라우드니스 및 미터링",
+    "groupRouting": "라우팅 및 타임코드",
+    "groupConnection": "연결",
+    "sectionPlaybackIntro": "큐가 시작하고 멈추며 다음 큐로 넘어가는 방식과 새 큐의 기본 설정입니다.",
+    "disableAutoVolumeAndTrimHelp": "새 큐는 파일 본래의 레벨과 길이를 유지합니다. 레벨 조정이나 자르기는 각 큐의 재생 탭에서 언제든 할 수 있습니다."
   },
   "common": {
     "default": "기본값",
     "loading": "불러오는 중…",
     "error": "오류",
-    "cancel": "취소"
+    "cancel": "취소",
+    "moreInfo": "자세한 정보"
   },
   "project": {
     "enterName": "프로젝트 이름 입력",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "누락된 버스로 라우팅됨",
     "newGroup": "새 그룹"
   },
+  "tabs": {
+    "playlistLabel": "재생 목록 탭",
+    "cartLabel": "카트 페이지",
+    "add_playlist": "재생 목록 탭 추가",
+    "add_cart": "카트 페이지 추가",
+    "limitReached": "탭 수가 최대에 도달했습니다.",
+    "defaultPlaylist": "재생 목록 {n}",
+    "defaultPage": "페이지 {n}",
+    "edit": "탭 편집",
+    "name": "이름",
+    "colour": "색상",
+    "noColour": "색상 없음",
+    "cartCount": "카트 수",
+    "fewer": "카트 줄이기",
+    "more": "카트 늘리기",
+    "cartCountFloor": "{n}개 미만으로 줄일 수 없습니다. 해당 위치에 카트가 있습니다.",
+    "atEnd": "마지막 큐 다음",
+    "atEndWrap": "이 탭의 처음으로 돌아가기",
+    "atEndContinue": "다음 탭으로 계속",
+    "atEndStop": "정지",
+    "popOut": "새 창에서 열기",
+    "delete": "탭 삭제",
+    "deleteYes": "삭제",
+    "deleteEmpty": "‘{name}’을(를) 삭제할까요?",
+    "deleteConfirm_playlist": "‘{name}’과(와) 항목 {count}개를 삭제할까요?",
+    "deleteConfirm_cart": "‘{name}’과(와) 카트 {count}개를 삭제할까요?",
+    "deletePlaying": "이 탭에서 재생 중인 항목이 있습니다. 먼저 정지하세요.",
+    "upNextOn": "대기: {name}",
+    "following": "{name} 따라가는 중",
+    "followLost": "{name} 오프라인",
+    "followStop": "따라가기 중지",
+    "followSetting": "다른 오퍼레이터의 탭 따라가기",
+    "followOff": "끔",
+    "followOffline": "오프라인",
+    "followHelp": "이 창에 선택한 오퍼레이터와 같은 재생 목록 탭과 카트 페이지를 표시합니다. 직접 탭을 클릭하면 따라가기가 중지됩니다.",
+    "followThisComputer": "이 컴퓨터에만 저장됩니다.",
+    "followSession": "{name} (세션 {n})",
+    "editPage": "페이지 편집",
+    "deletePage": "페이지 삭제",
+    "limitReachedPages": "페이지 수가 최대에 도달했습니다.",
+    "deletePlayingPage": "이 페이지에서 재생 중인 항목이 있습니다. 먼저 정지하세요.",
+    "deleteConfirmCue": "‘{name}’과(와) 그 안의 큐를 삭제할까요?",
+    "deleteConfirmCues": "‘{name}’과(와) 그 안의 큐 {count}개를 삭제할까요?",
+    "deleteConfirmCart": "‘{name}’과(와) 그 안의 카트를 삭제할까요?",
+    "deleteConfirmCarts": "‘{name}’과(와) 그 안의 카트 {count}개를 삭제할까요?",
+    "colourN": "색상 {n}",
+    "pageFull": "‘{name}’이(가) 가득 찼습니다"
+  },
   "cart": {
     "title": "카트 플레이어",
+    "clickToImportOrPlaylist": "클릭하여 가져오거나 항목, 그룹 또는 재생 목록 탭을 여기로 드래그하세요",
+    "startPlaylist": "이 카트로 재생 목록 시작",
+    "playlistSlot": "이 카트는 재생 목록 탭 전체를 시작합니다",
     "emptySlot": "클릭하여 가져오거나 항목을 여기로 드래그하세요",
     "clickToImport": "클릭하여 가져오거나 항목을 여기로 드래그하세요",
     "configureHotkeys": "단축키 설정",
@@ -217,7 +291,8 @@
     "conflict": "이미 슬롯 {slot}에 할당되어 있습니다",
     "reserved": "이 키 조합은 예약되어 있습니다",
     "resetDefaults": "기본값으로 재설정",
-    "groupSlot": "재생 목록 그룹: 이 슬롯에서 그룹 전체를 재생합니다"
+    "groupSlot": "재생 목록 그룹: 이 슬롯에서 그룹 전체를 재생합니다",
+    "choosePlaylist": "어떤 재생 목록을 시작할까요?"
   },
   "behaviors": {
     "startPlayNext": "시작: 다음 재생",
@@ -239,6 +314,21 @@
     "startNextTitle": "다음 시작: {time}",
     "loadingWaveform": "파형 불러오는 중…"
   },
+  "automation": {
+    "enable": "볼륨 오토메이션",
+    "enableHint": "파형 위에 볼륨 엔벨로프를 그립니다. 체크를 해제하면 우회되며 키프레임은 유지됩니다.",
+    "addKeyframe": "키프레임 추가",
+    "addKeyframeHint": "커서 위치(재생 중에는 재생 헤드 위치)에 키프레임을 추가합니다.",
+    "removeKeyframe": "키프레임 삭제",
+    "removeKeyframeHint": "선택한 키프레임 또는 커서 위치의 키프레임을 삭제합니다. 키프레임을 우클릭하거나 Delete 키를 눌러도 됩니다.",
+    "clear": "지우기",
+    "clearHint": "모든 키프레임을 삭제합니다.",
+    "clearConfirm": "이 큐의 볼륨 오토메이션 키프레임을 모두 삭제할까요?",
+    "previewFromCursor": "커서부터 미리 듣기",
+    "previewFromCursorHint": "이 큐를 커서 위치부터 미리 듣기 버스로 재생합니다(오토메이션 포함). 파형을 클릭해 커서를 놓으세요.",
+    "previewUnavailable": "출력으로 라우팅된 미리 듣기 버스가 필요합니다. 믹서에서 설정하세요.",
+    "stopPreview": "미리 듣기 중지"
+  },
   "properties": {
     "title": "속성",
     "resize": "속성 패널 크기 조정",
@@ -255,8 +345,8 @@
     "startBehavior": "시작 동작",
     "duckingBehavior": "더킹 동작",
     "fadeOutDuration": "페이드 아웃 시간",
-    "duckFadeIn": "더킹 페이드 인",
-    "duckFadeOut": "더킹 페이드 아웃",
+    "duckFadeIn": "내리는 시간(초)",
+    "duckFadeOut": "되돌리는 시간(초)",
     "children": "하위 항목",
     "seconds": "초",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "루프의 끝을 이 시간(초) 동안 시작 부분으로 크로스페이드합니다. 0이면 크로스페이드 없이 반복합니다.",
     "loopCrossfadeNeedsLoop": "루프 크로스페이드를 사용하려면 이 큐의 종료 동작을 ‘반복’으로 설정하세요.",
     "advanceDelay": "다음 전 대기 시간(초)",
-    "advanceDelayHint": "이 큐가 끝난 뒤, 종료 동작이 다음 큐를 시작하기 전까지 이 시간만큼 기다립니다. 크로스페이드나 ‘다음 시작’이 설정되어 있으면 무시됩니다."
+    "advanceDelayHint": "이 큐가 끝난 뒤, 종료 동작이 다음 큐를 시작하기 전까지 이 시간만큼 기다립니다. 크로스페이드나 ‘다음 시작’이 설정되어 있으면 무시됩니다.",
+    "duckTimesHint": "이 큐가 시작될 때 다른 큐가 내려가는 데 걸리는 시간과, 끝날 때 다시 올라오는 데 걸리는 시간입니다.",
+    "volumeHelp": "이 큐의 레벨입니다. 페이더를 드래그하거나 -6.5처럼 dB 값을 입력하세요(무음은 -inf).",
+    "playFadeHelp": "시작할 때마다 이 시간(초) 동안 큐를 페이드 인합니다. 0이면 처음부터 전체 레벨로 시작합니다.",
+    "stopFadeHelp": "아웃 포인트 전에 이 시간(초) 동안 큐를 페이드 아웃합니다. 0이면 끝까지 전체 레벨로 재생합니다.",
+    "crossFadeHelp": "아웃 포인트 전 이 시간(초) 동안 이 큐는 페이드 아웃되고 다음 큐가 겹쳐서 페이드 인됩니다. 0이면 겹치지 않고 넘어갑니다.",
+    "startNextHelp": "재생이 마커에 도달하면 이 큐는 계속 재생되는 동안 다음 큐가 시작됩니다. 라디오 방식의 전환입니다.",
+    "duckModeHelp": "이 큐가 시작될 때 재생 중인 다른 큐에 하는 일: 정지, 그대로 두기, 또는 끝날 때까지 더킹 레벨로 낮추기.",
+    "apiTriggerUrlHelp": "다른 시스템, 스크립트 또는 브라우저에서 큐를 재생하려면 이 주소로 GET 또는 POST 요청을 보내세요.",
+    "groupTrim": "트림",
+    "groupFades": "페이드",
+    "groupStopLoop": "정지 및 루프",
+    "groupTransition": "전환"
   },
   "playback": {
     "panic": "모든 큐 정지",
@@ -449,7 +551,8 @@
     "noDevices": "출력 장치를 찾을 수 없습니다",
     "silentServer": "시스템 트레이에서 서버를 조용히 실행",
     "silentServerHelp": "콘솔 창 없이 서버를 시작합니다. 시스템 트레이(macOS에서는 메뉴 막대)의 아이콘으로 LivePlay를 닫은 후에도 서버가 실행 중임을 알 수 있으며, 아이콘 메뉴에서 콘솔 표시, 로그 열기, 서버 중지를 할 수 있습니다. 다음에 서버가 시작될 때 적용됩니다.",
-    "silentServerForced": "LivePlay가 --silent로 시작되어 이번 세션에서는 켜져 있습니다."
+    "silentServerForced": "LivePlay가 --silent로 시작되어 이번 세션에서는 켜져 있습니다.",
+    "localPortHelp": "이 컴퓨터의 오디오 엔진이 수신 대기하는 포트입니다. 다른 프로그램이 이미 사용 중일 때만 바꾸세요."
   },
   "serverConfig": {
     "title": "서버 구성",
@@ -647,6 +750,7 @@
     "currentVersion": "현재 버전",
     "newVersion": "새 버전",
     "whatsNew": "새로운 기능",
+    "seeWhatsNew": "{version} 새 기능 보기",
     "updatePrompt": "LivePlay의 새 버전을 사용할 수 있습니다. 지금 다운로드하여 설치하시겠습니까?",
     "manualUpdatePrompt": "LivePlay의 새 버전을 사용할 수 있습니다. 아래를 클릭하여 다운로드 페이지를 방문하세요.",
     "downloading": "업데이트 다운로드 중",
@@ -689,6 +793,9 @@
     "title": "컨트롤 설정",
     "tabKeyboard": "키보드",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "카트에 고정된 키",
+    "pinnedCartsHelp": "고정된 키는 어느 페이지에서든 해당 카트를 실행합니다. 위의 키는 표시 중인 페이지의 위치를 실행합니다.",
+    "keyInUse": "이미 사용 중인 키입니다.",
     "sectionCartSlots": "카트 슬롯",
     "sectionPlayback": "재생",
     "sectionVolume": "볼륨",
@@ -721,7 +828,10 @@
     "playNext": "다음 재생",
     "volumeMultiplier": "볼륨 배율",
     "volumeMultiplierHint": "MIDI 한 단계당 dB 값입니다. 작은 단위로 움직이는 인코더나 휠에서는 값을 높이세요.",
-    "nextIn": "{seconds}초 후 다음"
+    "nextIn": "{seconds}초 후 다음",
+    "stopCurrentCue": "현재 큐 정지",
+    "conflictPinned": "이미 {cart}에 고정됨",
+    "midiDeviceHelp": "LivePlay가 입력을 받는 컨트롤러입니다. 모든 장치를 선택하면 연결된 모든 컨트롤러에서 받습니다."
   },
   "selectProject": {
     "title": "프로젝트 선택",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "오디오 가져오기",
+    "notPlayable": "가져오지 못했습니다: {files}. LivePlay는 WAV, AIFF, FLAC, MP3 파일을 재생합니다.",
     "tabServer": "서버에서",
     "tabUpload": "이 컴퓨터에서 업로드",
     "serverHint": "서버에 있는 파일입니다. 폴더를 더블클릭하면 열립니다. 파일을 선택한 다음(여러 개는 Shift 또는 Ctrl/Cmd 클릭) ‘선택 항목 가져오기’를 클릭하세요.",
@@ -809,6 +920,15 @@
     "serverCloseServer": "서버 종료",
     "serverCloseClient": "클라이언트만 종료",
     "return": "프로젝트로 돌아가기"
+  },
+  "openFileModal": {
+    "title": "이 파일을 열까요?",
+    "message": "{file}을(를) 열면 현재 쇼가 닫힙니다.",
+    "liveTitle": "쇼가 재생 중입니다",
+    "liveMessage": "재생 중: {cues}. {file}을(를) 열면 이 쇼가 닫히고 오디오가 정지됩니다.",
+    "andMore": "{cues} 외 {count}개",
+    "keep": "현재 쇼 유지",
+    "open": "쇼 닫고 열기"
   },
   "deleteSelection": {
     "title": "항목 삭제",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}: 클릭하거나 드래그하여 열기",
     "emptyTitle": "모든 패널이 접혀 있습니다",
     "emptyHint": "가장자리의 막대를 클릭하거나 드래그하거나, 위쪽의 버튼을 사용해 패널을 여세요."
+  },
+  "missingMedia": {
+    "badge": "미디어 파일이 없습니다. 속성에서 교체하거나 ‘누락된 미디어 찾기’를 사용하세요.",
+    "banner": "미디어 파일 {count}개를 찾을 수 없습니다.",
+    "locate": "찾기…",
+    "locateHint": "누락된 파일을 이름으로 검색할 폴더를 선택하세요. 프로젝트 밖에 있는 파일은 프로젝트의 미디어 폴더로 복사됩니다.",
+    "locateResult": "항목 {relinked}개를 다시 연결했습니다. {missing}개는 아직 찾을 수 없습니다.",
+    "locateFailed": "이 폴더를 검색할 수 없습니다: {error}",
+    "replace": "미디어 파일 교체",
+    "replaceFailed": "미디어 파일을 교체할 수 없습니다: {error}",
+    "propertiesHint": "서버에서 이 파일을 찾을 수 없습니다. 교체 버튼으로 파일을 다시 선택하세요."
+  },
+  "events": {
+    "tab": "이벤트",
+    "addEvent": "이벤트 추가",
+    "addEventHint": "커서 위치에 이벤트를 추가합니다. 파형을 클릭해 커서를 놓으세요.",
+    "addTriggerEvent": "트리거로 추가…",
+    "cursor": "커서",
+    "cursorHint": "파형을 클릭하거나 드래그해 커서를 옮기거나, 시간을 m:ss.mmm 형식 또는 초 단위로 입력하세요.",
+    "manageConnections": "연결 관리…",
+    "multiSelect": "이벤트를 편집하려면 항목을 하나만 선택하세요.",
+    "noEvents": "아직 이벤트가 없습니다. 파형을 클릭해 커서를 놓은 다음 ‘이벤트 추가’를 누르세요.",
+    "selectEvent": "편집할 이벤트를 선택하세요.",
+    "unsupported": "이 서버는 이벤트를 지원하지 않습니다. 사용하려면 LivePlay 서버를 업데이트하세요.",
+    "noPlugins": "서버에 이벤트 플러그인이 없습니다.",
+    "loadFailed": "서버에서 이벤트 플러그인을 불러올 수 없습니다.",
+    "loading": "이벤트 플러그인 불러오는 중…",
+    "retry": "다시 시도",
+    "trigger": {
+      "label": "트리거",
+      "time": "지정한 시간에",
+      "start": "시작 시",
+      "end": "종료 시",
+      "pause": "일시정지 시",
+      "resume": "재개 시"
+    },
+    "name": "이름",
+    "enabled": "사용",
+    "time": "시간",
+    "timeHint": "파일 내 위치이며, m:ss.mmm 형식 또는 초 단위로 입력합니다. 재생 구간 밖에서는 이벤트가 실행되지 않습니다.",
+    "useCursor": "커서 위치로 이동",
+    "plugin": "플러그인",
+    "connection": "연결",
+    "noConnection": "연결 없음",
+    "connectionMissing": "연결을 찾을 수 없음",
+    "connectionDisabled": "이 연결은 사용 안 함으로 설정되어 있어 이벤트가 실행되지 않습니다.",
+    "noConnectionsForPlugin": "아직 {plugin} 연결이 없습니다.",
+    "action": "작업",
+    "preset": "프리셋",
+    "presetNone": "없음(사용자 지정)",
+    "presetSave": "이 설정을 프리셋으로 저장",
+    "presetSaveConfirm": "프리셋 저장",
+    "presetMissing": "프리셋을 찾을 수 없음",
+    "presetMissingHelp": "이 이벤트의 프리셋이 더 이상 없어 실행되지 않습니다. 다른 프리셋이나 ‘없음’을 선택하세요.",
+    "presetInUse": "프리셋 ‘{name}’ 사용",
+    "presetEdit": "프리셋 편집",
+    "presetDetach": "사용자 지정으로 전환",
+    "unknownPlugin": "이 이벤트는 이 서버에 없는 플러그인 ‘{plugin}’을(를) 사용합니다. 실행되지 않습니다.",
+    "outsideTrim": "재생 구간 밖: 이 이벤트는 실행되지 않습니다.",
+    "placeholdersHelp": "텍스트 필드에 {item.name}, {item.uuid}, {trigger}, {time}을(를) 사용할 수 있습니다. 이벤트가 실행될 때 서버가 값을 채웁니다.",
+    "test": "테스트",
+    "testing": "테스트 중…",
+    "testOk": "전송했습니다.",
+    "testFailed": "실패: {error}",
+    "duplicate": "복제",
+    "delete": "삭제",
+    "lastOk": "마지막 실행 {time}: OK",
+    "lastError": "마지막 실행 {time}: 실패: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(항목을 찾을 수 없음)",
+      "cartItem": "카트 {slot} · {name}",
+      "addRow": "추가",
+      "removeRow": "제거",
+      "moveUp": "위로 이동",
+      "moveDown": "아래로 이동",
+      "refreshOptions": "장치에서 목록 다시 읽기"
+    },
+    "connections": {
+      "intro": "이벤트를 보낼 대상입니다. 조명 콘솔, MIDI 포트, 웹훅 등이 있습니다. 각 연결은 쇼마다 한 번만 설정하면 여러 이벤트에서 얼마든지 사용할 수 있습니다.",
+      "noProject": "연결을 관리하려면 프로젝트를 여세요.",
+      "empty": "아직 연결이 없습니다.",
+      "add": "연결 추가",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "새 {plugin} 연결",
+      "editTitle": "‘{name}’ 편집",
+      "name": "이름",
+      "enabled": "사용",
+      "disabled": "사용 안 함",
+      "edit": "편집",
+      "save": "저장",
+      "cancel": "취소",
+      "delete": "삭제",
+      "deleteConfirm": "‘{name}’을(를) 삭제하시겠습니까?",
+      "deleteInUse": "이벤트 {count}개가 ‘{name}’을(를) 사용합니다. 다른 연결을 지정할 때까지 이 이벤트들은 실행되지 않습니다. 그래도 삭제하시겠습니까?",
+      "usage": "이벤트 {count}개",
+      "unused": "미사용",
+      "unknownPlugin": "알 수 없는 유형 ‘{plugin}’",
+      "noFields": "이 유형은 설정할 항목이 없습니다.",
+      "addressDropsCredentials": "이 새 주소를 저장하면 이 연결과 이를 사용하는 이벤트에서 저장된 자격 증명이 제거됩니다. 다시 입력하라는 요청을 받게 됩니다.",
+      "testWith": "테스트할 작업",
+      "saveFailed": "연결을 저장할 수 없습니다: {error}",
+      "discover": "네트워크에서 찾기",
+      "discoverNone": "찾은 장치가 없습니다. 장치가 켜져 있고 서버와 같은 네트워크에 있는지 확인하세요.",
+      "discoverFailed": "네트워크를 검색할 수 없습니다: {error}",
+      "discoverUsed": "{device}을(를) 사용합니다.",
+      "presets": "프리셋",
+      "presetsHelp": "여러 이벤트에서 재사용하는 설정입니다. 프리셋을 변경하면 이를 사용하는 모든 이벤트에 반영됩니다.",
+      "presetAdd": "프리셋 추가",
+      "presetName": "프리셋 이름",
+      "presetDone": "완료",
+      "presetDelete": "프리셋 삭제(이벤트에는 이 설정이 유지됨)",
+      "enabledFor": "{name} 사용",
+      "editNamed": "{name} 편집",
+      "deleteNamed": "{name} 삭제",
+      "authRejected": "자격 증명 거부됨",
+      "authMissing": "자격 증명 필요",
+      "signIn": "로그인",
+      "signInRejectedHelp": "장치가 이 자격 증명을 거부했습니다. 헤더에서 다시 입력하세요. 저장된 값은 점으로 표시됩니다.",
+      "signInMissingHelp": "이 쇼의 자격 증명은 다른 컴퓨터에서 암호화되어 이 컴퓨터에서는 사용할 수 없습니다. 헤더에서 다시 입력하세요.",
+      "signInMany": "연결 {count}개의 자격 증명을 다시 입력해야 합니다.",
+      "signInRejected": "‘{name}’이(가) 자격 증명을 거부했습니다. 이벤트가 계속 작동하도록 다시 로그인하세요.",
+      "signInMissing": "‘{name}’의 자격 증명을 이 컴퓨터에서 입력해야 합니다.",
+      "signInWaiting": "‘{name}’에 로그인해야 합니다. 이 연결의 변경 사항을 저장하거나 취소하면 여기에 열립니다.",
+      "signInLater": "나중에",
+      "signInDiscard": "변경 사항 버리고 로그인",
+      "nameHelp": "이벤트에 쓸 연결을 고를 때 이 연결이 표시되는 이름입니다.",
+      "enabledHelp": "끄면 이 연결로 아무것도 보내지 않으며 해당 이벤트도 실행되지 않습니다."
+    },
+    "zoom": "확대/축소",
+    "zoomIn": "확대",
+    "zoomOut": "축소",
+    "zoomFit": "파일 전체 보기",
+    "scroll": "타임라인 스크롤",
+    "navHint": "스크롤로 확대/축소 · Shift+스크롤 또는 가운데 버튼 드래그로 좌우 이동",
+    "deleted": "‘{name}’을(를) 삭제했습니다.",
+    "undo": "실행 취소",
+    "deviceTimeout": "장치가 제시간에 응답하지 않았습니다.",
+    "headers": {
+      "name": "이름",
+      "value": "값",
+      "valueFor": "{name} 값",
+      "secret": "암호화되어 저장되고 점으로 표시됨",
+      "secretPlaceholder": "비밀번호, 토큰 또는 키",
+      "remove": "헤더 제거",
+      "add": "헤더 추가",
+      "rawLine": "헤더 줄"
+    },
+    "groupWhen": "시점",
+    "groupCommand": "명령",
+    "triggerHelp": "이벤트가 실행되는 시점: 파일의 특정 시간, 또는 큐가 시작, 일시 정지, 재개, 종료될 때."
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP를 통한 Open Sound Control: 조명 콘솔, QLab, Companion 등.",
+      "actions": {
+        "message": "메시지 보내기"
+      },
+      "connection": {
+        "host": {
+          "label": "호스트"
+        },
+        "port": {
+          "label": "포트"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "주소"
+        },
+        "args": {
+          "label": "인수",
+          "help": "문자열 값에 {item.name}, {item.uuid}, {trigger}, {time}을(를) 사용할 수 있습니다."
+        },
+        "type": {
+          "label": "유형"
+        },
+        "value": {
+          "label": "값"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "정수",
+          "f": "부동소수점",
+          "s": "문자열",
+          "T": "True(참)",
+          "F": "False(거짓)",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "서버 컴퓨터에서 MIDI 출력: 노트, CC, 프로그램 체인지, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "노트 온",
+        "note-off": "노트 오프",
+        "control-change": "컨트롤 체인지",
+        "program-change": "프로그램 체인지",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (원시 데이터)"
+      },
+      "summaries": {
+        "note-on": "ch {channel} 노트 {note}",
+        "note-off": "ch {channel} 노트 {note}",
+        "control-change": "ch {channel} CC {controller} = {value}",
+        "program-change": "ch {channel} 프로그램 {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "출력 포트",
+          "help": "LivePlay 서버가 실행되는 컴퓨터의 포트이며, 이름으로 일치시킵니다."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "채널"
+        },
+        "note": {
+          "label": "노트"
+        },
+        "velocity": {
+          "label": "벨로시티"
+        },
+        "controller": {
+          "label": "컨트롤러"
+        },
+        "value": {
+          "label": "값"
+        },
+        "program": {
+          "label": "프로그램"
+        },
+        "deviceId": {
+          "label": "장치 ID",
+          "help": "127은 모든 장치를 대상으로 합니다."
+        },
+        "commandFormat": {
+          "label": "명령 형식"
+        },
+        "command": {
+          "label": "명령"
+        },
+        "cue": {
+          "label": "큐"
+        },
+        "list": {
+          "label": "큐 목록"
+        },
+        "path": {
+          "label": "큐 경로"
+        },
+        "data": {
+          "label": "바이트 (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "조명 (일반)",
+          "moving-lights": "무빙 라이트",
+          "sound": "사운드 (일반)",
+          "video": "비디오 (일반)",
+          "all": "모든 유형"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "웹 API가 있는 모든 대상으로 보내는 HTTP 요청: Companion, 미디어 서버, 홈 오토메이션.",
+      "actions": {
+        "request": "요청"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "기본 URL",
+          "help": "http://만 지원합니다. HTTPS는 아직 지원하지 않습니다."
+        },
+        "headers": {
+          "label": "헤더",
+          "help": "모든 요청과 함께 전송됩니다. 비밀번호, 토큰, 키는 암호화되어 저장되고 점으로 표시됩니다."
+        },
+        "timeoutMs": {
+          "label": "타임아웃 (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "메서드"
+        },
+        "path": {
+          "label": "경로"
+        },
+        "headers": {
+          "label": "헤더",
+          "help": "연결의 헤더에 추가됩니다."
+        },
+        "contentType": {
+          "label": "본문 유형"
+        },
+        "body": {
+          "label": "본문",
+          "help": "{item.name}, {item.uuid}, {trigger}, {time}을(를) 사용할 수 있습니다."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "없음",
+          "application/x-www-form-urlencoded": "폼",
+          "text/plain": "텍스트"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "이 쇼: 큐 시작, 정지, 더킹 및 내부 믹서 조작.",
+      "actions": {
+        "play-item": "큐 재생",
+        "stop-item": "큐 정지",
+        "stop-all": "모두 정지",
+        "pause-item": "큐 일시정지",
+        "resume-item": "큐 재개",
+        "arm-next": "대기로 설정",
+        "duck-item": "큐 더킹",
+        "bus-level": "버스 페이더 설정",
+        "bus-mute": "버스 뮤트 / 뮤트 해제",
+        "bus-send": "센드 레벨 설정",
+        "bus-route": "버스 라우팅",
+        "bus-dsp": "버스 처리 설정",
+        "master-level": "마스터 레벨 설정",
+        "stop-fade-mode": "Stop All 페이드 모드 설정"
+      },
+      "fields": {
+        "item": {
+          "label": "큐"
+        },
+        "level": {
+          "label": "레벨",
+          "help": "큐 자체 볼륨에 대한 상대값입니다. 0이면 원래대로 돌아오고, -90이면 무음이 됩니다. 재생 중인 큐에만 적용되며 저장된 볼륨은 바뀌지 않습니다."
+        },
+        "fade": {
+          "label": "크로스페이드",
+          "help": "0이면 즉시 바뀌고, 더 길게 하면 현재 값에서부터 페이드합니다."
+        },
+        "bus": {
+          "label": "버스"
+        },
+        "state": {
+          "label": "상태"
+        },
+        "send": {
+          "label": "대상",
+          "help": "버스에 있는 센드입니다. 먼저 믹서에서 추가하세요."
+        },
+        "to": {
+          "label": "보낼 곳"
+        },
+        "param": {
+          "label": "설정 항목"
+        },
+        "value": {
+          "label": "값",
+          "help": "설정 항목 고유 단위로 입력합니다. 스위치는 0(끄기) 또는 1(켜기)입니다."
+        },
+        "mode": {
+          "label": "정지되는 큐의 페이드",
+          "help": "설정 > 재생: Stop All과 '다른 모든 큐 정지' 더킹이 사용하는 페이드. 패닉은 항상 즉시 끊습니다."
+        },
+        "stopFade": {
+          "label": "정지되는 큐의 페이드"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "뮤트",
+          "unmute": "뮤트 해제"
+        },
+        "param": {
+          "eqEnabled": "EQ 켜기 (0/1)",
+          "dynEnabled": "다이내믹스 켜기 (0/1)",
+          "hpf_freq": "하이패스 주파수 (20–2000 Hz)",
+          "lpf_freq": "로우패스 주파수 (1000–24000 Hz)",
+          "gate_on": "게이트 켜기 (0/1)",
+          "gate_threshold": "게이트 스레숄드 (-80–0 dB)",
+          "gate_range": "게이트 범위 (-80–0 dB)",
+          "comp_on": "컴프레서 켜기 (0/1)",
+          "comp_threshold": "컴프레서 스레숄드 (-60–0 dB)",
+          "comp_ratio": "컴프레서 레이쇼 (1–60 :1)",
+          "comp_makeup": "컴프레서 메이크업 (-12–24 dB)",
+          "width_width": "스테레오 폭 (0–2 ×)"
+        },
+        "mode": {
+          "item": "각 큐의 정지 버튼 페이드",
+          "global": "Stop All 페이드",
+          "toggle": "둘 사이 전환"
+        },
+        "stopFade": {
+          "show": "Stop All 페이드",
+          "cue": "각 큐의 정지 버튼 페이드 또는 즉시"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12, XR16, XR18 및 Midas MR 믹서: 스냅샷, 페이더, 센드, FX, 라우팅, USB 레코더.",
+      "actions": {
+        "snapshot": "스냅샷 불러오기",
+        "fader": "페이더 설정",
+        "send": "센드 레벨 설정",
+        "mute": "뮤트 / 뮤트 해제",
+        "recorder": "USB 레코더",
+        "fx-type": "FX 유형 설정",
+        "fx-param": "FX 파라미터 설정",
+        "route-output": "출력 라우팅",
+        "route-main": "메인 출력 라우팅",
+        "check": "연결 확인"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "믹서 주소"
+        },
+        "port": {
+          "label": "포트"
+        },
+        "maxLevelDb": {
+          "label": "최대 레벨",
+          "help": "이벤트로 설정하는 페이더나 센드는 이 값을 넘지 않습니다."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "스냅샷"
+        },
+        "strip": {
+          "label": "채널"
+        },
+        "level": {
+          "label": "레벨",
+          "help": "-90은 꺼짐(-inf)입니다. 연결의 최대 레벨로 제한됩니다."
+        },
+        "fade": {
+          "label": "크로스페이드",
+          "help": "0이면 즉시 바뀌고, 더 길게 하면 현재 값에서부터 페이드합니다."
+        },
+        "send": {
+          "label": "대상"
+        },
+        "state": {
+          "label": "상태"
+        },
+        "command": {
+          "label": "명령",
+          "help": "믹서에 꽂힌 USB 드라이브에 녹음합니다."
+        },
+        "slot": {
+          "label": "FX 슬롯"
+        },
+        "type": {
+          "label": "이펙트"
+        },
+        "param": {
+          "label": "파라미터"
+        },
+        "value": {
+          "label": "값",
+          "help": "파라미터 고유 단위(옆에 표시)로 입력합니다. 스위치는 0/1, 선택 항목은 0부터 셉니다."
+        },
+        "output": {
+          "label": "출력"
+        },
+        "source": {
+          "label": "소스",
+          "help": "USB 센드에는 USB 리턴을 지정할 수 없습니다."
+        },
+        "tap": {
+          "label": "탭 포인트"
+        },
+        "assign": {
+          "label": "메인 출력 소스"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "뮤트",
+          "unmute": "뮤트 해제"
+        },
+        "command": {
+          "record": "녹음",
+          "stop": "정지",
+          "record-pause": "녹음 일시정지",
+          "play": "재생",
+          "play-pause": "재생 일시정지"
+        },
+        "tap": {
+          "keep": "변경 안 함",
+          "0": "아날로그 입력",
+          "1": "아날로그 입력 + 뮤트",
+          "2": "입력",
+          "3": "입력 + 뮤트",
+          "4": "프리 EQ",
+          "5": "프리 EQ + 뮤트",
+          "6": "포스트 EQ",
+          "7": "포스트 EQ + 뮤트",
+          "8": "프리 페이더",
+          "9": "프리 페이더 + 뮤트",
+          "10": "포스트 페이더"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "모니터",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

@@ -282,10 +282,14 @@ void AudioEngine::rebuild_topology_locked() {
             StripRouteEntry::Send se;
             se.dst_strip = dit->second;
             se.pre_fader = ps.pre_fader;
+            se.live = ps.live;
             se.lane_sends.reserve(ps.lanes.size());
-            for (const auto& l : ps.lanes) {
+            for (std::size_t li = 0; li < ps.lanes.size(); ++li) {
+                const auto& l = ps.lanes[li];
                 if (l.src_lane >= kMixerLanes || l.dst_lane >= kMixerLanes) continue;
-                se.lane_sends.push_back({l.src_lane, l.dst_lane, l.gain_lin});
+                StripRouteEntry::LaneSend lane{l.src_lane, l.dst_lane, l.gain_lin};
+                if (ps.live && li < ps.live->gains.size()) lane.live_gain = &ps.live->gains[li];
+                se.lane_sends.push_back(lane);
             }
             snap->strips[sit->second].sends.push_back(std::move(se));
             strip_edges.emplace_back(sit->second, dit->second);
@@ -758,6 +762,12 @@ PlaybackItem* AudioEngine::find_cue(const CueId& id) const {
     return it != items_.end() ? it->second.get() : nullptr;
 }
 
+std::shared_ptr<PlaybackItem> AudioEngine::find_cue_shared(const CueId& id) const {
+    std::lock_guard lock{mutex_};
+    auto it = items_.find(id.value);
+    return it != items_.end() ? it->second : nullptr;
+}
+
 void AudioEngine::play(const CueId& id) {
     if (auto* item = find_cue(id)) {
         Logger::info("play() cue='{}'", id.value);
@@ -1156,6 +1166,12 @@ MixerChannel* AudioEngine::find_mixer_channel(const MixerChannelId& id) const {
     return it != mixers_.end() ? it->second.get() : nullptr;
 }
 
+std::shared_ptr<MixerChannel> AudioEngine::find_mixer_channel_shared(const MixerChannelId& id) const {
+    std::lock_guard lock{mutex_};
+    auto it = mixers_.find(id.value);
+    return it != mixers_.end() ? it->second : nullptr;
+}
+
 // ---------------------------------------------------------------------------
 // Routing
 // ---------------------------------------------------------------------------
@@ -1306,7 +1322,34 @@ void AudioEngine::route_mixer_send(const MixerChannelId& src,
         if (lg.src_lane >= kMixerLanes || lg.dst_lane >= kMixerLanes) continue;
         it->lanes.push_back({lg.src_lane, lg.dst_lane, db_to_lin(lg.gain_db)});
     }
+    // A fresh block rather than a write to the old one: the snapshot still
+    // playing keeps its own, so old lanes never read new gains.
+    it->live = std::make_shared<LiveSendGains>(it->lanes.size());
+    for (std::size_t i = 0; i < it->lanes.size(); ++i) {
+        it->live->gains[i].store(it->lanes[i].gain_lin, std::memory_order_relaxed);
+    }
     rebuild_topology_locked();
+}
+
+bool AudioEngine::set_mixer_send_gains_live(const MixerChannelId& src,
+                                            const MixerChannelId& dst,
+                                            const std::vector<MixerLaneGain>& lane_gains) {
+    std::lock_guard lock{mutex_};
+    const auto lit = pending_.mixer_sends.find(src.value);
+    if (lit == pending_.mixer_sends.end()) return false;
+    const auto it = std::find_if(lit->second.begin(), lit->second.end(),
+                                 [&](const PendingRoute::MixerSend& s) { return s.dst == dst; });
+    if (it == lit->second.end() || !it->live || lane_gains.size() != it->lanes.size()) return false;
+    for (std::size_t i = 0; i < lane_gains.size(); ++i) {
+        if (lane_gains[i].src_lane != it->lanes[i].src_lane ||
+            lane_gains[i].dst_lane != it->lanes[i].dst_lane) return false;
+    }
+    for (std::size_t i = 0; i < lane_gains.size(); ++i) {
+        const float gain = db_to_lin(lane_gains[i].gain_db);
+        it->lanes[i].gain_lin = gain;
+        it->live->gains[i].store(gain, std::memory_order_relaxed);
+    }
+    return true;
 }
 
 void AudioEngine::unroute_mixer_send(const MixerChannelId& src, const MixerChannelId& dst) {
@@ -1362,6 +1405,9 @@ void AudioEngine::set_limiter_enabled(bool enabled) noexcept {
 }
 
 void AudioEngine::set_master_gain_db(float db) {
+    // clamp() passes NaN through, and one NaN in the master gain silences
+    // every output.
+    if (!std::isfinite(db)) return;
     const float clamped = std::clamp(db, -120.0f, 12.0f);
     const float lin = (clamped <= -120.0f) ? 0.0f
                                             : std::pow(10.0f, clamped / 20.0f);
@@ -1903,7 +1949,9 @@ void AudioEngine::render_one_block(const Topology& topo) {
                     mixer_accumulators_[i * kMixerLanes + ls.src_lane].data();
                 Sample* dst =
                     mixer_accumulators_[dit->second * kMixerLanes + ls.dst_lane].data();
-                for (std::size_t s = 0; s < block; ++s) dst[s] += src[s] * ls.gain;
+                const float gain = ls.live_gain
+                    ? ls.live_gain->load(std::memory_order_relaxed) : ls.gain;
+                for (std::size_t s = 0; s < block; ++s) dst[s] += src[s] * gain;
             }
         }
     };

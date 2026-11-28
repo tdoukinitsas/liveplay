@@ -120,7 +120,7 @@ async function onFresh() {
 }
 .srm-btn.primary {
   background: var(--color-accent, #0f62fe);
-  color: #fff;
+  color: var(--color-on-accent, #fff);
   border-color: transparent;
 }
 .srm-btn.primary:hover:not(:disabled) { filter: brightness(1.1); }

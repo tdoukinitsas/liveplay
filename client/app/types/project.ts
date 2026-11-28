@@ -1,3 +1,5 @@
+import type { EventConnection, ItemEvent } from './events';
+
 // Base item interface that all items extend from
 export interface BaseItem {
   uuid: string;
@@ -5,6 +7,8 @@ export interface BaseItem {
   displayName: string;
   color: string;
   type: 'audio' | 'group' | 'action'; // Extensible for future item types
+  /** Top-level items only: the playlist tab it's on. Absent = the first tab. */
+  tabId?: string;
   /**
    * Which bus this item plays through. Absent means *inherit* — from the
    * nearest ancestor group, or the master-role bus if nothing along the
@@ -36,7 +40,13 @@ export interface AudioItem extends BaseItem {
   volume: number; // 0-2 (1 is normal, >1 is louder, <1 is quieter)
   endBehavior: EndBehavior;
   startBehavior: StartBehavior;
+  /** @deprecated Migrated into `events` by the server on load; nothing reads it. */
   customActions: CustomAction[];
+  // Things this cue does to the outside world (#84): OSC/MIDI/HTTP at a time
+  // in the file, or on start / end / pause / resume. Always an array once set:
+  // the item diff PATCHes whole fields, so deleting the key instead of
+  // emptying it would leave the server's copy in place.
+  events?: ItemEvent[];
   duckingBehavior: DuckingBehavior;
   duration: number; // total duration in seconds
   fadeOutDuration: number; // legacy stop fade, seconds (default: 1); see manualStopFade
@@ -65,6 +75,21 @@ export interface AudioItem extends BaseItem {
   ltcEnabled?: boolean;         // output LTC on the project's ltcOutput when playing
   ltcStartTimecode?: string;    // starting timecode "HH:MM:SS:FF" (default "00:00:00:00")
   ltcFrameRate?: number;        // 0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30 (default 4)
+  // Volume automation (2.6): an envelope of keyframes on top of `volume`.
+  // Absent = none. Unticking keeps the points and only bypasses them. The
+  // rules (linear-in-dB, source-file time, -60 dB = silence) are in
+  // utils/volumeAutomation.ts and the engine's gain_envelope.hpp.
+  volumeAutomation?: VolumeAutomation;
+}
+
+export interface VolumeAutomationPoint {
+  t: number;   // seconds, SOURCE-FILE time (unaffected by the trim)
+  db: number;  // relative to the item volume; -60 and below = silence, max +10
+}
+
+export interface VolumeAutomation {
+  enabled: boolean;
+  points: VolumeAutomationPoint[];
 }
 
 // Waveform data format (from the server's decoder, or legacy ffmpeg files)
@@ -110,7 +135,11 @@ export interface GroupStartBehavior {
   action: 'play-first' | 'play-all';
 }
 
-// Custom action at specific time
+/**
+ * Custom action at specific time.
+ * @deprecated Pre-2.6 hidden feature. The server migrates `customActions` into
+ * `events` (and runs HTTP requests itself); kept only so old documents type.
+ */
 export interface CustomAction {
   timePoint: number; // in seconds
   action: CustomActionType;
@@ -133,8 +162,10 @@ export interface HttpRequest {
 export interface DuckingBehavior {
   mode: 'stop-all' | 'no-ducking' | 'duck-others';
   duckLevel?: number; // 0-1, volume multiplier for other cues
-  duckFadeIn?: number; // fade in duration in seconds when ducking (default: 0.25)
-  duckFadeOut?: number; // fade out duration in seconds when restoring (default: 1)
+  // How long the other cues take to go down (duckFadeIn) and come back up
+  // (duckFadeOut), seconds (#78). Honoured from 2.6; absent = 50 ms each.
+  duckFadeIn?: number;  // default for new items: 0.25
+  duckFadeOut?: number; // default for new items: 1
 }
 
 // Cart slot key binding
@@ -151,6 +182,7 @@ export type PlaybackKeyAction =
   | 'toggle-loop'
   | 'cue-to-continue'
   | 'jump-cue'
+  | 'stop-current-cue'
   | 'stop-all'
   | 'select-up'
   | 'select-down'
@@ -158,8 +190,36 @@ export type PlaybackKeyAction =
   | 'play-next';
 
 // Cart player item
+/** A playlist tab (#74). Which one a window shows is local to that window. */
+export interface PlaylistTab {
+  id: string;
+  name: string;
+  color?: string;
+  /** After the last cue: back to the top, on into the next tab, or stop. */
+  atEnd?: 'wrap' | 'continue' | 'stop';
+}
+
+/** A cart page. Its carts are slots slotBase .. slotBase + size - 1. */
+export interface CartPage {
+  id: string;
+  name: string;
+  color?: string;
+  size: number;
+  slotBase: number;
+}
+
+/** Published by the server, which is the one place they're defined. */
+export interface TabLimits {
+  maxPlaylistTabs: number;
+  maxCartPages: number;
+  minCartsPerPage: number;
+  maxCartsPerPage: number;
+  defaultCartsPerPage: number;
+  cartSlotsPerPage: number;
+}
+
 export interface CartItem {
-  slot: number; // 0-15
+  slot: number; // a page's slotBase + the cart's position on it
   itemUuid: string;
   index: number[]; // [-1, slot] for API triggering
 }
@@ -435,10 +495,20 @@ export interface ProjectSettings {
     rmsWindowMs?: number;
   };
   defaultTransitionMode?: TransitionMode;
+  // With two or more cues on air and no Up Next armed, which one GO and Up
+  // Next continue from. Absent = 'earliest' (the one fired first, as 2.5 did);
+  // the server applies the same rule to its GO (R2-08).
+  goContinuesFrom?: 'earliest' | 'latest';
   autoCueNextWithoutEndBehavior?: boolean;
   stopAllFadeMs?: number;
   // Absent = true: Stop All silences the preview audition too (#60).
   stopAllStopsPreview?: boolean;
+  // Absent = false: the cues Stop All stops fire no "On end" events (#23).
+  stopAllFiresEvents?: boolean;
+  // Absent = false: Stop All (and "stop all others" ducking) fades every cue
+  // over one time. True: each cue over its own Stop button fade, falling back
+  // to the Stop All fade for cues with none (#85). A panic always cuts.
+  stopAllUsesItemFade?: boolean;
   /** LEGACY as of U4 — see usePreferences().scrollToPlaying. Seed only. */
   uiScrollToPlaying?: boolean;
   disableAutoVolumeAndTrim?: boolean;
@@ -468,6 +538,10 @@ export const BUS_SCHEMA_VERSION = 2;
 export interface Project {
   name: string;
   version: string;
+  // The show's own id (R2-12): how the server tells this show saved again
+  // from another show in the same folder. Made with the show; the server
+  // gives one to a show from before 2.6.
+  showId?: string;
   // Where the project folder is ON THIS MACHINE. Derived by the server from the
   // location of the .liveplay file, not stored in it — a saved project names no
   // directory, so one that has been moved, mailed or unzipped elsewhere still
@@ -481,6 +555,14 @@ export interface Project {
   items: (AudioItem | GroupItem)[];
   cartItems: CartItem[];
   cartSlotKeys?: Record<number, CartSlotKeyBinding>;
+  /** Keys that fire one particular cart from any page: raw cart slot → key. */
+  cartPinnedKeys?: Record<string, CartSlotKeyBinding>;
+  /** Absent in a show with one tab. */
+  playlistTabs?: PlaylistTab[];
+  /** Absent in a show with one default page. */
+  cartPages?: CartPage[];
+  /** From the server's header; not saved. */
+  tabLimits?: TabLimits;
   /**
    * LEGACY as of U4 — the transport keymap belongs to the person, not the
    * show, and lives in their profile (usePreferences). Still typed because a
@@ -496,6 +578,13 @@ export interface Project {
    */
   theme?: Theme;
   settings?: ProjectSettings;
+  /**
+   * The show's event destinations (#84). Edited through PUT
+   * /api/events/connections, but mirrored here because a whole-document save
+   * replaces the server's copy: a field this client didn't carry would be
+   * wiped. Undefined only while it has not been read from the server yet.
+   */
+  eventConnections?: EventConnection[];
   createdAt: string;
   lastModified: string;
 }
@@ -542,6 +631,22 @@ export function transitionDefaultsForImport(
 export function anchorStartNextMarker(item: AudioItem): void {
   if (!item.startNextEnabled) return;
   item.startNextTime = Math.max(item.inPoint, item.outPoint - 5);
+}
+
+// Point an item at a different media file (Replace Media, issue #80) and fit
+// its trim to the new file's length. An untrimmed item stays untrimmed; a trim
+// that no longer fits is clamped. Times past the new end (markers, events) are
+// left alone: they are visible on the waveform and simply never fire.
+export function retimeForNewDuration(item: AudioItem, newDuration: number): void {
+  if (!(newDuration > 0)) return;
+  const old = item.duration || 0;
+  const untrimmed = !(item.outPoint > 0) || (old > 0 && item.outPoint >= old - 0.01);
+  item.outPoint = untrimmed ? newDuration : Math.min(item.outPoint, newDuration);
+  item.inPoint = Math.min(item.inPoint || 0, item.outPoint);
+  if (item.startNextEnabled && (item.startNextTime ?? 0) > item.outPoint) {
+    item.startNextTime = Math.max(item.inPoint, item.outPoint - 5);
+  }
+  item.duration = newDuration;
 }
 
 // Active playback state

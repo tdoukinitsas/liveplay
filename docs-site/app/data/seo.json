@@ -1,0 +1,96 @@
+{
+  "site": {
+    "name": "LivePlay",
+    "url": "https://tdoukinitsas.github.io/liveplay/",
+    "repo": "https://github.com/tdoukinitsas/liveplay",
+    "releases": "https://github.com/tdoukinitsas/liveplay/releases/latest",
+    "license": "https://www.gnu.org/licenses/agpl-3.0.en.html",
+    "author": { "name": "Thomas Doukinitsas", "url": "https://github.com/tdoukinitsas" },
+    "summary": "LivePlay is free, open-source sound cue software for theatre, radio, live events and parties. It plays music and effects from a running order and instant carts, mixes them on a built-in mixer, and can trigger lights, mixers and video from the timeline. It runs on Windows, macOS and Linux."
+  },
+  "pages": {
+    "home": {
+      "path": "",
+      "og": "home",
+      "title": "LivePlay: Free Sound Cue Software for Theatre & Live Events",
+      "socialTitle": "LivePlay: every sound, right on cue",
+      "description": "Free, open-source sound cue software for theatre, radio and live events. Playlists, instant carts, a built-in mixer and show control on Windows, macOS and Linux.",
+      "imageAlt": "LivePlay, every sound right on cue, shown with the app's playlist and cart player"
+    },
+    "whatsNew": {
+      "path": "whats-new/",
+      "og": "whats-new",
+      "title": "What's New in LivePlay: Release Notes and New Features",
+      "socialTitle": "What's new in LivePlay",
+      "description": "See what each LivePlay release added, from show control events, playlist tabs and cart pages in 2.6 to the built-in mixer in 2.5 and earlier.",
+      "imageAlt": "What's new in LivePlay, on a yellow background with the app's playlist"
+    },
+    "2-6": {
+      "path": "whats-new/2-6/",
+      "og": "release-2-6",
+      "published": "2026-11-28",
+      "title": "LivePlay 2.6: Show Control Events, Playlist Tabs, Cart Pages",
+      "socialTitle": "LivePlay 2.6: cue the whole room",
+      "description": "LivePlay 2.6 fires lights, mixers and video from the cue timeline over OSC, MIDI and HTTP, and adds playlist tabs, cart pages and volume automation.",
+      "imageAlt": "LivePlay 2.6, cue the whole room, shown with the event timeline"
+    },
+    "2-5": {
+      "path": "whats-new/2-5/",
+      "og": "release-2-5",
+      "published": "2026-09-29",
+      "title": "LivePlay 2.5: Built-in Mixer, 32-Band EQ and Team Accounts",
+      "socialTitle": "LivePlay 2.5: a real mixer for your show",
+      "description": "LivePlay 2.5 adds a full mixer with buses and channel strips, a 32-band EQ with live analyser, named hardware outputs and accounts for your whole team.",
+      "imageAlt": "LivePlay 2.5, a real mixer for your show, shown with the mixer's channel strips"
+    }
+  },
+  "features": [
+    "Playlist of sound cues with groups, tabs and automatic running order",
+    "Cart player with up to 64 instant carts per page",
+    "Waveform trimming, fades, loops and volume automation",
+    "Automatic ducking under announcements and effects",
+    "Touch-friendly Show Mode that locks editing",
+    "Built-in mixer with buses, sends, EQ, gate, compressor and limiter",
+    "Loudness targets and broadcast-grade metering",
+    "Headphone preview and pre-fade listen",
+    "Show control events over OSC, MIDI, MIDI Show Control and HTTP",
+    "Behringer X Air mixer control and SMPTE timecode output",
+    "Stream Deck control through the official Bitfocus Companion module",
+    "Local or remote operation across a network",
+    "User accounts, roles, API tokens and a REST and WebSocket API"
+  ],
+  "faq": [
+    {
+      "q": "What is LivePlay?",
+      "a": "LivePlay is free, open-source sound cue software for theatre, radio, live events and parties. You line up music and effects in a playlist, fire each one at the right moment, and balance them on a built-in mixer."
+    },
+    {
+      "q": "Is LivePlay free?",
+      "a": "Yes. LivePlay is free to download and use, with no licence fees, subscriptions or paid tiers. It is open source under the GNU AGPL-3.0 licence."
+    },
+    {
+      "q": "Which operating systems does LivePlay run on?",
+      "a": "LivePlay runs on 64-bit Windows 10 and 11, macOS 13.3 or later on Apple Silicon and Intel, and 64-bit Linux as an AppImage, .deb or .rpm package."
+    },
+    {
+      "q": "Which audio formats can LivePlay play?",
+      "a": "LivePlay plays WAV, AIFF, FLAC and MP3 audio files."
+    },
+    {
+      "q": "Can LivePlay control lights, mixers and other show equipment?",
+      "a": "Yes. A cue can fire events from its timeline over OSC, MIDI, MIDI Show Control and HTTP, control Behringer X Air mixers and send SMPTE timecode. Show-control tools can also control LivePlay through its API."
+    },
+    {
+      "q": "Can I control LivePlay from a Stream Deck?",
+      "a": "Yes. LivePlay has an official module for Bitfocus Companion. Search for LivePlay when you add a connection in Companion, and a Stream Deck or any other Companion surface gets buttons for GO, cues, carts, Stop All, panic and the mixer. Each button shows its cue's name, colour and progress."
+    },
+    {
+      "q": "Can I run LivePlay across a network?",
+      "a": "Yes. The audio engine can run on one computer while other computers control it over the network. The sound comes from the engine, so the show keeps playing if a control computer drops out."
+    },
+    {
+      "q": "Does LivePlay work with a touchscreen, keyboard or MIDI controller?",
+      "a": "Yes. Show Mode gives you large, touch-friendly controls and locks editing, and you can also run the show from your keyboard or a MIDI controller."
+    }
+  ]
+}

@@ -64,7 +64,10 @@
         </div>
 
         <div class="property-field" v-if="selectedItem.type === 'audio'">
-          <label>{{ t('properties.apiTriggerUrl') }}</label>
+          <label>
+            {{ t('properties.apiTriggerUrl') }}
+            <FieldHelp :text="t('properties.apiTriggerUrlHelp')" />
+          </label>
           <div class="input-with-btn">
             <input :value="isMulti ? '' : apiTriggerUrl" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
             <button class="icon-btn" :disabled="isMulti" @click="copyToClipboard(apiTriggerUrl)">
@@ -80,10 +83,15 @@
           <label>{{ t('properties.file') }}</label>
           <div class="input-with-btn">
             <input :value="isMulti ? '' : audioItem.mediaFileName" :placeholder="isMulti ? t('properties.multipleValues') : ''" readonly />
-            <button class="icon-btn" @click="handleReplaceMedia">
-              <span class="material-symbols-rounded">swap_horiz</span>
+            <button class="icon-btn" :disabled="isMulti || replacingMedia" :title="t('missingMedia.replace')" @click="handleReplaceMedia">
+              <span class="material-symbols-rounded" :class="{ spinning: replacingMedia }">{{ replacingMedia ? 'progress_activity' : 'swap_horiz' }}</span>
             </button>
           </div>
+          <p v-if="!isMulti && mediaMissing" class="property-help media-missing-help">
+            <span class="material-symbols-rounded">link_off</span>
+            {{ t('missingMedia.propertiesHint') }}
+          </p>
+          <p v-if="replaceError" class="property-help media-missing-help">{{ replaceError }}</p>
         </div>
 
         <div class="property-field">
@@ -118,6 +126,7 @@
           @update:start-next-enabled="(v) => { beginItemBatch(); touch('startNextEnabled'); handleStartNextEnabledUpdate(v); }"
           @update:start-next-time="(v) => { beginItemBatch(); touch('startNextTime'); handleStartNextTimeUpdate(v); }"
           @update:start-next-fade-out="(v) => { beginItemBatch(); touch('startNextFadeOut'); handleStartNextFadeOutUpdate(v); }"
+          @update:volume-automation="(v) => { beginItemBatch(); touch('volumeAutomation'); audioItem.volumeAutomation = v; }"
           @change="handleSave"
           @normalize="handleNormalize"
           @trim-silence="handleTrimSilence"
@@ -128,6 +137,16 @@
         </div>
       </div>
 
+      <!-- Events Tab (#84). One item at a time: event times are positions in
+           that item's own file, so there is no meaningful batch edit. -->
+      <div v-if="activeTab === 'events' && selectedItem.type === 'audio'" class="tab-panel">
+        <div v-if="isMulti" class="loading-message events-multi">
+          <span class="material-symbols-rounded">bolt</span>
+          <p>{{ t('events.multiSelect') }}</p>
+        </div>
+        <ItemEventsEditor v-else :item="audioItem" @change="handleSave" />
+      </div>
+
       <!-- Output Tab -->
       <div v-if="activeTab === 'output'" class="tab-panel">
         <!-- Bus assignment is the whole of an item's routing. Where that bus
@@ -135,15 +154,15 @@
              not the item's. Groups carry it too: children inherit unless they
              assign their own. -->
         <div class="property-field">
-          <label>{{ t('properties.bus') }}</label>
+          <label>
+            {{ t('properties.bus') }}
+            <FieldHelp :text="selectedItem.type === 'group' ? t('properties.busGroupHelp') : t('properties.busHelp')" />
+          </label>
           <select :value="mixed('busId') ? MIXED : ((selectedItem as any).busId ?? '')" @change="onBusChange">
             <option v-if="mixed('busId')" :value="MIXED" disabled>{{ t('properties.multipleValues') }}</option>
             <option value="">{{ t('properties.busInherit') }}</option>
             <option v-for="b in assignableBuses" :key="b.id" :value="b.id">{{ b.name }}</option>
           </select>
-          <p class="property-help">
-            {{ selectedItem.type === 'group' ? t('properties.busGroupHelp') : t('properties.busHelp') }}
-          </p>
           <p v-if="assignableBuses.length === 0" class="property-help">{{ t('properties.busNone') }}</p>
           <p v-else-if="effectiveBusName && !isMulti" class="property-help">
             {{ t('properties.busEffective', { name: effectiveBusName }) }}
@@ -165,12 +184,10 @@
               @change="onLtcEnabledChange"
             />
             {{ t('properties.ltcOutputTimecode') }}
+            <FieldHelp :text="t('properties.ltcOutputTimecodeHelp')" />
           </label>
-          <p class="property-help">
-            {{ ltcOutputConfigured
-                ? t('properties.ltcOutputTimecodeHelp')
-                : t('properties.ltcRequiresOutput') }}
-          </p>
+          <!-- Why it is off is not a description but a state: inline. -->
+          <p v-if="!ltcOutputConfigured" class="property-help">{{ t('properties.ltcRequiresOutput') }}</p>
         </div>
 
         <div class="property-field" :class="{ 'field-disabled': !(audioItem.ltcEnabled ?? false) }">
@@ -207,7 +224,10 @@
       <!-- Ducking Tab -->
       <div v-if="activeTab === 'ducking' && selectedItem.type === 'audio'" class="tab-panel">
         <div class="property-field">
-          <label>{{ t('properties.mode') }}</label>
+          <label>
+            {{ t('properties.mode') }}
+            <FieldHelp :text="t('properties.duckModeHelp')" />
+          </label>
           <select
             :value="mixed('duckingBehavior.mode') ? MIXED : audioItem.duckingBehavior.mode"
             @change="commitField('duckingBehavior.mode', ($event.target as HTMLSelectElement).value)"
@@ -233,6 +253,40 @@
             <span>-60 dB</span>
             <span>0 dB</span>
           </div>
+        </div>
+
+        <!-- #78: how long the other cues take to go down when this one
+             starts, and to come back when it ends. Absent = 0.05 s, the
+             fixed time every duck took before 2.6. -->
+        <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
+          <label>
+            {{ t('properties.duckFadeIn') }}
+            <FieldHelp :text="t('properties.duckTimesHint')" />
+          </label>
+          <input
+            type="number"
+            min="0"
+            max="60"
+            step="0.05"
+            :value="shown('duckingBehavior.duckFadeIn', audioItem.duckingBehavior.duckFadeIn ?? 0.05)"
+            :placeholder="mixed('duckingBehavior.duckFadeIn') ? t('properties.multipleValues') : ''"
+            @change="handleDuckTimeChange('duckFadeIn', $event)"
+          />
+        </div>
+        <div class="property-field" v-if="audioItem.duckingBehavior.mode === 'duck-others'">
+          <label>
+            {{ t('properties.duckFadeOut') }}
+            <FieldHelp :text="t('properties.duckTimesHint')" />
+          </label>
+          <input
+            type="number"
+            min="0"
+            max="60"
+            step="0.05"
+            :value="shown('duckingBehavior.duckFadeOut', audioItem.duckingBehavior.duckFadeOut ?? 0.05)"
+            :placeholder="mixed('duckingBehavior.duckFadeOut') ? t('properties.multipleValues') : ''"
+            @change="handleDuckTimeChange('duckFadeOut', $event)"
+          />
         </div>
       </div>
 
@@ -279,7 +333,10 @@
           class="property-field"
           v-if="selectedItem.type === 'audio' && ['next', 'goto-item', 'goto-index'].includes(endBehaviorAction)"
         >
-          <label>{{ t('properties.advanceDelay') }}</label>
+          <label>
+            {{ t('properties.advanceDelay') }}
+            <FieldHelp :text="t('properties.advanceDelayHint')" />
+          </label>
           <input
             type="number"
             min="0"
@@ -288,7 +345,6 @@
             :placeholder="mixed('advanceDelay') ? t('properties.multipleValues') : ''"
             @change="handleAdvanceDelayChange"
           />
-          <p class="field-hint">{{ t('properties.advanceDelayHint') }}</p>
         </div>
       </div>
 
@@ -331,12 +387,20 @@
         </div>
       </div>
     </div>
+
+    <!-- Replace Media (issue #80): same picker as import, one file. -->
+    <AudioImportModal :open="replaceModalOpen"
+                      @pick="onReplacePick"
+                      @close="replaceModalOpen = false" />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { AudioItem, Bus, GroupItem } from '~/types/project';
-import { PRESET_COLORS } from '~/types/project';
+import { PRESET_COLORS, retimeForNewDuration } from '~/types/project';
+import AudioImportModal from './AudioImportModal.vue';
+import ItemEventsEditor from './ItemEventsEditor.vue';
+import FieldHelp from './FieldHelp.vue';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { useOutputTarget } from '~/composables/useOutputTarget';
 import { changedPaths, isFieldMixed, propagateFields } from '~/utils/multiEdit';
@@ -544,6 +608,7 @@ const allTabs = computed<Tab[]>(() => [
   { id: 'basic', label: t('properties.basicInfo'), icon: 'info' },
   { id: 'media', label: t('properties.media'), icon: 'audio_file', audioOnly: true },
   { id: 'playback', label: t('properties.playback'), icon: 'play_circle', audioOnly: true },
+  { id: 'events', label: t('events.tab'), icon: 'bolt', audioOnly: true },
   // Not audioOnly: a group carries a bus assignment too, which is how a whole
   // folder of cues is routed in one move and what its children inherit.
   { id: 'output', label: t('properties.output'), icon: 'speaker' },
@@ -698,7 +763,9 @@ const trimmerMixed = computed(() =>
 // Duck level in dB
 const duckLevelDB = computed({
   get: () => {
-    const linear = audioItem.value.duckingBehavior.duckLevel;
+    // Absent until first set (switching a cue to Duck Others doesn't write
+    // it); the server then ducks to 0.2, so show that rather than NaN.
+    const linear = audioItem.value.duckingBehavior.duckLevel ?? 0.2;
     if (linear <= 0) return -60;
     return 20 * Math.log10(linear);
   },
@@ -917,6 +984,13 @@ const handleStopFadeUpdate = (value: number) => {
   });
 };
 
+// Duck attack / release (#78), seconds, capped at 60 like the server.
+const handleDuckTimeChange = (key: 'duckFadeIn' | 'duckFadeOut', event: Event) => {
+  const seconds = parseFloat((event.target as HTMLInputElement).value);
+  if (!Number.isFinite(seconds)) return;
+  commitField(`duckingBehavior.${key}`, Math.min(60, Math.max(0, seconds)));
+};
+
 const handleAdvanceDelayChange = (event: Event) => {
   const seconds = parseFloat((event.target as HTMLInputElement).value);
   const value = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
@@ -1022,14 +1096,60 @@ const handleRegenerateWaveform = async () => {
   }
 };
 
-const handleReplaceMedia = async () => {
-  if (!import.meta.client || !window.electronAPI) return;
+// ---- Replace Media / relink (issue #80) ----
+// Picks through the same modal as import (server browse, local pick, upload),
+// copies the file into the project's media/ folder, and points the item at it.
+// Everything else about the cue — name, trims, fades, routing, events — stays.
+const { isMissing, scheduleRefresh: refreshMissingMedia } = useMissingMedia();
+const mediaMissing = computed(() => selectedItem.value?.type === 'audio' && isMissing(selectedItem.value.uuid));
+const replaceModalOpen = ref(false);
+const replacingMedia = ref(false);
+const replaceError = ref('');
 
-  const files = await window.electronAPI.selectAudioFiles();
-  if (!files || files.length === 0) return;
+const handleReplaceMedia = () => {
+  if (isMulti.value || selectedItem.value?.type !== 'audio') return;
+  replaceError.value = '';
+  replaceModalOpen.value = true;
+};
 
-  // Implementation would replace the media file
-  console.log('Replace media with:', files[0]);
+const onReplacePick = async (serverPaths: string[]) => {
+  replaceModalOpen.value = false;
+  const item = selectedItem.value as AudioItem | null;
+  const src = serverPaths[0];
+  if (!item || item.type !== 'audio' || !src) return;
+
+  replacingMedia.value = true;
+  replaceError.value = '';
+  try {
+    // Never reference media outside the project folder: if the copy fails,
+    // don't fall back to the source path.
+    const dest = await _server.copyToMedia(src);
+    const fileName = dest.split(/[\\/]/).pop() || item.mediaFileName;
+
+    let duration = 0;
+    try {
+      const md: any = await _server.fetchMetadata(dest);
+      if (md && typeof md.duration_ms === 'number') duration = md.duration_ms / 1000;
+    } catch (e) {
+      console.warn('[replace-media] fetchMetadata failed:', e);
+    }
+
+    item.mediaFileName = fileName;
+    item.mediaPath = `media/${fileName}`;
+    item.mediaServerPath = dest;
+    item.waveform = undefined;
+    retimeForNewDuration(item, duration);
+    await handleSave();
+
+    _server.requestWaveformGeneration(dest, item.uuid, true).catch((e: Error) => {
+      console.warn(`[waveform] generation failed for ${item.displayName}:`, e);
+    });
+    refreshMissingMedia();
+  } catch (e: any) {
+    replaceError.value = t('missingMedia.replaceFailed', { error: e?.message ?? String(e) });
+  } finally {
+    replacingMedia.value = false;
+  }
 };
 
 const copyToClipboard = async (text: string) => {
@@ -1071,6 +1191,19 @@ const formatTime = (seconds: number): string => {
 .properties-header h3 {
   font-size: 16px;
   font-weight: 600;
+}
+
+.input-with-btn .spinning {
+  animation: spin 1s linear infinite;
+}
+
+.media-missing-help {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-warning);
+
+  .material-symbols-rounded { font-size: 16px; }
 }
 
 .close-btn {
@@ -1160,37 +1293,44 @@ const formatTime = (seconds: number): string => {
   min-height: min-content;
 }
 
-/* Special handling for playback tab with waveform trimmer.
-   Takes the leftover height of .properties-content rather than sitting at its
-   natural height, so the trimmer inside has somewhere to grow when the panel
-   is dragged taller. Every other tab keeps `flex: 0 1 auto` and so still
-   sizes to content.
+/* The timeline tabs (Playback, Events: assets/styles/timeline.scss) take the
+   leftover height of .properties-content rather than sitting at their natural
+   height, so the timeline inside has somewhere to grow when the panel is
+   dragged taller. Every other tab keeps `flex: 0 1 auto` and so still sizes
+   to content.
 
-   `min-height: 0` OVERRIDES the `min-content` in the rule above, and it is the
-   whole fix for the waveform that would not scale. Measured, not reasoned:
-   the trimmer row's min-content height is 797px, because .volume-slider-
-   vertical is `height: 100%` and a percentage height on a vertical range
-   input in an INDEFINITE-height context resolves against the viewport (758px
-   here) instead of falling back to the input's 129px intrinsic throw. With
-   `min-height: min-content` that 797px became the panel's FLOOR, so the
-   canvas measured 732px whether the panel was dragged to 180px, 300px or
-   600px — very tall, and completely static.
+   `min-height: 0` OVERRIDES the `min-content` in the rule above, and it is
+   the whole fix for the waveform that would not scale. Measured, not
+   reasoned: the trimmer row's min-content height is 797px, because
+   .volume-slider-vertical is `height: 100%` and a percentage height on a
+   vertical range input in an INDEFINITE-height context resolves against the
+   viewport (758px here) instead of falling back to the input's 129px
+   intrinsic throw. With `min-height: min-content` that 797px became the
+   panel's FLOOR, so the canvas measured 732px whether the panel was dragged
+   to 180px, 300px or 600px — very tall, and completely static.
 
-   With this at 0 the panel's height is what decides: 300px gives a 150px row
-   and an 85px canvas (what it always had), 600px gives 449px and 384px. Below
-   the trimmer's own 150px floor the row stops shrinking and .properties-
-   content scrolls, which is the honest failure — a scrollbar rather than a
-   collapsed canvas.
+   With this at 0 the panel's height is what decides. Each frame states its
+   own honest floor instead (the Playback tab 150px, the Events tab enough
+   for its toolbar, timeline, zoom row and two list rows); below it the frame
+   overflows and .properties-content scrolls, which is the honest failure — a
+   scrollbar rather than a collapsed canvas.
 
    Not cleaned up here, deliberately: the `height: 100%` pair in
    WaveformTrimmer is the real defect and would want `align-self: stretch`
    instead. That is a visible change to the fader, so it is a separate job. */
-.tab-panel:has(.waveform-trimmer) {
+.tab-panel:has(.waveform-trimmer),
+.tab-panel:has(.item-events) {
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   flex: 1;
   min-height: 0;
+}
+
+/* Reuses the loading message's layout, but nothing here is pending. */
+.loading-message.events-multi .material-symbols-rounded {
+  animation: none;
+  font-size: 36px;
 }
 
 .property-field {
@@ -1202,15 +1342,12 @@ const formatTime = (seconds: number): string => {
   color: var(--color-text-secondary);
 }
 
-.property-field label {
-  font-size: 13px;
+.property-field > label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
   font-weight: 500;
-}
-
-.field-hint {
-  margin: 0;
-  font-size: 11px;
-  max-width: 320px;
 }
 
 .property-field input,
@@ -1257,7 +1394,7 @@ const formatTime = (seconds: number): string => {
   &:hover:not(:disabled) {
     background-color: var(--color-accent);
     border-color: var(--color-accent);
-    color: white;
+    color: var(--color-on-accent, #fff);
   }
 
   &:disabled {
@@ -1336,6 +1473,7 @@ const formatTime = (seconds: number): string => {
   color: var(--color-text-secondary);
   margin-top: 4px;
 }
+
 
 .ltc-checkbox-label {
   display: flex;

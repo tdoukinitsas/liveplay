@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "ヘッダーの「無音まで」カウントダウンを非表示にします。",
     "transitionMode": "既定のトランジションモード",
     "transitionModeHelp": "新しくインポートしたトラックが次のトラックへどう切り替わるかを決めます。トラックごとにプロパティで変更できます。",
+    "goContinuesFrom": "複数のキュー再生中の GO",
+    "goContinuesFromEarliest": "最初に開始したキューから続ける",
+    "goContinuesFromLatest": "最後に開始したキューから続ける",
+    "goContinuesFromHelp": "複数のキューが再生中で「次へ」に何も設定されていないとき、GO と「次へ」がどのキューから続けるか。コントロールサーフェスと MIDI も同じ選択に従います。",
     "transitionModeCrossfade": "次へクロスフェード",
     "transitionModeStartNext": "マーカーで次を開始",
     "autoCueNext": "常に次のアイテムをスタンバイにする",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "このアプリが接続しているサーバーと、管理者向けのサーバー設定です。",
     "sectionUsers": "アカウント",
     "sectionUsersHelp": "このサーバーを使える人と、それぞれが変更できる内容です。",
+    "stopAllFiresEvents": "「すべて停止」で「終了時」イベントを実行",
+    "stopAllFiresEventsHelp": "オフの場合、「すべて停止」で止まったキューは「終了時」イベントを実行しません。オンの場合は実行しますが、別のキューを開始することはできません。「すべて停止」が終わる前にもう一度押すとパニックになり、すべてが即座に停止し、イベントは一切実行されません。",
     "stopAllStopsPreview": "「すべて停止」でプレビューも停止",
     "stopAllStopsPreviewHelp": "オフの場合、「すべて停止」を押してもプレビュー中のキューは停止しません。",
     "sectionAppearance": "外観",
@@ -169,13 +175,30 @@
     "accentColorHelp": "選択範囲、再生中のキュー、ハイライトに使われます。",
     "accentColorSwatch": "アクセントカラー {color}",
     "sectionAbout": "このアプリについて",
-    "sectionAboutHelp": "バージョン、クレジット、ライセンスです。"
+    "sectionAboutHelp": "バージョン、クレジット、ライセンスです。",
+    "sectionConnections": "接続",
+    "stopAllUsesItemFade": "停止するキューはそれぞれのストップボタン・フェードを使う",
+    "stopAllUsesItemFadeHelp": "オンにすると、Stop All と「他のすべてを停止」ダッキングモードで、各キューがそれぞれのストップボタン・フェードでフェードアウトします。フェードのないキューは Stop All のフェードを使います。Stop All を2回押すと、従来どおりすべて即座に停止します。",
+    "thisComputer": "このコンピューター",
+    "scopeYou": "個人",
+    "scopeShow": "このショー",
+    "scopeServer": "サーバー",
+    "groupLanguageLayout": "言語とレイアウト",
+    "groupDisplay": "表示",
+    "groupGoUpNext": "GO とスタンバイ",
+    "groupNewCues": "新しいキュー",
+    "groupLoudness": "ラウドネスとメーター",
+    "groupRouting": "ルーティングとタイムコード",
+    "groupConnection": "接続",
+    "sectionPlaybackIntro": "キューの開始・停止と次のキューへの受け渡し、そして新しいキューの初期設定です。",
+    "disableAutoVolumeAndTrimHelp": "新しいキューはファイル本来のレベルと長さのままになります。レベル調整やトリミングは、各キューの「再生」タブでいつでも行えます。"
   },
   "common": {
     "default": "既定",
     "loading": "読み込み中…",
     "error": "エラー",
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "moreInfo": "詳細情報"
   },
   "project": {
     "enterName": "プロジェクト名を入力",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "見つからないバスにルーティング",
     "newGroup": "新しいグループ"
   },
+  "tabs": {
+    "playlistLabel": "プレイリストタブ",
+    "cartLabel": "カートページ",
+    "add_playlist": "プレイリストタブを追加",
+    "add_cart": "カートページを追加",
+    "limitReached": "タブ数が上限に達しました。",
+    "defaultPlaylist": "プレイリスト {n}",
+    "defaultPage": "ページ {n}",
+    "edit": "タブを編集",
+    "name": "名前",
+    "colour": "カラー",
+    "noColour": "カラーなし",
+    "cartCount": "カート数",
+    "fewer": "カートを減らす",
+    "more": "カートを増やす",
+    "cartCountFloor": "{n} 未満にはできません：その位置にカートがあります。",
+    "atEnd": "最後のキューの後",
+    "atEndWrap": "このタブの先頭に戻る",
+    "atEndContinue": "次のタブへ続ける",
+    "atEndStop": "停止",
+    "popOut": "新しいウィンドウで開く",
+    "delete": "タブを削除",
+    "deleteYes": "削除",
+    "deleteEmpty": "「{name}」を削除しますか？",
+    "deleteConfirm_playlist": "「{name}」と {count} 件のアイテムを削除しますか？",
+    "deleteConfirm_cart": "「{name}」と {count} 個のカートを削除しますか？",
+    "deletePlaying": "このタブで再生中のものがあります。先に停止してください。",
+    "upNextOn": "スタンバイ：{name}",
+    "following": "{name} を追従中",
+    "followLost": "{name} はオフラインです",
+    "followStop": "追従を停止",
+    "followSetting": "別のオペレーターのタブを追従",
+    "followOff": "オフ",
+    "followOffline": "オフライン",
+    "followHelp": "このウィンドウに、選択したオペレーターと同じプレイリストタブとカートページを表示します。自分でタブをクリックすると追従を停止します。",
+    "followThisComputer": "このコンピューターにのみ保存されます。",
+    "followSession": "{name}（セッション {n}）",
+    "editPage": "ページを編集",
+    "deletePage": "ページを削除",
+    "limitReachedPages": "ページ数が上限に達しました。",
+    "deletePlayingPage": "このページで再生中のものがあります。先に停止してください。",
+    "deleteConfirmCue": "「{name}」とそのキューを削除しますか？",
+    "deleteConfirmCues": "「{name}」とその {count} 件のキューを削除しますか？",
+    "deleteConfirmCart": "「{name}」とそのカートを削除しますか？",
+    "deleteConfirmCarts": "「{name}」とその {count} 個のカートを削除しますか？",
+    "colourN": "カラー {n}",
+    "pageFull": "「{name}」はいっぱいです"
+  },
   "cart": {
     "title": "カートプレーヤー",
+    "clickToImportOrPlaylist": "クリックしてインポート、またはアイテム、グループ、プレイリストタブをここにドラッグ",
+    "startPlaylist": "このカートでプレイリストを開始する",
+    "playlistSlot": "このカートはプレイリストタブ全体を開始します",
     "emptySlot": "クリックしてインポート、またはアイテムをここにドラッグ",
     "clickToImport": "クリックしてインポート、またはアイテムをここにドラッグ",
     "configureHotkeys": "ホットキーの設定",
@@ -217,7 +291,8 @@
     "conflict": "スロット {slot} に割り当て済みです",
     "reserved": "このキーの組み合わせは予約されています",
     "resetDefaults": "既定値に戻す",
-    "groupSlot": "プレイリストのグループ：このスロットからグループ全体を再生します"
+    "groupSlot": "プレイリストのグループ：このスロットからグループ全体を再生します",
+    "choosePlaylist": "どのプレイリストを開始しますか？"
   },
   "behaviors": {
     "startPlayNext": "開始：次を再生",
@@ -239,6 +314,21 @@
     "startNextTitle": "次を開始：{time}",
     "loadingWaveform": "波形を読み込み中…"
   },
+  "automation": {
+    "enable": "ボリュームオートメーション",
+    "enableHint": "波形の上に音量エンベロープを描きます。チェックを外すとバイパスされ、キーフレームは残ります。",
+    "addKeyframe": "キーフレームを追加",
+    "addKeyframeHint": "カーソル位置（再生中は再生ヘッド位置）にキーフレームを追加します。",
+    "removeKeyframe": "キーフレームを削除",
+    "removeKeyframeHint": "選択中のキーフレーム、またはカーソル位置のキーフレームを削除します。キーフレームの右クリックや Delete キーでも同じです。",
+    "clear": "クリア",
+    "clearHint": "すべてのキーフレームを削除します。",
+    "clearConfirm": "このキューのボリュームオートメーションのキーフレームをすべて削除しますか？",
+    "previewFromCursor": "カーソルからプレビュー",
+    "previewFromCursorHint": "このキューをカーソル位置からプレビューバスで再生します（オートメーション込み）。波形をクリックしてカーソルを置きます。",
+    "previewUnavailable": "出力にルーティングされたプレビューバスが必要です。ミキサーで設定してください。",
+    "stopPreview": "プレビューを停止"
+  },
   "properties": {
     "title": "プロパティ",
     "resize": "プロパティパネルのサイズを変更",
@@ -255,8 +345,8 @@
     "startBehavior": "開始時の動作",
     "duckingBehavior": "ダッキングの動作",
     "fadeOutDuration": "フェードアウト時間",
-    "duckFadeIn": "ダッキングフェードイン",
-    "duckFadeOut": "ダッキングフェードアウト",
+    "duckFadeIn": "下げる時間（秒）",
+    "duckFadeOut": "戻す時間（秒）",
     "children": "子アイテム",
     "seconds": "秒",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "ループの終わりから先頭へ、この秒数でクロスフェードします。0 ではクロスフェードせずにループします。",
     "loopCrossfadeNeedsLoop": "ループクロスフェードを使うには、このキューの終了時の動作を「ループ」に設定してください。",
     "advanceDelay": "次までの待ち時間（秒）",
-    "advanceDelayHint": "このキューが終わってから、終了時の動作で次のキューが始まるまで、この時間だけ待ちます。クロスフェードまたは「次を開始」が設定されている場合は無視されます。"
+    "advanceDelayHint": "このキューが終わってから、終了時の動作で次のキューが始まるまで、この時間だけ待ちます。クロスフェードまたは「次を開始」が設定されている場合は無視されます。",
+    "duckTimesHint": "このキューの開始時に他のキューが下がるまでの時間と、終了時に戻るまでの時間です。",
+    "volumeHelp": "このキューのレベルです。フェーダーをドラッグするか、-6.5 のように dB で入力します（無音は -inf）。",
+    "playFadeHelp": "開始するたびに、この秒数でキューをフェードインします。0 なら最初からフルレベルです。",
+    "stopFadeHelp": "アウトポイントの前に、この秒数でキューをフェードアウトします。0 なら最後までフルレベルで再生します。",
+    "crossFadeHelp": "アウトポイントまでのこの秒数の間、このキューがフェードアウトし、次のキューが重なってフェードインします。0 なら重ならずに切り替わります。",
+    "startNextHelp": "再生がマーカーに達すると、このキューを鳴らしたまま次のキューが始まります（ラジオ風のつなぎ）。",
+    "duckModeHelp": "このキューの開始時に、再生中の他のキューをどうするか：停止する、そのままにする、または終わるまでダッキングレベルに下げる。",
+    "apiTriggerUrlHelp": "このアドレスに GET または POST リクエストを送ると、別のシステム、スクリプト、ブラウザーからキューを再生できます。",
+    "groupTrim": "トリム",
+    "groupFades": "フェード",
+    "groupStopLoop": "停止とループ",
+    "groupTransition": "トランジション"
   },
   "playback": {
     "panic": "すべてのキューを停止",
@@ -449,7 +551,8 @@
     "noDevices": "出力デバイスが見つかりません",
     "silentServer": "サーバーをシステムトレイでサイレント実行する",
     "silentServerHelp": "コンソールウィンドウを開かずにサーバーを起動します。LivePlay を閉じた後も、システムトレイ（macOS ではメニューバー）のアイコンでサーバーの稼働がわかり、そのメニューからコンソールの表示、ログの表示、サーバーの停止ができます。次回サーバーを起動したときに反映されます。",
-    "silentServerForced": "LivePlay が --silent 付きで起動されたため、このセッションでは有効です。"
+    "silentServerForced": "LivePlay が --silent 付きで起動されたため、このセッションでは有効です。",
+    "localPortHelp": "このコンピューターのオーディオエンジンが待ち受けるポートです。他のプログラムがすでに使用している場合にのみ変更してください。"
   },
   "serverConfig": {
     "title": "サーバー設定",
@@ -647,6 +750,7 @@
     "currentVersion": "現在のバージョン",
     "newVersion": "新しいバージョン",
     "whatsNew": "更新内容",
+    "seeWhatsNew": "{version} の新機能を見る",
     "updatePrompt": "LivePlay の新しいバージョンがあります。今すぐダウンロードしてインストールしますか？",
     "manualUpdatePrompt": "LivePlay の新しいバージョンがあります。下のボタンからダウンロードページを開いてください。",
     "downloading": "アップデートをダウンロード中",
@@ -689,6 +793,9 @@
     "title": "コントロール設定",
     "tabKeyboard": "キーボード",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "カートに固定したキー",
+    "pinnedCartsHelp": "固定キーは、どのページからでもそのカートを実行します。上のキーは、表示中のページの位置を実行します。",
+    "keyInUse": "そのキーはすでに使用されています。",
     "sectionCartSlots": "カートスロット",
     "sectionPlayback": "再生",
     "sectionVolume": "音量",
@@ -721,7 +828,10 @@
     "playNext": "次を再生",
     "volumeMultiplier": "音量倍率",
     "volumeMultiplierHint": "MIDI の 1 ステップあたりの dB 値です。細かいステップで動くエンコーダーやホイールでは値を上げてください。",
-    "nextIn": "次まで {seconds} 秒"
+    "nextIn": "次まで {seconds} 秒",
+    "stopCurrentCue": "現在のキューを停止",
+    "conflictPinned": "{cart} に固定済み",
+    "midiDeviceHelp": "LivePlay が受け付けるコントローラーです。「すべてのデバイス」では接続中のすべてのコントローラーを受け付けます。"
   },
   "selectProject": {
     "title": "プロジェクトを選択",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "オーディオをインポート",
+    "notPlayable": "インポートされませんでした: {files}。LivePlay で再生できるのは WAV、AIFF、FLAC、MP3 ファイルです。",
     "tabServer": "サーバー上",
     "tabUpload": "このコンピューターからアップロード",
     "serverHint": "サーバー上のファイルです。フォルダーはダブルクリックで開きます。ファイルを選択して（複数選択は Shift または Ctrl/Cmd を押しながらクリック）、「選択したファイルをインポート」をクリックしてください。",
@@ -809,6 +920,15 @@
     "serverCloseServer": "サーバーを終了",
     "serverCloseClient": "クライアントのみ終了",
     "return": "プロジェクトに戻る"
+  },
+  "openFileModal": {
+    "title": "このファイルを開きますか？",
+    "message": "{file} を開くと、現在のショーが閉じます。",
+    "liveTitle": "ショーを再生中です",
+    "liveMessage": "再生中：{cues}。{file} を開くと、このショーが閉じ、音声が停止します。",
+    "andMore": "{cues} ほか {count} 件",
+    "keep": "現在のショーを維持",
+    "open": "ショーを閉じて開く"
   },
   "deleteSelection": {
     "title": "アイテムを削除",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}：クリックまたはドラッグで開く",
     "emptyTitle": "すべてのパネルが折りたたまれています",
     "emptyHint": "端のバーをクリックまたはドラッグするか、上部のボタンを使ってパネルを開いてください。"
+  },
+  "missingMedia": {
+    "badge": "メディアファイルが見つかりません。プロパティで置き換えるか、「見つからないメディアを探す」を使ってください。",
+    "banner": "{count} 件のメディアファイルが見つかりません。",
+    "locate": "探す…",
+    "locateHint": "見つからないファイルを名前で検索するフォルダーを選んでください。プロジェクト外のファイルはプロジェクトのメディアフォルダーにコピーされます。",
+    "locateResult": "{relinked} 個のアイテムを再リンクしました。{missing} 個はまだ見つかりません。",
+    "locateFailed": "このフォルダーを検索できませんでした：{error}",
+    "replace": "メディアファイルを置き換え",
+    "replaceFailed": "メディアファイルを置き換えられませんでした：{error}",
+    "propertiesHint": "サーバーがこのファイルを見つけられません。置き換えボタンでファイルを選び直してください。"
+  },
+  "events": {
+    "tab": "イベント",
+    "addEvent": "イベントを追加",
+    "addEventHint": "カーソル位置にイベントを追加します。波形をクリックしてカーソルを置いてください。",
+    "addTriggerEvent": "トリガーで追加…",
+    "cursor": "カーソル",
+    "cursorHint": "波形をクリックまたはドラッグしてカーソルを移動するか、時間を m:ss.mmm 形式または秒数で入力してください。",
+    "manageConnections": "接続を管理…",
+    "multiSelect": "イベントを編集するにはアイテムを 1 つだけ選択してください。",
+    "noEvents": "イベントはまだありません。波形をクリックしてカーソルを置き、「イベントを追加」を押してください。",
+    "selectEvent": "編集するイベントを選択してください。",
+    "unsupported": "このサーバーはイベントに対応していません。使用するには LivePlay サーバーをアップデートしてください。",
+    "noPlugins": "サーバーにイベントプラグインがありません。",
+    "loadFailed": "サーバーからイベントプラグインを読み込めませんでした。",
+    "loading": "イベントプラグインを読み込み中…",
+    "retry": "再試行",
+    "trigger": {
+      "label": "トリガー",
+      "time": "指定した時間",
+      "start": "開始時",
+      "end": "終了時",
+      "pause": "一時停止時",
+      "resume": "再開時"
+    },
+    "name": "名前",
+    "enabled": "有効",
+    "time": "時間",
+    "timeHint": "ファイル内の位置を m:ss.mmm 形式または秒数で指定します。再生範囲外ではイベントは実行されません。",
+    "useCursor": "カーソル位置に移動",
+    "plugin": "プラグイン",
+    "connection": "接続",
+    "noConnection": "接続なし",
+    "connectionMissing": "接続が見つかりません",
+    "connectionDisabled": "この接続は無効になっているため、イベントは実行されません。",
+    "noConnectionsForPlugin": "{plugin} の接続はまだありません。",
+    "action": "アクション",
+    "preset": "プリセット",
+    "presetNone": "なし（カスタム）",
+    "presetSave": "この設定をプリセットとして保存",
+    "presetSaveConfirm": "プリセットを保存",
+    "presetMissing": "プリセットが見つかりません",
+    "presetMissingHelp": "このイベントのプリセットはもう存在しないため、実行されません。別のプリセットか「なし」を選択してください。",
+    "presetInUse": "プリセット「{name}」を使用",
+    "presetEdit": "プリセットを編集",
+    "presetDetach": "カスタムにする",
+    "unknownPlugin": "このイベントはプラグイン「{plugin}」を使用していますが、このサーバーにはありません。実行されません。",
+    "outsideTrim": "再生範囲外：このイベントは実行されません。",
+    "placeholdersHelp": "テキスト欄では {item.name}、{item.uuid}、{trigger}、{time} を使えます。イベントの実行時にサーバーが値を埋め込みます。",
+    "test": "テスト",
+    "testing": "テスト中…",
+    "testOk": "送信しました。",
+    "testFailed": "失敗しました：{error}",
+    "duplicate": "複製",
+    "delete": "削除",
+    "lastOk": "最終実行 {time}：OK",
+    "lastError": "最終実行 {time}：失敗：{error}",
+    "form": {
+      "none": "—",
+      "missingItem": "（アイテムが見つかりません）",
+      "cartItem": "カート {slot} · {name}",
+      "addRow": "追加",
+      "removeRow": "削除",
+      "moveUp": "上へ移動",
+      "moveDown": "下へ移動",
+      "refreshOptions": "デバイスから一覧を再読み込み"
+    },
+    "connections": {
+      "intro": "イベントの送信先です（照明卓、MIDI ポート、Web フックなど）。各接続はショーごとに一度設定すれば、いくつのイベントからでも使えます。",
+      "noProject": "接続を管理するにはプロジェクトを開いてください。",
+      "empty": "接続はまだありません。",
+      "add": "接続を追加",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "新しい {plugin} 接続",
+      "editTitle": "「{name}」を編集",
+      "name": "名前",
+      "enabled": "有効",
+      "disabled": "無効",
+      "edit": "編集",
+      "save": "保存",
+      "cancel": "キャンセル",
+      "delete": "削除",
+      "deleteConfirm": "「{name}」を削除しますか？",
+      "deleteInUse": "{count} 件のイベントが「{name}」を使用しています。別の接続を割り当てるまで、これらのイベントは実行されません。削除してもよろしいですか？",
+      "usage": "{count} 件のイベント",
+      "unused": "未使用",
+      "unknownPlugin": "不明な種類「{plugin}」",
+      "noFields": "この種類には設定項目がありません。",
+      "addressDropsCredentials": "この新しいアドレスを保存すると、この接続と、それを使うイベントから保存済みの認証情報が削除されます。もう一度入力するよう求められます。",
+      "testWith": "テストするアクション",
+      "saveFailed": "接続を保存できませんでした：{error}",
+      "discover": "ネットワークで検索",
+      "discoverNone": "見つかりませんでした。デバイスの電源が入っていて、サーバーと同じネットワークにあるか確認してください。",
+      "discoverFailed": "ネットワークを検索できませんでした：{error}",
+      "discoverUsed": "{device} を使用します。",
+      "presets": "プリセット",
+      "presetsHelp": "複数のイベントで再利用する設定です。プリセットを変更すると、それを使うすべてのイベントに反映されます。",
+      "presetAdd": "プリセットを追加",
+      "presetName": "プリセット名",
+      "presetDone": "完了",
+      "presetDelete": "プリセットを削除（イベントにはこの設定が残ります）",
+      "enabledFor": "{name} を有効にする",
+      "editNamed": "{name} を編集",
+      "deleteNamed": "{name} を削除",
+      "authRejected": "認証情報が拒否されました",
+      "authMissing": "認証情報が必要です",
+      "signIn": "サインイン",
+      "signInRejectedHelp": "デバイスがこの認証情報を拒否しました。「ヘッダー」で入力し直してください。保存済みのものは点で表示されます。",
+      "signInMissingHelp": "このショーの認証情報は別のマシンで暗号化されたため、このマシンでは使用できません。「ヘッダー」で入力し直してください。",
+      "signInMany": "{count} 件の接続で認証情報の再入力が必要です。",
+      "signInRejected": "「{name}」が認証情報を拒否しました。イベントが引き続き動作するよう、もう一度サインインしてください。",
+      "signInMissing": "「{name}」の認証情報をこのマシンで入力する必要があります。",
+      "signInWaiting": "「{name}」へのサインインが必要です。この接続への変更を保存またはキャンセルすると、ここに表示されます。",
+      "signInLater": "後で",
+      "signInDiscard": "変更を破棄してサインイン",
+      "nameHelp": "イベントに接続を選ぶときに表示される、この接続の名前です。",
+      "enabledHelp": "オフにすると、この接続には何も送信されず、そのイベントも実行されません。"
+    },
+    "zoom": "ズーム",
+    "zoomIn": "ズームイン",
+    "zoomOut": "ズームアウト",
+    "zoomFit": "ファイル全体を表示",
+    "scroll": "タイムラインをスクロール",
+    "navHint": "スクロールでズーム · Shift+スクロールまたは中ボタンのドラッグで左右に移動",
+    "deleted": "「{name}」を削除しました。",
+    "undo": "元に戻す",
+    "deviceTimeout": "デバイスが時間内に応答しませんでした。",
+    "headers": {
+      "name": "名前",
+      "value": "値",
+      "valueFor": "{name} の値",
+      "secret": "暗号化して保存、点で表示",
+      "secretPlaceholder": "パスワード、トークン、またはキー",
+      "remove": "ヘッダーを削除",
+      "add": "ヘッダーを追加",
+      "rawLine": "ヘッダー行"
+    },
+    "groupWhen": "タイミング",
+    "groupCommand": "コマンド",
+    "triggerHelp": "イベントが発生するタイミング：ファイル内の時刻、またはキューの開始・一時停止・再開・終了時。"
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP 経由の Open Sound Control：照明卓、QLab、Companion など。",
+      "actions": {
+        "message": "メッセージを送信"
+      },
+      "connection": {
+        "host": {
+          "label": "ホスト"
+        },
+        "port": {
+          "label": "ポート"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "アドレス"
+        },
+        "args": {
+          "label": "引数",
+          "help": "文字列の値には {item.name}、{item.uuid}、{trigger}、{time} を使えます。"
+        },
+        "type": {
+          "label": "タイプ"
+        },
+        "value": {
+          "label": "値"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "整数",
+          "f": "浮動小数点",
+          "s": "文字列",
+          "T": "True（真）",
+          "F": "False（偽）",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "サーバーマシンからの MIDI 出力：ノート、CC、プログラムチェンジ、MIDI Show Control、SysEx。",
+      "actions": {
+        "note-on": "ノートオン",
+        "note-off": "ノートオフ",
+        "control-change": "コントロールチェンジ",
+        "program-change": "プログラムチェンジ",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx（生データ）"
+      },
+      "summaries": {
+        "note-on": "ch {channel} ノート {note}",
+        "note-off": "ch {channel} ノート {note}",
+        "control-change": "ch {channel} CC {controller} = {value}",
+        "program-change": "ch {channel} プログラム {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "出力ポート",
+          "help": "LivePlay サーバーが動作しているマシンのポートです。名前で照合します。"
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "チャンネル"
+        },
+        "note": {
+          "label": "ノート"
+        },
+        "velocity": {
+          "label": "ベロシティ"
+        },
+        "controller": {
+          "label": "コントローラー"
+        },
+        "value": {
+          "label": "値"
+        },
+        "program": {
+          "label": "プログラム"
+        },
+        "deviceId": {
+          "label": "デバイス ID",
+          "help": "127 はすべてのデバイスが対象になります。"
+        },
+        "commandFormat": {
+          "label": "コマンドフォーマット"
+        },
+        "command": {
+          "label": "コマンド"
+        },
+        "cue": {
+          "label": "キュー"
+        },
+        "list": {
+          "label": "キューリスト"
+        },
+        "path": {
+          "label": "キューパス"
+        },
+        "data": {
+          "label": "バイト（hex）"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "照明（一般）",
+          "moving-lights": "ムービングライト",
+          "sound": "音響（一般）",
+          "video": "映像（一般）",
+          "all": "すべてのタイプ"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Web API を持つあらゆる機器への HTTP リクエスト：Companion、メディアサーバー、ホームオートメーションなど。",
+      "actions": {
+        "request": "リクエスト"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "ベース URL",
+          "help": "http:// のみ対応しています。HTTPS にはまだ対応していません。"
+        },
+        "headers": {
+          "label": "ヘッダー",
+          "help": "すべてのリクエストで送信されます。パスワード、トークン、キーは暗号化して保存され、点で表示されます。"
+        },
+        "timeoutMs": {
+          "label": "タイムアウト（ms）"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "メソッド"
+        },
+        "path": {
+          "label": "パス"
+        },
+        "headers": {
+          "label": "ヘッダー",
+          "help": "接続のヘッダーに追加されます。"
+        },
+        "contentType": {
+          "label": "ボディの種類"
+        },
+        "body": {
+          "label": "ボディ",
+          "help": "{item.name}、{item.uuid}、{trigger}、{time} を使えます。"
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "なし",
+          "application/x-www-form-urlencoded": "フォーム",
+          "text/plain": "テキスト"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "このショー：キューの開始・停止・ダッキングと、内部ミキサーの操作。",
+      "actions": {
+        "play-item": "キューを再生",
+        "stop-item": "キューを停止",
+        "stop-all": "すべて停止",
+        "pause-item": "キューを一時停止",
+        "resume-item": "キューを再開",
+        "arm-next": "スタンバイに設定",
+        "duck-item": "キューをダッキング",
+        "bus-level": "バスのフェーダーを設定",
+        "bus-mute": "バスをミュート / 解除",
+        "bus-send": "センドレベルを設定",
+        "bus-route": "バスをルーティング",
+        "bus-dsp": "バスの処理を設定",
+        "master-level": "マスターレベルを設定",
+        "stop-fade-mode": "Stop All のフェードモードを設定"
+      },
+      "fields": {
+        "item": {
+          "label": "キュー"
+        },
+        "level": {
+          "label": "レベル",
+          "help": "キュー自身の音量に対する相対値です。0 で元に戻り、-90 で無音になります。再生中のキューにのみ適用され、保存された音量は変わりません。"
+        },
+        "fade": {
+          "label": "クロスフェード",
+          "help": "0 で即座に変更します。長くすると現在の値からフェードします。"
+        },
+        "bus": {
+          "label": "バス"
+        },
+        "state": {
+          "label": "状態"
+        },
+        "send": {
+          "label": "送り先",
+          "help": "バスの既存のセンドです。先にミキサーで追加してください。"
+        },
+        "to": {
+          "label": "送り先"
+        },
+        "param": {
+          "label": "設定項目"
+        },
+        "value": {
+          "label": "値",
+          "help": "設定項目固有の単位で指定します。スイッチは 0（オフ）または 1（オン）です。"
+        },
+        "mode": {
+          "label": "停止するキューのフェード",
+          "help": "設定 > 再生：Stop All と「他のすべてを停止」ダッキングが使うフェード。パニックは常に即時停止です。"
+        },
+        "stopFade": {
+          "label": "停止するキューのフェード"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "ミュート",
+          "unmute": "ミュート解除"
+        },
+        "param": {
+          "eqEnabled": "EQ オン (0/1)",
+          "dynEnabled": "ダイナミクスオン (0/1)",
+          "hpf_freq": "ハイパス周波数 (20–2000 Hz)",
+          "lpf_freq": "ローパス周波数 (1000–24000 Hz)",
+          "gate_on": "ゲートオン (0/1)",
+          "gate_threshold": "ゲートのスレッショルド (-80–0 dB)",
+          "gate_range": "ゲートのレンジ (-80–0 dB)",
+          "comp_on": "コンプレッサーオン (0/1)",
+          "comp_threshold": "コンプレッサーのスレッショルド (-60–0 dB)",
+          "comp_ratio": "コンプレッサーのレシオ (1–60 :1)",
+          "comp_makeup": "コンプレッサーのメイクアップ (-12–24 dB)",
+          "width_width": "ステレオ幅 (0–2 ×)"
+        },
+        "mode": {
+          "item": "各キューのストップボタン・フェード",
+          "global": "Stop All のフェード",
+          "toggle": "2つを切り替える"
+        },
+        "stopFade": {
+          "show": "Stop All のフェード",
+          "cue": "各キューのストップボタン・フェード、または即時"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12、XR16、XR18、Midas MR ミキサー：スナップショット、フェーダー、センド、FX、ルーティング、USB レコーダー。",
+      "actions": {
+        "snapshot": "スナップショットをリコール",
+        "fader": "フェーダーを設定",
+        "send": "センドレベルを設定",
+        "mute": "ミュート / 解除",
+        "recorder": "USB レコーダー",
+        "fx-type": "FX タイプを設定",
+        "fx-param": "FX パラメーターを設定",
+        "route-output": "出力をルーティング",
+        "route-main": "メイン出力をルーティング",
+        "check": "接続を確認"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "ミキサーのアドレス"
+        },
+        "port": {
+          "label": "ポート"
+        },
+        "maxLevelDb": {
+          "label": "最大レベル",
+          "help": "イベントで設定するフェーダーやセンドは、この値を超えません。"
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "スナップショット"
+        },
+        "strip": {
+          "label": "チャンネル"
+        },
+        "level": {
+          "label": "レベル",
+          "help": "-90 はオフ（-inf）です。接続の最大レベルで制限されます。"
+        },
+        "fade": {
+          "label": "クロスフェード",
+          "help": "0 で即座に変更します。長くすると現在の値からフェードします。"
+        },
+        "send": {
+          "label": "送り先"
+        },
+        "state": {
+          "label": "状態"
+        },
+        "command": {
+          "label": "コマンド",
+          "help": "ミキサーに挿した USB ドライブに録音します。"
+        },
+        "slot": {
+          "label": "FX スロット"
+        },
+        "type": {
+          "label": "エフェクト"
+        },
+        "param": {
+          "label": "パラメーター"
+        },
+        "value": {
+          "label": "値",
+          "help": "パラメーター固有の単位（横に表示）で指定します。スイッチは 0/1、選択肢は 0 から数えます。"
+        },
+        "output": {
+          "label": "出力"
+        },
+        "source": {
+          "label": "ソース",
+          "help": "USB センドに USB リターンは割り当てられません。"
+        },
+        "tap": {
+          "label": "タップポイント"
+        },
+        "assign": {
+          "label": "メイン出力のソース"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "ミュート",
+          "unmute": "ミュート解除"
+        },
+        "command": {
+          "record": "録音",
+          "stop": "停止",
+          "record-pause": "録音を一時停止",
+          "play": "再生",
+          "play-pause": "再生を一時停止"
+        },
+        "tap": {
+          "keep": "変更しない",
+          "0": "アナログ入力",
+          "1": "アナログ入力 + ミュート",
+          "2": "入力",
+          "3": "入力 + ミュート",
+          "4": "プリ EQ",
+          "5": "プリ EQ + ミュート",
+          "6": "ポスト EQ",
+          "7": "ポスト EQ + ミュート",
+          "8": "プリフェーダー",
+          "9": "プリフェーダー + ミュート",
+          "10": "ポストフェーダー"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "モニター",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

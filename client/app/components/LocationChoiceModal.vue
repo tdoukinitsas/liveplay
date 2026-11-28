@@ -124,7 +124,7 @@ function cancel() { emit('cancel'); }
 
   &.primary {
     border-color: var(--color-accent, #da1e28);
-    &:hover { background: var(--color-accent, #da1e28); color: white; }
+    &:hover { background: var(--color-accent, #da1e28); color: var(--color-on-accent, #fff); }
   }
   &.ghost {
     background: transparent;

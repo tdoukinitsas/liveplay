@@ -22,9 +22,53 @@
     <!-- Empty slot: importing is an edit action, so in Show Mode the slot is
          inert (just a dimmed number) rather than a "click to import" target. -->
     <div v-if="!hasItem" class="empty-slot" :class="{ 'empty-slot--inert': showMode }" @click="showMode ? undefined : handleImport()">
-      <span class="slot-number">{{ slot + 1 }}</span>
+      <span class="slot-number">{{ displayNumber }}</span>
       <span v-if="keyLabel" class="key-label">{{ keyLabel }}</span>
-      <span v-if="!showMode" class="slot-hint">{{ t('cart.clickToImport') }}</span>
+      <span v-if="!showMode" class="slot-hint">{{ t('cart.clickToImportOrPlaylist') }}</span>
+      <button
+        v-if="!showMode"
+        type="button"
+        class="bind-playlist"
+        :title="t('cart.startPlaylist')"
+        :aria-label="t('cart.startPlaylist')"
+        :aria-expanded="choosingTab"
+        @click.stop="onBindPlaylist"
+      >
+        <span class="material-symbols-rounded" aria-hidden="true">queue_music</span>
+      </button>
+      <!-- Covers the whole slot, so no rim of it is left to open Import by
+           mistake; its own ✕ sits where the toggle was. Escape, a click
+           outside or the ✕ put it away without binding anything. -->
+      <div
+        v-if="choosingTab"
+        ref="tabListEl"
+        class="bind-playlist-list"
+        role="dialog"
+        :aria-label="t('cart.choosePlaylist')"
+        data-own-keys
+        @click.stop
+        @keydown.esc.stop.prevent="choosingTab = false"
+      >
+        <div class="bind-playlist-head">
+          <span>{{ t('cart.choosePlaylist') }}</span>
+          <button
+            type="button"
+            class="bind-playlist-cancel"
+            :title="t('common.cancel')"
+            :aria-label="t('common.cancel')"
+            @click="choosingTab = false"
+          >
+            <span class="material-symbols-rounded" aria-hidden="true">close</span>
+          </button>
+        </div>
+        <button
+          v-for="(tab, i) in playlistTabs"
+          :key="tab.id"
+          type="button"
+          class="bind-playlist-option"
+          @click="bindTab(tab.id)"
+        >{{ tab.name || t('tabs.defaultPlaylist', { n: i + 1 }) }}</button>
+      </div>
     </div>
 
     <div
@@ -47,13 +91,20 @@
 
       <!-- Item info section -->
       <div class="slot-header" @click="handleSelect($event)">
-        <span class="slot-number">{{ slot + 1 }}</span>
+        <span class="slot-number">{{ displayNumber }}</span>
         <span
           v-if="isGroup"
           class="material-symbols-rounded group-icon"
-          :title="t('cart.groupSlot')"
-        >folder</span>
+          :title="isTabBound ? t('cart.playlistSlot') : t('cart.groupSlot')"
+        >{{ isTabBound ? 'queue_music' : 'folder' }}</span>
         <span class="slot-name" :class="{ 'is-peaking': isPeaking }">{{ item.displayName }}</span>
+        <span
+          v-if="mediaMissing"
+          class="material-symbols-rounded media-missing-icon"
+          :title="t('missingMedia.badge')"
+          draggable="false"
+          @click.stop
+        >link_off</span>
         <span
           v-if="isPeaking"
           class="material-symbols-rounded peak-warning-icon"
@@ -104,6 +155,7 @@
             :title="isPlaying ? t('actions.stop') : t('actions.play')"
           />
           <ActionButton
+            v-if="!isTabBound"
             icon="fast_forward"
             highlight-color="var(--color-warning)"
             active-text-color="black"
@@ -113,6 +165,7 @@
             :title="t('actions.setAsNext')"
           />
           <ActionButton
+            v-if="!isTabBound"
             icon="settings"
             highlight-color="var(--color-accent)"
             context="Cart"
@@ -194,20 +247,25 @@ import type { AudioItem, GroupItem } from '~/types/project';
 import ActionButton from './ActionButton.vue';
 import { runTime, formatRunTime } from '~/utils/groupTiming';
 import { drawRowWaveform } from '~/utils/rowWaveform';
+import { copyEventsWithNewIds } from '~/utils/events';
 import AudioImportModal from './AudioImportModal.vue';
 import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness, parseWaveformFileData } from '~/utils/audio';
 import { isSecondaryWindow } from '~/composables/useProject';
+import { isTabTarget, tabTarget } from '~/utils/tabs';
 
 const props = defineProps<{
   slot: number;
+  /** Where it sits on its page: what the operator counts by. */
+  position?: number;
+  /** The last slot on this page, for making room when carts are reordered. */
+  maxSlot?: number;
   item: AudioItem | GroupItem | null;
   keyLabel?: string;
 }>();
 
-// Highest valid cart slot index. The grid renders 16 slots (CartPlayer:
-// v-for="slot in 16"), so indices run 0..15.
-const CART_SLOT_MAX = 15;
+const displayNumber = computed(() => (props.position ?? props.slot) + 1);
+const cartSlotMax = computed(() => props.maxSlot ?? 15);
 
 const slotRef = ref<HTMLElement | null>(null);
 const showImportModal = ref(false);
@@ -217,7 +275,7 @@ const { levels: outputTargetLevels } = useOutputTarget();
 const { activeCues, activeGroups, nextItemOverrideUuid, autoNextItemUuid, setNextItem,
         isItemPlaying, fireItem, stopItemAny } = useAudioEngine();
 const { t } = useLocalization();
-const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem } = useCartItems();
+const { addCartOnlyItem, updateCartOnlyItem, removeCartOnlyItem, getCartOnlyItem } = useCartItems();
 const { uiMode } = useUiMode();
 
 // Show Mode: hide edit affordances (import/preview/edit/delete + drag) and
@@ -245,6 +303,48 @@ async function publishNewCartItem(item: AudioItem, slot: number) {
   }
 }
 
+// The same for carts moved or deleted in a detached window: its saveProject
+// sends nothing, so a reorder or a delete changed only this window's copy and
+// the next sync from the main window put it back.
+const cartBindings = () => new Map<number, string>(
+  (currentProject.value?.cartItems ?? []).map(c => [c.slot, c.itemUuid] as [number, string]));
+
+// After a reorder: what moved, slot by slot, as the main window's sync sends
+// it (useProject syncCart): the clears first, then the new bindings.
+async function publishCartMoves(before: Map<number, string>) {
+  const project = currentProject.value;
+  if (!isSecondaryWindow || !project) return;
+  const after = cartBindings();
+  // The server drops the pin of a slot it clears, and tells this window so
+  // while the calls are still going: the pins as they were are what show
+  // where a moved cart's key has to go.
+  const pins = project.cartPinnedKeys;
+  const server = useLiveplayServer();
+  try {
+    for (const slot of before.keys()) if (!after.has(slot)) await server.clearCartSlot(slot);
+    for (const [slot, uuid] of after) if (before.get(slot) !== uuid) await server.setCartSlot(slot, uuid);
+    if (pins && currentProject.value === project) {
+      project.cartPinnedKeys = pins;
+      useCartHotkeys().reconcilePinnedKeys(before, after);
+    }
+  } catch (e) {
+    console.warn('[cart] could not move the cart on the server:', e);
+  }
+}
+
+// After a delete: the slot is cleared, and a cue that lived only in the cart
+// goes too, as the main window's item sync would remove it.
+async function publishCartDelete(slot: number, cartOnlyUuid: string | null) {
+  if (!isSecondaryWindow) return;
+  const server = useLiveplayServer();
+  try {
+    await server.clearCartSlot(slot);
+    if (cartOnlyUuid) await server.removeProjectItem(cartOnlyUuid);
+  } catch (e) {
+    console.warn('[cart] could not delete the cart on the server:', e);
+  }
+}
+
 const waveformCanvas = ref<HTMLCanvasElement | null>(null);
 const currentTime = ref(0);
 const duration = ref(0);
@@ -253,6 +353,10 @@ const warningState = ref<'yellow' | 'orange' | 'red' | null>(null);
 const isDragOver = ref(false);
 
 const hasItem = computed(() => props.item !== null);
+
+// The server can't find this slot's media file (issue #80).
+const { isMissing } = useMissingMedia();
+const mediaMissing = computed(() => !!props.item && props.item.type === 'audio' && isMissing(props.item.uuid));
 
 const isPeaking = computed(() => {
   if (!props.item || props.item.type !== 'audio') return false;
@@ -275,6 +379,9 @@ const isPeaking = computed(() => {
 // A slot can hold a playlist group (discussion #61): it fires the group, and
 // its time and progress are the whole group's.
 const isGroup = computed(() => props.item?.type === 'group');
+// A cart that starts a whole playlist tab. It has no item of its own to edit
+// or arm: the cues on the tab are the playlist's.
+const isTabBound = computed(() => isTabTarget(props.item?.uuid));
 const isPlaying = computed(() => isItemPlaying(props.item));
 const indefiniteMark = computed(() =>
   isGroup.value && props.item && activeGroups.value.get(props.item.uuid)?.indefinite ? '+' : '');
@@ -288,6 +395,9 @@ const isQueuedNext = computed(() => {
 
 // Helper to convert hex to rgba
 const hexToRgba = (hex: string, alpha: number) => {
+  // A cue made through the API may have no colour, or not a #rrggbb one:
+  // that must not stop the whole list drawing.
+  if (typeof hex !== 'string' || !/^#[0-9a-f]{6}/i.test(hex)) hex = '#808080';
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -467,7 +577,7 @@ const handleSlotClick = () => {
 };
 
 const handleSelect = (event?: MouseEvent) => {
-  if (!props.item) return;
+  if (!props.item || isTabBound.value) return;
   if (showMode.value) return;
   // Stamp the selection as cart-owned so a global keyboard DEL clears cart
   // slots (rather than deleting the underlying playlist items).
@@ -515,6 +625,65 @@ const handlePlay = () => {
   fireItem(props.item);
 };
 
+// ---- A cart that starts a whole playlist tab (discussion #61) ---------------
+const { playlistTabs } = useShowTabs();
+const choosingTab = ref(false);
+const tabListEl = ref<HTMLElement | null>(null);
+
+const onBindPlaylist = () => {
+  if (playlistTabs.value.length === 1) bindTab(playlistTabs.value[0]!.id);
+  else choosingTab.value = !choosingTab.value;
+};
+
+// While the list is up: a press anywhere outside it puts it away, and so does
+// Escape wherever focus is, caught before the transport keys would take it
+// as Stop All.
+function onOutsidePress(e: PointerEvent) {
+  if (tabListEl.value && !tabListEl.value.contains(e.target as Node)) choosingTab.value = false;
+}
+function onEscapeCapture(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopPropagation();
+  choosingTab.value = false;
+}
+function unbindChooser() {
+  window.removeEventListener('pointerdown', onOutsidePress, true);
+  window.removeEventListener('keydown', onEscapeCapture, true);
+}
+watch(choosingTab, (open) => {
+  if (!import.meta.client) return;
+  unbindChooser();
+  if (!open) return;
+  window.addEventListener('pointerdown', onOutsidePress, true);
+  window.addEventListener('keydown', onEscapeCapture, true);
+  // Into the list, so the keyboard can choose from it.
+  void nextTick(() => tabListEl.value?.querySelector<HTMLElement>('.bind-playlist-option')?.focus());
+});
+// An edit action: Show Mode, or the slot being filled, puts it away.
+watch([showMode, hasItem], () => { choosingTab.value = false; });
+onBeforeUnmount(() => { if (import.meta.client) unbindChooser(); });
+
+const bindTab = (tabId: string) => {
+  const project = currentProject.value;
+  if (!project) return;
+  choosingTab.value = false;
+  const uuid = tabTarget(tabId);
+  const existing = project.cartItems.find((ci: any) => ci.slot === props.slot);
+  if (existing) {
+    if (existing.itemUuid) removeCartOnlyItem(existing.itemUuid);
+    existing.itemUuid = uuid;
+    existing.index = [-1, props.slot];
+  } else {
+    project.cartItems.push({ slot: props.slot, itemUuid: uuid, index: [-1, props.slot] });
+  }
+  if (isSecondaryWindow) {
+    useLiveplayServer().setCartSlot(props.slot, uuid).catch((err: unknown) =>
+      console.warn('[cart] could not bind the playlist to the slot on the server:', err));
+  }
+  void useProject().saveProject();
+};
+
 const handleStop = () => {
   if (!props.item) return;
   stopItemAny(props.item);
@@ -539,12 +708,15 @@ const handleDelete = () => {
   if (requestDeleteFromButton(props.item.uuid, 'cart')) return;
 
   // Remove from cart-only items
+  const cartOnlyUuid = getCartOnlyItem(props.item.uuid) ? props.item.uuid : null;
   removeCartOnlyItem(props.item.uuid);
 
   // Remove from cart
   const index = currentProject.value.cartItems.findIndex((ci: any) => ci.slot === props.slot);
   if (index !== -1) {
     currentProject.value.cartItems.splice(index, 1);
+    // A detached window tells the server itself (see publishCartDelete).
+    void publishCartDelete(props.slot, cartOnlyUuid);
     const { saveProject } = useProject();
     saveProject();
   }
@@ -629,17 +801,24 @@ let waveformPollInterval: NodeJS.Timeout | null = null;
 onMounted(() => {
   // Use native DOM listeners for drag-and-drop — Vue event handlers
   // on this component don't receive drop events (likely a Vue 3 scoped template issue).
-  // Skipped in Show Mode so cues can't be accidentally reordered/replaced mid-show.
-  if (slotRef.value && !showMode.value) {
+  // Always registered, and Show Mode checked on each event: registered only
+  // when the slot mounted in Edit Mode, a slot that mounted in Show Mode
+  // stayed dead after switching to Edit Mode. In Show Mode a drop is still
+  // taken (handleDrop), so a file let go over a cart is not opened by the
+  // window, but it changes nothing.
+  if (slotRef.value) {
     slotRef.value.addEventListener('dragenter', (e) => {
       e.preventDefault();
     });
     slotRef.value.addEventListener('dragover', (e) => {
       e.preventDefault();
-      if (e.dataTransfer) {
-        isDragOver.value = true;
-        e.dataTransfer.dropEffect = 'move';
+      if (!e.dataTransfer) return;
+      if (showMode.value) {
+        e.dataTransfer.dropEffect = 'none';
+        return;
       }
+      isDragOver.value = true;
+      e.dataTransfer.dropEffect = 'move';
     });
     slotRef.value.addEventListener('dragleave', () => {
       isDragOver.value = false;
@@ -776,6 +955,13 @@ const handleDrop = async (e: DragEvent) => {
   if (showMode.value) return;
   if (!e.dataTransfer || !currentProject.value) return;
   
+  // A playlist tab dropped here: this cart now starts it.
+  const droppedTab = e.dataTransfer.getData('liveplay-playlist-tab');
+  if (droppedTab) {
+    bindTab(droppedTab);
+    return;
+  }
+
   // Check if it's a cart item being reordered
   const sourceSlotStr = e.dataTransfer.getData('cart-slot');
   if (sourceSlotStr) {
@@ -787,6 +973,7 @@ const handleDrop = async (e: DragEvent) => {
     const cartItems = currentProject.value.cartItems;
     const sourceCartItem = cartItems.find((ci: any) => ci.slot === sourceSlot);
     if (!sourceCartItem) return;
+    const before = cartBindings();
 
     // Cart slots are an addressable grid (the user may have bound hotkeys to
     // specific slots), so reordering must be conservative — only disturb what
@@ -812,7 +999,7 @@ const handleDrop = async (e: DragEvent) => {
       while (occupied.has(firstFree)) firstFree += 1;
 
       // No blank slot remains before the end of the grid → no room to push.
-      if (firstFree > CART_SLOT_MAX) return;
+      if (firstFree > cartSlotMax.value) return;
 
       // Shift the run up by one, highest slot first to avoid collisions.
       for (let s = firstFree - 1; s >= targetSlot; s--) {
@@ -823,6 +1010,9 @@ const handleDrop = async (e: DragEvent) => {
       sourceCartItem.index = [-1, targetSlot];
     }
 
+    // A detached window tells the server itself (see publishCartMoves).
+    await publishCartMoves(before);
+
     // Save the project
     const { saveProject } = useProject();
     await saveProject();
@@ -831,17 +1021,15 @@ const handleDrop = async (e: DragEvent) => {
   
   // Check if it's a file drop
   if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-    const file = e.dataTransfer.files[0];
-    // Check if it's an audio file
-    if (file.type.startsWith('audio/') || /\.(mp3|wav|flac|ogg|m4a|aac)$/i.test(file.name)) {
-      // Upload to (local mode: copy into) the server's media root, then import
-      // the resulting server path. Works whether or not Electron can hand us an
-      // OS path and whether the server is local or remote.
-      const server = useLiveplayServer();
-      const serverPath = await server.resolveDroppedFileToMedia(file);
-      if (serverPath) await importFromServerPath(serverPath);
-      return;
-    }
+    const [file] = useImportNotice().keepPlayable([e.dataTransfer.files[0]!], f => f.name);
+    if (!file) return;
+    // Upload to (local mode: copy into) the server's media root, then import
+    // the resulting server path. Works whether or not Electron can hand us an
+    // OS path and whether the server is local or remote.
+    const server = useLiveplayServer();
+    const serverPath = await server.resolveDroppedFileToMedia(file);
+    if (serverPath) await importFromServerPath(serverPath);
+    return;
   }
   
   // Otherwise, check if it's an item UUID from the playlist
@@ -883,6 +1071,9 @@ const handleDrop = async (e: DragEvent) => {
     ...(sourceItem as AudioItem),
     uuid: newUuid,
     index: [-1, props.slot],
+    // Its own copy: a spread would share the array, and editing the cart
+    // copy's events would quietly edit the playlist cue's as well.
+    events: copyEventsWithNewIds((sourceItem as AudioItem).events),
   };
   addCartOnlyItem(cloned);
 
@@ -913,6 +1104,86 @@ const handleDrop = async (e: DragEvent) => {
 </script>
 
 <style scoped lang="scss">
+.bind-playlist {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  .material-symbols-rounded { font-size: 18px; }
+  &:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
+}
+
+/* Edge to edge: a rim left showing was the empty slot, and a click on it
+   opened Import. */
+.bind-playlist-list {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 4px;
+  background: var(--color-surface);
+  cursor: default;
+}
+
+.bind-playlist-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  padding: 2px 2px 2px 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+
+  > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.bind-playlist-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+
+  .material-symbols-rounded { font-size: 18px; }
+  &:hover { color: var(--color-text-primary); border-color: var(--color-accent); }
+}
+
+.bind-playlist-option {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover, &:focus-visible { background: var(--color-surface-hover); }
+  &:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+}
+
 .cart-slot {
   border: 3px solid var(--color-border);
   border-radius: var(--border-radius-md);
@@ -1067,6 +1338,16 @@ const handleDrop = async (e: DragEvent) => {
     &.is-peaking {
       color: #ff3b5c;
     }
+  }
+
+  .media-missing-icon {
+    font-size: 16px;
+    color: var(--color-warning);
+    flex-shrink: 0;
+    cursor: help;
+    line-height: 1;
+    align-self: flex-start;
+    margin-top: 1px;
   }
 
   .peak-warning-icon {

@@ -13,8 +13,9 @@
  *              whichever are present at runtime, so we only link -ldl — no
  *              libpulse-dev / libjack-dev needed on the build machine.
  *
- * Decoder configuration here covers the formats LivePlay needs out of the
- * gate: WAV, FLAC, MP3, and (via a built-in stb_vorbis fork) OGG/Vorbis.
+ * Decoder configuration here covers WAV and AIFF (one decoder), FLAC and MP3.
+ * Nothing else is built in, so nothing else can play: OGG needs stb_vorbis
+ * compiled in. audio_extensions() in net/control_server.cpp must match this.
  * ----------------------------------------------------------------------------
  */
 

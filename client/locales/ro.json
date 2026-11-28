@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "Ascunde din antet numărătoarea inversă „Liniște peste”.",
     "transitionMode": "Mod de tranziție implicit",
     "transitionModeHelp": "Cum predau piesele nou importate către următoarea. Se poate schimba pentru fiecare piesă în Proprietăți.",
+    "goContinuesFrom": "GO cu mai multe cue-uri în redare",
+    "goContinuesFromEarliest": "Continuă de la cue-ul pornit primul",
+    "goContinuesFromLatest": "Continuă de la cue-ul pornit ultimul",
+    "goContinuesFromHelp": "Când rulează mai multe cue-uri și nimic nu e setat ca Următorul, de la care continuă GO și Următorul. Suprafețele de control și MIDI urmează aceeași alegere.",
     "transitionModeCrossfade": "Crossfade către următoarea",
     "transitionModeStartNext": "Pornește următoarea la marcaj",
     "autoCueNext": "Setează mereu elementul următor ca Următorul",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "Serverul la care este conectată aplicația și, pentru administratori, configurația lui.",
     "sectionUsers": "Conturi",
     "sectionUsersHelp": "Cine poate folosi acest server și ce poate modifica.",
+    "stopAllFiresEvents": "Oprește tot declanșează evenimentele „La final”",
+    "stopAllFiresEventsHelp": "Când este dezactivat, cue-urile oprite de Oprește tot nu declanșează evenimente „La final”. Când este activat, le declanșează, dar niciunul nu poate porni alt cue. Apăsarea din nou a Oprește tot înainte să se termine este o oprire de panică: totul se oprește imediat și niciun eveniment nu se declanșează.",
     "stopAllStopsPreview": "Oprește tot oprește și preascultarea",
     "stopAllStopsPreviewHelp": "Când este dezactivat, Oprește tot nu oprește un cue pe care îl preascultați.",
     "sectionAppearance": "Aspect",
@@ -169,13 +175,30 @@
     "accentColorHelp": "Folosită pentru selecții, cue-urile în redare și evidențieri.",
     "accentColorSwatch": "Culoare de accent {color}",
     "sectionAbout": "Despre",
-    "sectionAboutHelp": "Versiune, contribuitori și licență."
+    "sectionAboutHelp": "Versiune, contribuitori și licență.",
+    "sectionConnections": "Conexiuni",
+    "stopAllUsesItemFade": "Cue-urile oprite folosesc propriul fade al butonului Stop",
+    "stopAllUsesItemFadeHelp": "Când e activ, Stop All și modul de ducking „Oprește toate celelalte” sting fiecare cue cu propriul fade al butonului Stop. Cue-urile fără unul folosesc fade-ul Stop All. Apăsarea de două ori pe Stop All oprește în continuare totul imediat.",
+    "thisComputer": "Acest calculator",
+    "scopeYou": "Personal",
+    "scopeShow": "Acest spectacol",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Limbă și aranjare",
+    "groupDisplay": "Afișare",
+    "groupGoUpNext": "GO și Următorul",
+    "groupNewCues": "Cue-uri noi",
+    "groupLoudness": "Loudness și măsurare",
+    "groupRouting": "Rutare și timecode",
+    "groupConnection": "Conexiune",
+    "sectionPlaybackIntro": "Cum pornesc, se opresc și trec cue-urile unul în altul și cu ce setări încep cue-urile noi.",
+    "disableAutoVolumeAndTrimHelp": "Cue-urile noi păstrează nivelul și durata fișierului. Puteți oricând nivela sau tăia orice cue din fila Redare."
   },
   "common": {
     "default": "implicit",
     "loading": "Se încarcă…",
     "error": "Eroare",
-    "cancel": "Anulează"
+    "cancel": "Anulează",
+    "moreInfo": "Mai multe informații"
   },
   "project": {
     "enterName": "Introduceți numele proiectului",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "Rutat către un bus care lipsește",
     "newGroup": "Grup nou"
   },
+  "tabs": {
+    "playlistLabel": "File de liste de redare",
+    "cartLabel": "Pagini cart",
+    "add_playlist": "Adaugă filă de listă de redare",
+    "add_cart": "Adaugă pagină cart",
+    "limitReached": "Ați atins numărul maxim de file.",
+    "defaultPlaylist": "Listă de redare {n}",
+    "defaultPage": "Pagina {n}",
+    "edit": "Editează fila",
+    "name": "Nume",
+    "colour": "Culoare",
+    "noColour": "Fără culoare",
+    "cartCount": "Număr de carturi",
+    "fewer": "Mai puține carturi",
+    "more": "Mai multe carturi",
+    "cartCountFloor": "Nu se poate coborî sub {n}: există un cart în acea poziție.",
+    "atEnd": "După ultimul cue",
+    "atEndWrap": "Înapoi la începutul acestei file",
+    "atEndContinue": "Continuă în fila următoare",
+    "atEndStop": "Stop",
+    "popOut": "Deschide într-o fereastră nouă",
+    "delete": "Șterge fila",
+    "deleteYes": "Șterge",
+    "deleteEmpty": "Ștergeți „{name}”?",
+    "deleteConfirm_playlist": "Ștergeți „{name}” și elementele sale ({count})?",
+    "deleteConfirm_cart": "Ștergeți „{name}” și carturile sale ({count})?",
+    "deletePlaying": "Ceva se redă în această filă. Opriți-l mai întâi.",
+    "upNextOn": "Următorul: {name}",
+    "following": "Urmărește {name}",
+    "followLost": "{name} este offline",
+    "followStop": "Oprește urmărirea",
+    "followSetting": "Urmărește filele altui operator",
+    "followOff": "Dezactivat",
+    "followOffline": "offline",
+    "followHelp": "Această fereastră afișează aceeași filă de listă de redare și aceeași pagină cart ca operatorul ales. Dacă faceți clic pe o filă, urmărirea se oprește.",
+    "followThisComputer": "Se salvează doar pe acest calculator.",
+    "followSession": "{name} (sesiunea {n})",
+    "editPage": "Editează pagina",
+    "deletePage": "Șterge pagina",
+    "limitReachedPages": "Ați atins numărul maxim de pagini.",
+    "deletePlayingPage": "Ceva se redă în această pagină. Opriți-l mai întâi.",
+    "deleteConfirmCue": "Ștergeți „{name}” și cue-ul său?",
+    "deleteConfirmCues": "Ștergeți „{name}” și cele {count} cue-uri ale sale?",
+    "deleteConfirmCart": "Ștergeți „{name}” și cartul său?",
+    "deleteConfirmCarts": "Ștergeți „{name}” și cele {count} carturi ale sale?",
+    "colourN": "Culoarea {n}",
+    "pageFull": "„{name}” este plină"
+  },
   "cart": {
     "title": "Cart player",
+    "clickToImportOrPlaylist": "Clic pentru import sau trageți aici un element, un grup sau o filă de listă de redare",
+    "startPlaylist": "Acest cart să pornească o listă de redare",
+    "playlistSlot": "Acest cart pornește o filă întreagă de listă de redare",
     "emptySlot": "Clic pentru import sau trageți un element aici",
     "clickToImport": "Clic pentru import sau trageți un element aici",
     "configureHotkeys": "Configurează tastele rapide",
@@ -217,7 +291,8 @@
     "conflict": "Deja atribuită slotului {slot}",
     "reserved": "Această combinație de taste este rezervată",
     "resetDefaults": "Revino la valorile implicite",
-    "groupSlot": "Grup din lista de redare: redă tot grupul din acest slot"
+    "groupSlot": "Grup din lista de redare: redă tot grupul din acest slot",
+    "choosePlaylist": "Ce listă de redare să pornească?"
   },
   "behaviors": {
     "startPlayNext": "Start: redă următorul",
@@ -239,6 +314,21 @@
     "startNextTitle": "Pornește următoarea: {time}",
     "loadingWaveform": "Se încarcă forma de undă…"
   },
+  "automation": {
+    "enable": "Automatizare volum",
+    "enableHint": "Desenează o anvelopă de volum pe forma de undă. Debifarea o ocolește și păstrează punctele.",
+    "addKeyframe": "Adaugă punct",
+    "addKeyframeHint": "Adaugă un punct la cursor, sau la capul de redare cât timp cue-ul cântă.",
+    "removeKeyframe": "Elimină punctul",
+    "removeKeyframeHint": "Elimină punctul selectat sau pe cel de la cursor. Clic dreapta pe un punct sau tasta Delete fac același lucru.",
+    "clear": "Golește",
+    "clearHint": "Elimină toate punctele.",
+    "clearConfirm": "Elimini toate punctele de automatizare a volumului din acest cue?",
+    "previewFromCursor": "Previzualizare de la cursor",
+    "previewFromCursorHint": "Redă acest cue de la cursor pe busul de previzualizare, cu automatizare. Dă clic pe forma de undă pentru a plasa cursorul.",
+    "previewUnavailable": "Necesită un bus de previzualizare rutat către o ieșire. Configurează-l în mixer.",
+    "stopPreview": "Oprește previzualizarea"
+  },
   "properties": {
     "title": "Proprietăți",
     "resize": "Redimensionează panoul de proprietăți",
@@ -255,8 +345,8 @@
     "startBehavior": "Comportament la start",
     "duckingBehavior": "Comportament de ducking",
     "fadeOutDuration": "Durata fade-out",
-    "duckFadeIn": "Fade-in la ducking",
-    "duckFadeOut": "Fade-out la ducking",
+    "duckFadeIn": "Coboară în (secunde)",
+    "duckFadeOut": "Revine în (secunde)",
     "children": "Elemente conținute",
     "seconds": "secunde",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "Face crossfade între finalul buclei și începutul ei pe durata acestui număr de secunde. 0 repetă fără crossfade.",
     "loopCrossfadeNeedsLoop": "Setați comportamentul la final al acestui cue pe Buclă pentru a folosi crossfade la buclă.",
     "advanceDelay": "Pauză înainte de următorul (secunde)",
-    "advanceDelayHint": "După ce acest cue se termină, se așteaptă atât înainte ca comportamentul la final să pornească cue-ul următor. Se ignoră când este setat un crossfade sau Pornește următoarea."
+    "advanceDelayHint": "După ce acest cue se termină, se așteaptă atât înainte ca comportamentul la final să pornească cue-ul următor. Se ignoră când este setat un crossfade sau Pornește următoarea.",
+    "duckTimesHint": "Cât le ia celorlalte cue-uri să coboare când pornește acest cue și să revină când se termină.",
+    "volumeHelp": "Nivelul acestui cue. Trageți fader-ul sau scrieți un nivel în dB, de exemplu -6.5 (-inf pentru liniște).",
+    "playFadeHelp": "Face fade-in pentru cue în atâtea secunde de fiecare dată când pornește. 0 pornește la nivel maxim.",
+    "stopFadeHelp": "Face fade-out pentru cue în atâtea secunde înainte de punctul de ieșire. 0 îl redă până la capăt la nivel maxim.",
+    "crossFadeHelp": "În atâtea secunde înainte de punctul de ieșire, acest cue se stinge în timp ce următorul intră peste el. 0 trece fără suprapunere.",
+    "startNextHelp": "Când redarea ajunge la marcaj, următorul cue pornește în timp ce acesta continuă: o tranziție ca la radio.",
+    "duckModeHelp": "Ce face pornirea acestui cue celorlalte cue-uri care rulează: le oprește, le lasă în pace sau le coboară la nivelul de ducking până se termină.",
+    "apiTriggerUrlHelp": "Trimiteți o cerere GET sau POST la această adresă pentru a reda cue-ul dintr-un alt sistem, un script sau un browser.",
+    "groupTrim": "Tăiere",
+    "groupFades": "Fade-uri",
+    "groupStopLoop": "Oprire și buclă",
+    "groupTransition": "Tranziție"
   },
   "playback": {
     "panic": "Oprește toate cue-urile",
@@ -449,7 +551,8 @@
     "noDevices": "Nu s-a găsit niciun dispozitiv de ieșire",
     "silentServer": "Rulează serverul discret în zona de notificare",
     "silentServerHelp": "Pornește serverul fără fereastră de consolă. O pictogramă în zona de notificare (bara de meniu pe macOS) arată că rulează, chiar și după închiderea LivePlay, iar meniul ei poate afișa consola, deschide jurnalele sau opri serverul. Se aplică la următoarea pornire a serverului.",
-    "silentServerForced": "Activ în această sesiune deoarece LivePlay a fost pornit cu --silent."
+    "silentServerForced": "Activ în această sesiune deoarece LivePlay a fost pornit cu --silent.",
+    "localPortHelp": "Portul pe care ascultă motorul audio al acestui calculator. Schimbați-l doar dacă îl folosește deja alt program."
   },
   "serverConfig": {
     "title": "Configurația serverului",
@@ -647,6 +750,7 @@
     "currentVersion": "Versiunea curentă",
     "newVersion": "Versiunea nouă",
     "whatsNew": "Noutăți",
+    "seeWhatsNew": "Vedeți noutățile din {version}",
     "updatePrompt": "Este disponibilă o versiune nouă de LivePlay. Doriți să o descărcați și să o instalați acum?",
     "manualUpdatePrompt": "Este disponibilă o versiune nouă de LivePlay. Faceți clic mai jos pentru a deschide pagina de descărcare.",
     "downloading": "Se descarcă actualizarea",
@@ -689,6 +793,9 @@
     "title": "Configurarea comenzilor",
     "tabKeyboard": "Tastatură",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "Taste fixate pe un cart",
+    "pinnedCartsHelp": "O tastă fixată declanșează acel cart din orice pagină. Tastele de mai sus declanșează o poziție din pagina afișată.",
+    "keyInUse": "Această tastă este deja folosită.",
     "sectionCartSlots": "Sloturi cart",
     "sectionPlayback": "Redare",
     "sectionVolume": "Volum",
@@ -721,7 +828,10 @@
     "playNext": "Redă următorul",
     "volumeMultiplier": "Multiplicator de volum",
     "volumeMultiplierHint": "dB per pas MIDI. Măriți-l pentru encodere sau rotițe care se mișcă în pași mici.",
-    "nextIn": "Următorul în {seconds} s"
+    "nextIn": "Următorul în {seconds} s",
+    "stopCurrentCue": "Oprește cue-ul curent",
+    "conflictPinned": "Deja fixată pe {cart}",
+    "midiDeviceHelp": "Controlerul pe care îl ascultă LivePlay. „Toate dispozitivele” ascultă orice controler conectat."
   },
   "selectProject": {
     "title": "Selectați proiectul",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "Importă audio",
+    "notPlayable": "Nu s-a importat: {files}. LivePlay redă fișiere WAV, AIFF, FLAC și MP3.",
     "tabServer": "Pe server",
     "tabUpload": "Încarcă de pe acest calculator",
     "serverHint": "Fișiere de pe server. Faceți dublu clic pe un folder pentru a-l deschide. Selectați fișierele (Shift sau Ctrl/Cmd-clic pentru mai multe), apoi faceți clic pe Importă selecția.",
@@ -809,6 +920,15 @@
     "serverCloseServer": "Închide serverul",
     "serverCloseClient": "Închide doar clientul",
     "return": "Înapoi la proiect"
+  },
+  "openFileModal": {
+    "title": "Deschideți acest fișier?",
+    "message": "Deschiderea fișierului {file} închide spectacolul curent.",
+    "liveTitle": "Un spectacol este în redare",
+    "liveMessage": "Se redă acum: {cues}. Deschiderea fișierului {file} închide acest spectacol și îi oprește sunetul.",
+    "andMore": "{cues} și încă {count}",
+    "keep": "Păstrează spectacolul curent",
+    "open": "Închide spectacolul și deschide"
   },
   "deleteSelection": {
     "title": "Ștergere elemente",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}: faceți clic sau trageți pentru a deschide",
     "emptyTitle": "Toate panourile sunt restrânse",
     "emptyHint": "Faceți clic pe o bară de la margine sau trageți-o, ori folosiți butoanele din partea de sus, pentru a deschide un panou."
+  },
+  "missingMedia": {
+    "badge": "Fișierul media lipsește. Înlocuiți-l în Proprietăți sau folosiți Localizează media lipsă.",
+    "banner": "Fișiere media negăsite: {count}.",
+    "locate": "Localizează…",
+    "locateHint": "Alegeți un folder în care să se caute după nume fișierele lipsă. Fișierele din afara proiectului sunt copiate în folderul media al acestuia.",
+    "locateResult": "Elemente reconectate: {relinked}. Încă lipsesc: {missing}.",
+    "locateFailed": "Nu s-a putut căuta în acel folder: {error}",
+    "replace": "Înlocuiește fișierul media",
+    "replaceFailed": "Fișierul media nu a putut fi înlocuit: {error}",
+    "propertiesHint": "Serverul nu găsește acest fișier. Folosiți butonul de înlocuire pentru a-l alege din nou."
+  },
+  "events": {
+    "tab": "Evenimente",
+    "addEvent": "Adaugă eveniment",
+    "addEventHint": "Adaugă un eveniment la cursor. Faceți clic pe forma de undă pentru a plasa cursorul.",
+    "addTriggerEvent": "Adaugă la…",
+    "cursor": "Cursor",
+    "cursorHint": "Faceți clic sau trageți pe forma de undă pentru a muta cursorul ori introduceți un timp în formatul m:ss.mmm sau în secunde.",
+    "manageConnections": "Gestionează conexiunile…",
+    "multiSelect": "Selectați un singur element pentru a-i edita evenimentele.",
+    "noEvents": "Niciun eveniment deocamdată. Faceți clic pe forma de undă pentru a plasa cursorul, apoi apăsați Adaugă eveniment.",
+    "selectEvent": "Selectați un eveniment pentru a-l edita.",
+    "unsupported": "Acest server nu acceptă evenimente. Actualizați serverul LivePlay pentru a le folosi.",
+    "noPlugins": "Serverul nu are pluginuri de evenimente.",
+    "loadFailed": "Pluginurile de evenimente nu au putut fi încărcate de pe server.",
+    "loading": "Se încarcă pluginurile de evenimente…",
+    "retry": "Reîncearcă",
+    "trigger": {
+      "label": "Declanșator",
+      "time": "La un anumit moment",
+      "start": "La pornire",
+      "end": "La final",
+      "pause": "La pauză",
+      "resume": "La reluare"
+    },
+    "name": "Nume",
+    "enabled": "Activat",
+    "time": "Timp",
+    "timeHint": "Poziția în fișier, în formatul m:ss.mmm sau în secunde. În afara punctelor de intrare și ieșire, evenimentul nu se declanșează niciodată.",
+    "useCursor": "Mută la cursor",
+    "plugin": "Plugin",
+    "connection": "Conexiune",
+    "noConnection": "Nicio conexiune",
+    "connectionMissing": "Conexiunea nu a fost găsită",
+    "connectionDisabled": "Această conexiune este dezactivată, deci evenimentul nu se va declanșa.",
+    "noConnectionsForPlugin": "Nu există încă nicio conexiune {plugin}.",
+    "action": "Acțiune",
+    "preset": "Presetare",
+    "presetNone": "Niciuna (personalizată)",
+    "presetSave": "Salvează aceste setări ca presetare",
+    "presetSaveConfirm": "Salvează presetarea",
+    "presetMissing": "Presetarea nu a fost găsită",
+    "presetMissingHelp": "Presetarea acestui eveniment nu mai există, deci nu se va declanșa. Alegeți altă presetare sau Niciuna.",
+    "presetInUse": "Folosește presetarea „{name}”",
+    "presetEdit": "Editează presetarea",
+    "presetDetach": "Personalizează",
+    "unknownPlugin": "Acest eveniment folosește pluginul „{plugin}”, pe care acest server nu îl are. Nu se va declanșa.",
+    "outsideTrim": "În afara punctelor de intrare și ieșire: acest eveniment nu se va declanșa.",
+    "placeholdersHelp": "Câmpurile de text pot folosi {item.name}, {item.uuid}, {trigger} și {time}; serverul le completează când se declanșează evenimentul.",
+    "test": "Testează",
+    "testing": "Se testează…",
+    "testOk": "Trimis.",
+    "testFailed": "Eșuat: {error}",
+    "duplicate": "Duplică",
+    "delete": "Șterge",
+    "lastOk": "Ultima declanșare la {time}: OK",
+    "lastError": "Ultima declanșare la {time}: eșuat: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(elementul nu a fost găsit)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Adaugă",
+      "removeRow": "Elimină",
+      "moveUp": "Mută în sus",
+      "moveDown": "Mută în jos",
+      "refreshOptions": "Citește din nou lista de pe dispozitiv"
+    },
+    "connections": {
+      "intro": "Unde sunt trimise evenimentele: o consolă de lumini, un port MIDI, un web hook. Fiecare conexiune se configurează o singură dată pentru spectacol și poate fi folosită de oricâte evenimente.",
+      "noProject": "Deschideți un proiect pentru a-i gestiona conexiunile.",
+      "empty": "Nicio conexiune deocamdată.",
+      "add": "Adaugă conexiune",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Conexiune {plugin} nouă",
+      "editTitle": "Editează „{name}”",
+      "name": "Nume",
+      "enabled": "Activată",
+      "disabled": "dezactivată",
+      "edit": "Editează",
+      "save": "Salvează",
+      "cancel": "Anulează",
+      "delete": "Șterge",
+      "deleteConfirm": "Ștergeți „{name}”?",
+      "deleteInUse": "Evenimente care folosesc „{name}”: {count}. Nu se vor declanșa până nu primesc o altă conexiune. O ștergeți oricum?",
+      "usage": "{count} eveniment(e)",
+      "unused": "Nefolosită",
+      "unknownPlugin": "Tip necunoscut „{plugin}”",
+      "noFields": "Acest tip nu are nimic de configurat.",
+      "addressDropsCredentials": "Salvarea acestei adrese noi elimină datele de autentificare stocate din această conexiune și din evenimentele care o folosesc. Ți se va cere să le introduci din nou.",
+      "testWith": "Testează cu",
+      "saveFailed": "Conexiunile nu au putut fi salvate: {error}",
+      "discover": "Caută în rețea",
+      "discoverNone": "Nu s-a găsit nimic. Verificați dacă dispozitivul este pornit și în aceeași rețea cu serverul.",
+      "discoverFailed": "Nu s-a putut căuta în rețea: {error}",
+      "discoverUsed": "Se folosește {device}.",
+      "presets": "Presetări",
+      "presetsHelp": "Setări de reutilizat în mai multe evenimente. Dacă schimbați o presetare, toate evenimentele care o folosesc se actualizează.",
+      "presetAdd": "Adaugă presetare",
+      "presetName": "Numele presetării",
+      "presetDone": "Gata",
+      "presetDelete": "Șterge presetarea (evenimentele ei păstrează aceste setări)",
+      "enabledFor": "{name} activată",
+      "editNamed": "Editează {name}",
+      "deleteNamed": "Șterge {name}",
+      "authRejected": "Date de autentificare refuzate",
+      "authMissing": "Lipsesc datele de autentificare",
+      "signIn": "Autentificare",
+      "signInRejectedHelp": "Dispozitivul a refuzat aceste date de autentificare. Introduceți-le din nou la Antete; cele salvate apar ca puncte.",
+      "signInMissingHelp": "Datele de autentificare ale acestui spectacol au fost criptate pe alt calculator, așa că acesta nu le poate folosi. Introduceți-le din nou la Antete.",
+      "signInMany": "Pentru {count} conexiuni trebuie introduse din nou datele de autentificare.",
+      "signInRejected": "„{name}” a refuzat datele de autentificare. Autentificați-vă din nou ca evenimentele sale să funcționeze în continuare.",
+      "signInMissing": "Pentru „{name}” trebuie introduse datele de autentificare pe acest calculator.",
+      "signInWaiting": "„{name}” necesită autentificare. Se deschide aici după ce salvați sau anulați modificările la această conexiune.",
+      "signInLater": "Nu acum",
+      "signInDiscard": "Renunță la modificări și autentifică-te",
+      "nameHelp": "Numele sub care apare această conexiune când alegeți una pentru un eveniment.",
+      "enabledHelp": "Când este dezactivată, nu se trimite nimic acestei conexiuni și evenimentele ei nu se declanșează."
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Mărește",
+    "zoomOut": "Micșorează",
+    "zoomFit": "Afișează tot fișierul",
+    "scroll": "Derulează linia timpului",
+    "navHint": "Derulați pentru zoom · Shift-derulare sau tragere cu butonul din mijloc pentru deplasare",
+    "deleted": "„{name}” a fost șters.",
+    "undo": "Anulează",
+    "deviceTimeout": "Dispozitivul nu a răspuns la timp.",
+    "headers": {
+      "name": "Nume",
+      "value": "Valoare",
+      "valueFor": "Valoarea pentru {name}",
+      "secret": "Criptat, afișat ca puncte",
+      "secretPlaceholder": "Parolă, token sau cheie",
+      "remove": "Elimină antetul",
+      "add": "Adaugă antet",
+      "rawLine": "Linie de antet"
+    },
+    "groupWhen": "Când",
+    "groupCommand": "Comandă",
+    "triggerHelp": "Când se declanșează evenimentul: la un moment din fișier sau când cue-ul pornește, se pune pe pauză, se reia sau se termină."
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control prin UDP: console de lumini, QLab, Companion și altele.",
+      "actions": {
+        "message": "Trimite mesaj"
+      },
+      "connection": {
+        "host": {
+          "label": "Gazdă"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adresă"
+        },
+        "args": {
+          "label": "Argumente",
+          "help": "Valorile de tip șir pot folosi {item.name}, {item.uuid}, {trigger} și {time}."
+        },
+        "type": {
+          "label": "Tip"
+        },
+        "value": {
+          "label": "Valoare"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Întreg",
+          "f": "Zecimal",
+          "s": "Șir",
+          "T": "Adevărat",
+          "F": "Fals",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Ieșire MIDI de pe calculatorul serverului: note, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (brut)"
+      },
+      "summaries": {
+        "note-on": "can. {channel} notă {note}",
+        "note-off": "can. {channel} notă {note}",
+        "control-change": "can. {channel} CC {controller} = {value}",
+        "program-change": "can. {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Port de ieșire",
+          "help": "Porturile calculatorului pe care rulează serverul LivePlay, potrivite după nume."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Canal"
+        },
+        "note": {
+          "label": "Notă"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Controler"
+        },
+        "value": {
+          "label": "Valoare"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "ID dispozitiv",
+          "help": "127 se adresează tuturor dispozitivelor."
+        },
+        "commandFormat": {
+          "label": "Format comandă"
+        },
+        "command": {
+          "label": "Comandă"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Listă de cue-uri"
+        },
+        "path": {
+          "label": "Cale cue"
+        },
+        "data": {
+          "label": "Octeți (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Lumini (general)",
+          "moving-lights": "Lumini mobile",
+          "sound": "Sunet (general)",
+          "video": "Video (general)",
+          "all": "Toate tipurile"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Cereri HTTP către orice are un API web: Companion, servere media, automatizare pentru casă.",
+      "actions": {
+        "request": "Cerere"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL de bază",
+          "help": "Doar http://; HTTPS nu este încă acceptat."
+        },
+        "headers": {
+          "label": "Antete",
+          "help": "Trimise cu fiecare cerere. Parolele, tokenurile și cheile sunt păstrate criptat și afișate ca puncte."
+        },
+        "timeoutMs": {
+          "label": "Timeout (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metodă"
+        },
+        "path": {
+          "label": "Cale"
+        },
+        "headers": {
+          "label": "Antete",
+          "help": "Se adaugă la antetele conexiunii."
+        },
+        "contentType": {
+          "label": "Tip corp"
+        },
+        "body": {
+          "label": "Corp",
+          "help": "Poate folosi {item.name}, {item.uuid}, {trigger} și {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Niciunul",
+          "application/x-www-form-urlencoded": "Formular",
+          "text/plain": "Text"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Acest spectacol: pornește, oprește și aplică ducking cue-urilor și controlează mixerul intern.",
+      "actions": {
+        "play-item": "Redă cue",
+        "stop-item": "Oprește cue",
+        "stop-all": "Oprește tot",
+        "pause-item": "Pauză cue",
+        "resume-item": "Reia cue",
+        "arm-next": "Setează Următorul",
+        "duck-item": "Ducking pe un cue",
+        "bus-level": "Setează faderul bus-ului",
+        "bus-mute": "Mute / unmute la un bus",
+        "bus-send": "Setează nivelul send-ului",
+        "bus-route": "Rutează un bus",
+        "bus-dsp": "Setează procesarea bus-ului",
+        "master-level": "Setează nivelul master",
+        "stop-fade-mode": "Setează modul de fade Stop All"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        },
+        "level": {
+          "label": "Nivel",
+          "help": "Relativ la volumul propriu al cue-ului: 0 îl readuce, -90 îl amuțește. Doar cue-ul în redare; volumul salvat nu se schimbă."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 schimbă imediat; o valoare mai mare face fade de la poziția actuală."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Stare"
+        },
+        "send": {
+          "label": "Către",
+          "help": "Send-urile existente ale bus-ului; adăugați mai întâi unul în Mixer."
+        },
+        "to": {
+          "label": "Merge către"
+        },
+        "param": {
+          "label": "Setare"
+        },
+        "value": {
+          "label": "Valoare",
+          "help": "În unitatea setării; comutatoarele sunt 0 (dezactivat) sau 1 (activat)."
+        },
+        "mode": {
+          "label": "Cue-urile oprite se sting cu",
+          "help": "Setări > Redare: cu ce fade ies Stop All și ducking-ul „oprește toate celelalte”. Panica taie întotdeauna."
+        },
+        "stopFade": {
+          "label": "Cue-urile oprite se sting cu"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ activat (0/1)",
+          "dynEnabled": "Dinamică activată (0/1)",
+          "hpf_freq": "Frecvență trece-sus (20–2000 Hz)",
+          "lpf_freq": "Frecvență trece-jos (1000–24000 Hz)",
+          "gate_on": "Gate activat (0/1)",
+          "gate_threshold": "Prag gate (-80–0 dB)",
+          "gate_range": "Range gate (-80–0 dB)",
+          "comp_on": "Compresor activat (0/1)",
+          "comp_threshold": "Prag compresor (-60–0 dB)",
+          "comp_ratio": "Ratio compresor (1–60 :1)",
+          "comp_makeup": "Makeup compresor (-12–24 dB)",
+          "width_width": "Lățime stereo (0–2 ×)"
+        },
+        "mode": {
+          "item": "Fade-ul butonului Stop al fiecărui cue",
+          "global": "Fade-ul Stop All",
+          "toggle": "Comută între cele două"
+        },
+        "stopFade": {
+          "show": "Fade-ul Stop All",
+          "cue": "Fade-ul butonului Stop al fiecărui cue sau imediat"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Mixere XR12, XR16, XR18 și Midas MR: snapshot-uri, fadere, send-uri, FX, rutare și recorderul USB.",
+      "actions": {
+        "snapshot": "Încarcă snapshot",
+        "fader": "Setează faderul",
+        "send": "Setează nivelul send-ului",
+        "mute": "Mute / unmute",
+        "recorder": "Recorder USB",
+        "fx-type": "Setează tipul FX",
+        "fx-param": "Setează parametrul FX",
+        "route-output": "Rutează o ieșire",
+        "route-main": "Rutează ieșirea main",
+        "check": "Verifică conexiunea"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Adresa mixerului"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "maxLevelDb": {
+          "label": "Nivel maxim",
+          "help": "Niciun fader sau send setat de un eveniment nu trece peste această valoare."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Canal"
+        },
+        "level": {
+          "label": "Nivel",
+          "help": "-90 înseamnă off (-inf). Limitat de nivelul maxim al conexiunii."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 schimbă imediat; o valoare mai mare face fade de la poziția actuală."
+        },
+        "send": {
+          "label": "Către"
+        },
+        "state": {
+          "label": "Stare"
+        },
+        "command": {
+          "label": "Comandă",
+          "help": "Înregistrează pe stickul USB din mixer."
+        },
+        "slot": {
+          "label": "Slot FX"
+        },
+        "type": {
+          "label": "Efect"
+        },
+        "param": {
+          "label": "Parametru"
+        },
+        "value": {
+          "label": "Valoare",
+          "help": "În unitatea parametrului (afișată alături); comutatoarele sunt 0/1, opțiunile se numără de la 0."
+        },
+        "output": {
+          "label": "Ieșire"
+        },
+        "source": {
+          "label": "Sursă",
+          "help": "Send-urile USB nu pot prelua returnurile USB."
+        },
+        "tap": {
+          "label": "Punct de preluare"
+        },
+        "assign": {
+          "label": "Ieșirea main transmite"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Înregistrare",
+          "stop": "Stop",
+          "record-pause": "Pauză înregistrare",
+          "play": "Redare",
+          "play-pause": "Pauză redare"
+        },
+        "tap": {
+          "keep": "Nu schimba",
+          "0": "Intrare analogică",
+          "1": "Intrare analogică + mute",
+          "2": "Intrare",
+          "3": "Intrare + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

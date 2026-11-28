@@ -24,6 +24,14 @@
 import { reactive, ref, shallowRef, computed } from 'vue';
 import type { Bus, BusDsp } from '~/types/project';
 import type {
+  EventConnection,
+  EventTestRequest,
+  EventTestResult,
+  EventOptionsResult,
+  DiscoveredDevice,
+  PluginSchema,
+} from '~/types/events';
+import type {
   CueId,
   DeviceId,
   MasterChannelIndex,
@@ -35,6 +43,14 @@ import type {
   ServerMixerChannel,
   ServerWaveform,
 } from '~/types/server';
+
+/** GET /api/media/missing: an audio item whose media file the server can't find. */
+export interface MissingMediaEntry {
+  uuid: string;
+  displayName: string;
+  mediaFileName: string;
+  mediaPath: string;
+}
 
 /** GET /api/outputs: the machine's logical-output map, plus the built-in names. */
 export interface OutputMapChannel { device: string; hwChannel: number }
@@ -556,7 +572,10 @@ function createClient() {
           // itself) just changed something. Hand off to subscribers
           // (useProject installs one that applies the patch under
           // isHydrating so the local diff-watcher doesn't echo it back).
-          for (const cb of docPatchSubscribers) cb(payload);
+          // One subscriber that throws must not keep the frame from the rest.
+          for (const cb of docPatchSubscribers) {
+            try { cb(payload); } catch (err) { console.error('[liveplay] doc_patch subscriber failed', err); }
+          }
           break;
         }
         case 'pong':
@@ -602,6 +621,14 @@ function createClient() {
   // ---- Transport (WS — low-latency) ---------------------------------
   function play(cue: CueId)             { wsSend({ type: 'play',     cue_id: cue }); }
   function stop(cue: CueId)             { wsSend({ type: 'stop',     cue_id: cue }); }
+  // Stop Current Cue (#87): the server decides which cue that is (the one
+  // fired last that is still on air), so a key, a MIDI note and Companion agree.
+  function stopCurrent(fadeMs?: number) {
+    wsSend(fadeMs === undefined
+      ? { type: 'stop_current' }
+      : { type: 'stop_current', fade_ms: fadeMs });
+  }
+
   // Omit fadeMs to let the server apply the project-wide Stop All fade
   // (settings.stopAllFadeMs, default 1000 ms). Pass a number (incl. 0 for an
   // instant panic) to override it for this call.
@@ -815,6 +842,8 @@ function createClient() {
       cartSlotKeys: any;
       playbackKeys: any;
       cartOnlyItems: any[];
+      // Absent from a server that predates events (#84).
+      eventConnections?: EventConnection[];
       itemCount: number;
       hasOpenProject: boolean;
       server: { projectFilePath: string; mediaRoot: string;
@@ -1042,8 +1071,12 @@ function createClient() {
   function setSelection(uuid: string | null) {
     wsSend({ type: 'set_selection', item_uuid: uuid ?? '' });
   }
-  function stepSelection(delta: number) {
-    wsSend({ type: 'select_step', delta });
+  // The server keeps a step to one playlist tab (F-05): `tabId` names the tab
+  // the sender is showing, and `scope: 'show'` crosses tabs instead.
+  function stepSelection(delta: number, opts: { tabId?: string; scope?: 'tab' | 'show' } = {}) {
+    wsSend({ type: 'select_step', delta,
+             ...(opts.tabId ? { tabId: opts.tabId } : {}),
+             ...(opts.scope ? { scope: opts.scope } : {}) });
   }
   // Omit `enabled` to toggle.
   function setShowMode(enabled?: boolean) {
@@ -1081,6 +1114,25 @@ function createClient() {
   }
 
   // Cart slot bindings.
+  // Playlist tabs and cart pages: what exists. Every client is told.
+  async function saveProjectTabs(body: { playlistTabs: unknown[]; cartPages: unknown[] }) {
+    return rest<any>('/api/project/tabs', { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  // The position keys and the keys pinned to carts (F-03). The server answers
+  // every client with cart_keys_changed.
+  async function fetchCartKeys() {
+    return rest<{ cartSlotKeys?: Record<string, any>; cartPinnedKeys?: Record<string, any> }>('/api/project/cart-keys');
+  }
+  async function saveCartKeys(body: { cartSlotKeys?: Record<string, unknown>; cartPinnedKeys?: Record<string, unknown> }) {
+    return rest<any>('/api/project/cart-keys', { method: 'PUT', body: JSON.stringify(body) });
+  }
+
+  // Which tab and page this window shows, so another operator can follow it.
+  function setClientView(view: { playlistTab: string; cartPage: string }) {
+    wsSend({ type: 'set_view', ...view });
+  }
+
   async function setCartSlot(slot: number, itemUuid: string) {
     return rest<any>('/api/project/cart', {
       method: 'POST',
@@ -1092,10 +1144,14 @@ function createClient() {
   }
 
   // Preview (DJ-style pre-listening, rendered on the Preview bus).
-  async function startPreview(itemUuid: string) {
+  // `startSeconds` (source-file time) starts the audition there instead of at
+  // the item's in-point: the Playback tab's "Preview from cursor".
+  async function startPreview(itemUuid: string, startSeconds?: number) {
+    const body: Record<string, unknown> = { itemUuid };
+    if (typeof startSeconds === 'number' && Number.isFinite(startSeconds)) body.startSeconds = startSeconds;
     return rest<any>('/api/preview', {
       method: 'POST',
-      body: JSON.stringify({ itemUuid }),
+      body: JSON.stringify(body),
     });
   }
   async function stopPreview() {
@@ -1669,14 +1725,109 @@ function createClient() {
   }
 
   // Copy a server-side file into the project's media root. Returns the
-  // absolute path of the copy. A no-op (returns the same path) if the file
-  // is already inside the media root.
+  // absolute path of the copy, which is the one to store: a different file
+  // with the same name makes this "Intro (2).wav", and identical bytes return
+  // the copy already there (#92). A no-op if the file is already in the root.
   async function copyToMedia(sourcePath: string): Promise<string> {
     const result = await rest<{ dest_path: string }>('/api/copy_to_media', {
       method: 'POST',
       body: JSON.stringify({ source_path: sourcePath }),
     });
     return result.dest_path;
+  }
+
+  // Audio items whose media file the server can't find (issue #80).
+  async function fetchMissingMedia(): Promise<MissingMediaEntry[]> {
+    const result = await rest<{ missing: MissingMediaEntry[] }>('/api/media/missing');
+    return result.missing ?? [];
+  }
+
+  // Relink every missing item to a same-named file under a SERVER folder. The
+  // server copies out-of-project matches into media/ and broadcasts the item
+  // patches, so every client's document updates through the usual doc_patch.
+  async function locateMissingMedia(folder: string, recursive = true) {
+    return await rest<{
+      relinked: { uuid: string; patch: Record<string, unknown> }[];
+      missing: MissingMediaEntry[];
+    }>('/api/media/locate', {
+      method: 'POST',
+      body: JSON.stringify({ folder, recursive }),
+    });
+  }
+
+  // ---- Events (#84) -------------------------------------------------
+  // The server owns events end to end; these only read the plugin schemas and
+  // the connection list, write the list back, and ask for a one-off test fire.
+  // Item events themselves travel with the item through the ordinary diff.
+
+  // Every plugin's schema. MIDI port lists inside it are live, so callers
+  // refetch rather than caching this for the session.
+  async function fetchEventPlugins(): Promise<PluginSchema[]> {
+    const result = await rest<{ plugins: PluginSchema[] }>('/api/events/plugins');
+    return Array.isArray(result?.plugins) ? result.plugins : [];
+  }
+
+  async function fetchEventConnections(): Promise<EventConnection[]> {
+    const result = await rest<{ connections: EventConnection[] }>('/api/events/connections');
+    return Array.isArray(result?.connections) ? result.connections : [];
+  }
+
+  // Replaces the whole list. The server broadcasts event_connections_changed
+  // to every client, this one included.
+  async function saveEventConnections(connections: EventConnection[]): Promise<EventConnection[]> {
+    const result = await rest<{ ok: boolean; connections?: EventConnection[] }>(
+      '/api/events/connections',
+      { method: 'PUT', body: JSON.stringify({ connections }) },
+    );
+    return Array.isArray(result?.connections) ? result.connections : connections;
+  }
+
+  async function fetchEventOptions(body: {
+    plugin: string; source: string; connectionId?: string | null;
+    connection?: unknown; values?: Record<string, unknown>;
+  }): Promise<EventOptionsResult> {
+    return await settleEventJob(await rest<EventOptionsResult>('/api/events/options', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }));
+  }
+
+  async function discoverEventDevices(plugin: string, timeoutMs = 1500): Promise<DiscoveredDevice[]> {
+    const r = await settleEventJob(await rest<{ devices: DiscoveredDevice[] }>('/api/events/discover', {
+      method: 'POST',
+      body: JSON.stringify({ plugin, timeoutMs }),
+    }));
+    return r.devices ?? [];
+  }
+
+  // The server answers a request that has to wait on the network with
+  // { pending, jobId } rather than hold one of its I/O threads, so the result
+  // is collected here. The longest it can legitimately take is a 30 s timeout
+  // on each phase of an HTTP Test.
+  async function settleEventJob<T>(first: T): Promise<T> {
+    let reply = first as T & { pending?: boolean; jobId?: string };
+    const jobId = reply?.jobId;
+    if (!reply?.pending || !jobId) return reply;
+    const giveUpAt = Date.now() + 95_000;
+    while (reply?.pending) {
+      if (Date.now() > giveUpAt) {
+        // Shown to the operator, so in their language (F-49).
+        let message = 'The device did not answer in time.';
+        try { message = useLocalization().t('events.deviceTimeout'); } catch { /* no i18n yet */ }
+        throw new Error(message);
+      }
+      await new Promise(resolve => setTimeout(resolve, 150));
+      reply = await rest<T & { pending?: boolean; jobId?: string }>(
+        `/api/events/jobs/${encodeURIComponent(jobId)}`);
+    }
+    return reply;
+  }
+
+  async function testEvent(req: EventTestRequest): Promise<EventTestResult> {
+    return await settleEventJob(await rest<EventTestResult>('/api/events/test', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }));
   }
 
   // Land a file dropped from the OS into the server's media root and return
@@ -1771,6 +1922,7 @@ function createClient() {
     play,
     stop,
     stopAll,
+    stopCurrent,
     setGainDb,
     setFade,
     setCueLtc,
@@ -1801,7 +1953,17 @@ function createClient() {
     fetchWaveform,
     fetchWaveformByPath,
     copyToMedia,
+    fetchMissingMedia,
+    locateMissingMedia,
     resolveDroppedFileToMedia,
+
+    // events (#84)
+    fetchEventPlugins,
+    fetchEventConnections,
+    saveEventConnections,
+    testEvent,
+    fetchEventOptions,
+    discoverEventDevices,
     requestWaveformGeneration,
     invalidateWaveformCache,
     fetchMetadata,
@@ -1876,6 +2038,10 @@ function createClient() {
     saveOutputs,
 
     // cart bindings
+    saveProjectTabs,
+    saveCartKeys,
+    fetchCartKeys,
+    setClientView,
     setCartSlot,
     clearCartSlot,
 

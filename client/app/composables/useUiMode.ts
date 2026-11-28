@@ -17,10 +17,15 @@ const STORAGE_KEY = 'liveplay-ui-mode';
 // useUiMode() don't repeatedly touch storage or clobber each other.
 let _hydrated = false;
 
-export const useUiMode = () => {
-  const uiMode = useState<UiMode>('useUiMode.uiMode', () => 'edit');
+// A popped-out playlist tab is for running the show: it has no editing path
+// back to the document, so it stays in Show Mode whatever the main window does.
+export const ALWAYS_SHOW_MODE = typeof window !== 'undefined'
+  && new URLSearchParams(window.location.search).get('playlistWindow') === '1';
 
-  if (import.meta.client && !_hydrated) {
+export const useUiMode = () => {
+  const uiMode = useState<UiMode>('useUiMode.uiMode', () => (ALWAYS_SHOW_MODE ? 'playback' : 'edit'));
+
+  if (import.meta.client && !_hydrated && !ALWAYS_SHOW_MODE) {
     _hydrated = true;
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -55,6 +60,7 @@ export const useUiMode = () => {
   }
 
   const setUiMode = (mode: UiMode) => {
+    if (ALWAYS_SHOW_MODE) return;
     uiMode.value = mode;
     if (import.meta.client) {
       try { localStorage.setItem(STORAGE_KEY, mode); } catch {}

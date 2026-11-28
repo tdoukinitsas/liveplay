@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bitars)",
-      "buttonText": "Ladda ner .exe",
-      "size": "~150 MB"
+      "buttonText": "Ladda ner .exe"
     },
     "macArm": {
       "title": "macOS – Apple Silicon",
-      "description": "M1/M2/M3 och senare (arm64)",
-      "buttonText": "Ladda ner .dmg",
-      "size": "~140 MB"
+      "description": "M1 och nyare (arm64), macOS 13.3+",
+      "buttonText": "Ladda ner .dmg"
     },
     "macIntel": {
       "title": "macOS – Intel",
-      "description": "Intel-Mac (x64), macOS 11 eller senare",
-      "buttonText": "Ladda ner .dmg",
-      "size": "~145 MB"
+      "description": "Intel-Mac (x64), macOS 13.3+",
+      "buttonText": "Ladda ner .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Ladda ner .AppImage",
-      "size": "~155 MB"
+      "buttonText": "Ladda ner .AppImage"
     },
     "recommended": "Rekommenderas för ditt system",
     "showOtherOS": "Ladda ner för ett annat operativsystem",
@@ -63,7 +59,8 @@
       "step1": "Klicka på ”Mer information” i varningsrutan.",
       "step2": "Klicka på knappen ”Kör ändå” som visas och fortsätt sedan installationen som vanligt.",
       "outro": "Om webbläsaren i stället blockerade nedladdningen väljer du ”Behåll” för att först spara installationsprogrammet."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Bidra",
@@ -84,15 +81,25 @@
     },
     "playlist": {
       "title": "Lägg upp köerna och kör",
-      "description": "Dra in musik och effekter i en spellista med köer och bestäm hur varje kö leder vidare till nästa: spela vidare, loopa eller hoppa. Styr hela körordningen med mus, pekskärm, tangentbord eller MIDI-kontroller."
+      "description": "Dra in musik och effekter i en spellista med köer och bestäm hur varje kö leder vidare till nästa: spela vidare, loopa eller hoppa. Styr hela körordningen med mus, pekskärm, tangentbord eller MIDI-kontroller.",
+      "points": [
+        "Spela vidare, loopa eller hoppa efter varje kö",
+        "Mus, pekskärm, tangentbord eller MIDI",
+        "Grupper för scener, akter och set"
+      ]
     },
     "cart": {
       "title": "Ljud och jinglar direkt",
-      "description": "Ha jinglar, stingers och utrop ett tryck bort i cartspelaren, redo att köras ovanpå allt annat som spelas."
+      "description": "Ha jinglar, stingers och utrop ett tryck bort i cartspelaren, redo att köras ovanpå allt annat som spelas.",
+      "points": [
+        "Spelas ovanpå allt som går",
+        "Ett kortkommando för varje cart",
+        "Förlyssna i hörlurarna först"
+      ]
     },
     "ducking": {
       "title": "Automatisk ducking",
-      "description": "Låt utrop och effekter sänka musiken medan de hörs och ta tillbaka den mjukt efteråt, eller låt en kö tysta allt annat för ett rent scenbyte."
+      "description": "Låt utrop och effekter sänka musiken medan de hörs och ta tillbaka den mjukt efteråt, eller låt en kö tysta allt annat för ett rent scenbyte. Du väljer hur snabbt musiken sänks och hur mjukt den kommer tillbaka."
     },
     "interface": {
       "title": "Organiserat på ditt sätt",
@@ -100,11 +107,25 @@
     },
     "showMode": {
       "title": "Showläge",
-      "description": "Showläget gör om skärmen till stora, pekvänliga kontroller och döljer allt som kan ändra showen, så att inget ändras av misstag när publiken väl har kommit in."
+      "description": "Showläget gör om skärmen till stora, pekvänliga kontroller och döljer allt som kan ändra showen, så att inget ändras av misstag när publiken väl har kommit in.",
+      "points": [
+        "Stora, pekvänliga kontroller",
+        "Redigering är låst",
+        "Slås på med en enda knapp"
+      ]
     },
     "waveform": {
       "title": "Klipp i vågformen",
       "description": "Klipp varje ljud till exakt den del du vill ha och forma in- och uttoningarna direkt i vågformen. LivePlay kan också trimma bort tystnad och jämna ut nivåerna åt dig, så att varje kö kommer in på en jämn volym."
+    },
+    "automation": {
+      "title": "Volymautomation",
+      "description": "Rita en cues nivå direkt på vågformen. Klicka för att lägga till en punkt, dra linjen för att sänka musiken under ett tal eller höja den i en refräng, eller markera ett avsnitt och sänk det i ett drag. Vågformen visar exakt vad som kommer att höras, och du kan förlyssna i hörlurar från valfri punkt före showen.",
+      "points": [
+        "Rita nivåer på vågformen",
+        "Markera ett avsnitt och dra ner det",
+        "Förlyssna från valfri punkt"
+      ]
     },
     "properties": {
       "title": "Finjustera varje kö",
@@ -124,15 +145,30 @@
     },
     "mixer": {
       "title": "En riktig mixer för din show",
-      "description": "Ge musik, effekter och utrop egna bussar och balansera dem på kanalremsor, precis som på ett mixerbord. Routa bussar in i varandra, direkt till en utgång eller via aux-sends, och tilldela en hel grupp köer på en gång."
+      "description": "Ge musik, effekter och utrop egna bussar och balansera dem på kanalremsor, precis som på ett mixerbord. Routa bussar in i varandra, direkt till en utgång eller via aux-sends, och tilldela en hel grupp köer på en gång.",
+      "points": [
+        "Bussar med kompletta kanalremsor",
+        "Routa mellan bussar eller använd aux-sends",
+        "Tilldela hela grupper av köer på en gång"
+      ]
     },
     "eqDynamics": {
       "title": "EQ och dynamik på varje buss",
-      "description": "Forma varje buss med en parametrisk EQ och en spektrumanalysator i realtid, och håll den sedan i schack med en gate och en kompressor. Stereobussar kan göras bredare eller smalare, med basen stadigt i mitten."
+      "description": "Forma varje buss med en parametrisk EQ och en spektrumanalysator i realtid, och håll den sedan i schack med en gate och en kompressor. Stereobussar kan göras bredare eller smalare, med basen stadigt i mitten.",
+      "points": [
+        "Upp till 32 EQ-band med analysator i realtid",
+        "Gate och kompressor på varje buss",
+        "Stereobredd med monosäker bas"
+      ]
     },
     "limiter": {
       "title": "Brickwall-limiter och loudness-mål",
-      "description": "En brickwall-limiter på varje utgång håller lösa toppar borta från högtalarna, och mixern visar när den arbetar. Välj ett loudness-mål, från broadcast och streaming till live, så följer limitern, mätarna och vågformerna efter."
+      "description": "En brickwall-limiter på varje utgång håller lösa toppar borta från högtalarna, och mixern visar när den arbetar. Välj ett loudness-mål, från broadcast och streaming till live, så följer limitern, mätarna och vågformerna efter.",
+      "points": [
+        "En limiter på varje utgång",
+        "Mål för broadcast, streaming och live",
+        "Mätare och vågformer följer med"
+      ]
     },
     "meters": {
       "title": "Mätning i broadcastklass",
@@ -156,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Lokal eller fjärrstyrd drift",
-      "description": "Kör ljudmotorn på samma dator eller på en maskin backstage bredvid ljudinterfacen, och styr allt från var som helst i nätverket. Ljudet kommer från motorn, inte från skärmen, så showen fortsätter spela även om en kontrolldator försvinner."
+      "description": "Kör ljudmotorn på samma dator eller på en maskin backstage bredvid ljudinterfacen, och styr allt från var som helst i nätverket. Ljudet kommer från motorn, inte från skärmen, så showen fortsätter spela även om en kontrolldator försvinner.",
+      "points": [
+        "Motor och skärmar på olika datorer",
+        "Spelar vidare om en skärm tappar kontakten",
+        "Styr från var som helst i nätverket"
+      ]
     },
     "discovery": {
       "title": "Samarbeta och kom snabbt tillbaka",
@@ -168,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Alla inställningar på ett ställe",
-      "description": "Alla inställningar finns på en och samma sida. Personliga val som språk och tema följer med dig till varje skärm du loggar in på, medan själva showen låter likadant överallt."
+      "description": "Alla inställningar finns på en och samma sida, grupperade efter ämne och förklarade där de står. En etikett visar vem varje inställning tillhör: dig, showen, den här datorn eller servern. Ditt tema följer med dig till varje skärm du loggar in på, medan själva showen låter likadant överallt."
     },
     "audioEngine": {
       "title": "Robust ljudmotor i C++",
@@ -177,6 +218,68 @@
     "ltc": {
       "title": "SMPTE-tidkod",
       "description": "Skicka SMPTE-tidkod tillsammans med köerna, så att ljus, video och annan utrustning kan följa din show."
+    },
+    "missingMedia": {
+      "title": "Hitta saknat ljud",
+      "description": "Om en fil flyttas eller tas bort flaggar LivePlay kön innan någon kör den. Peka ut en mapp så hittas och länkas varje saknad fil om efter namn, eller ersätt en enda fil utan att förlora köns inställningar.",
+      "points": [
+        "Flaggas innan någon kör den",
+        "Länka om en hel show från en mapp",
+        "Byt fil och behåll inställningarna"
+      ]
+    },
+    "groupEvents": {
+      "title": "Styr hela rummet från en kö",
+      "intro": "En kö kan starta ljuset, videon och mixern. LivePlay håller tiden, så allt landar samtidigt."
+    },
+    "events": {
+      "title": "Händelser på tidslinjen",
+      "description": "Placera händelser på en kös vågform för att köra en ljuskö via OSC eller MIDI Show Control, anropa ett webb-API, flytta en fader på en X Air-mixer eller starta en annan kö. Servern utlöser var och en på exakt rätt ställe, så showen håller sig i synk även när ingen sitter vid skärmen.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control och HTTP",
+        "Behringer X Air-mixrar",
+        "Starta eller stoppa andra köer"
+      ]
+    },
+    "connections": {
+      "title": "Anslutningar till din utrustning",
+      "description": "Ställ in varje ljusbord, mixer, MIDI-port eller webbtjänst en gång per show. LivePlay hittar X Air-mixrar i nätverket, läser in deras kanal- och snapshotnamn och sätter ett tak för hur högt en händelse kan dra upp en fader."
+    },
+    "tabs": {
+      "title": "En flik för varje akt",
+      "description": "Dela upp en lång show i spellisteflikar för varje akt, scen eller set. Ett enda ”Näst på tur” gäller över alla flikar, och varje flik bestämmer vad som händer efter sista kön: tillbaka till början, vidare till nästa flik eller stopp.",
+      "points": [
+        "Namn och färg på varje flik",
+        "Ett ”Näst på tur” för hela showen",
+        "Öppna valfri flik i ett eget fönster"
+      ]
+    },
+    "cartPages": {
+      "title": "Sida efter sida med carts",
+      "description": "Sortera dina carts på namngivna, färgkodade sidor med 4 till 64 platser. Platstangenter utlöser sidan du tittar på, och fästa tangenter utlöser ett favoritljud från valfri sida.",
+      "points": [
+        "4 till 64 carts på varje sida",
+        "Flytta ut en sida till en annan skärm",
+        "Fästa tangenter fungerar från alla sidor"
+      ]
+    },
+    "presets": {
+      "title": "Förinställningar för din rigg",
+      "description": "Spara ”Salsljus till 40 %” en gång på en anslutning och använd det på vilken kö som helst. Ändra förinställningen så följer alla händelser som använder den med.",
+      "points": [
+        "Namngivna inställningar för varje anslutning",
+        "En ändring uppdaterar alla händelser",
+        "Åsidosätt ett enskilt fält vid behov"
+      ]
+    },
+    "companion": {
+      "title": "Styr med Stream Deck via Companion",
+      "description": "LivePlay har en officiell modul för Bitfocus Companion, så ett Stream Deck eller någon annan kontrollyta i Companion kan köra din show. Varje knapp visar sin kös namn och färg och fylls på medan kön spelar.",
+      "points": [
+        "GO, köer, carts, Stoppa allt och nödstopp",
+        "Mute, PFL och masternivå på mixern",
+        "Nedräkning och förlopp live på knapparna"
+      ]
     }
   },
   "ports": {
@@ -200,11 +303,334 @@
     "description": "Styr uppspelningen, redigera projekt och routing och följ liveläget via HTTP och WebSocket. När inloggning är på ger du Companion, ett showkontrollsystem eller ett skript en egen API-token under Inställningar › Konton i stället för att dela någons lösenord. Utvecklarreferensen går igenom autentisering, alla endpoints, kommandon, händelser och integrationsexempel.",
     "referenceLabel": "API-referens för utvecklare"
   },
+  "companion": {
+    "get": "Hämta Companion-modulen",
+    "getCompanion": "Ladda ner Bitfocus Companion",
+    "credit": "Modul av {name}",
+    "padAlt": "Companion-knappar för LivePlay under en show: GO med nästa kö, kön som spelar med nedräkning, Stoppa allt, nödstopp, fem carts där en spelar, mute på mixern, PFL och masternivå"
+  },
   "footer": {
     "license": "är licensierat under",
     "developedBy": "Utvecklat av",
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Visa på GitHub",
     "contributors": "Medverkande"
+  },
+  "site": {
+    "skip": "Hoppa till innehållet",
+    "menu": "Meny",
+    "close": "Stäng",
+    "features": "Funktioner",
+    "download": "Ladda ner",
+    "api": "API",
+    "whatsNew": "Nyheter",
+    "newIn": "Nytt i {version}",
+    "enlarge": "Visa i full storlek: {name}",
+    "footerNav": "Webbplatslänkar"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Gratis och öppen källkod för Windows, macOS och Linux",
+      "title": "Varje ljud, precis på cue.",
+      "download": "Ladda ner gratis",
+      "seeNew": "Se vad som är nytt i {version}"
+    },
+    "audience": {
+      "label": "Vem LivePlay är för",
+      "theatre": {
+        "title": "Teater",
+        "text": "Ljudeffekter, scenmusik och scenbyten, i rätt ordning och precis på replik."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Musikbäddar, jinglar och övergångar, med nivåer du kan lita på i sändning."
+      },
+      "events": {
+        "title": "Liveevenemang",
+        "text": "Entrémusik, stingers och utrop för konferenser, prisgalor och scenshower."
+      },
+      "parties": {
+        "title": "Fester",
+        "text": "Lägg upp musiken, sänk den under talen och njut av kvällen."
+      }
+    },
+    "how": {
+      "title": "Igång i tre steg",
+      "one": {
+        "title": "Släpp in ditt ljud",
+        "text": "Dra in musik och effekter, eller hämta ett spår från YouTube. LivePlay kan klippa bort tystnad och jämna ut nivåerna åt dig."
+      },
+      "two": {
+        "title": "Lägg upp köerna",
+        "text": "Ställ dem i körordning, gruppera dem efter scen och välj vad varje kö ska göra sedan."
+      },
+      "three": {
+        "title": "Tryck på Spela nästa",
+        "text": "Kör hela showen från en knapp, en pekskärm, tangentbordet eller en MIDI-kontroller."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay i siffror",
+      "carts": "carts på varje sida",
+      "eq": "EQ-band per buss",
+      "languages": "språk",
+      "platforms": "datorplattformar",
+      "cost": "i licensavgifter, någonsin"
+    },
+    "teaser": {
+      "eyebrow": "Helt nytt",
+      "title": "Nytt i LivePlay {version}",
+      "text": "Köer kan nu styra ljus, mixer och video. Långa shower får flikar, carts får sidor och du kan rita volymen direkt på vågformen.",
+      "button": "Se allt nytt"
+    },
+    "tech": {
+      "eyebrow": "För tekniska team"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Versionsnyheter",
+      "title": "Nytt i LivePlay",
+      "lead": "De största nyheterna i varje version, nyast först. Ny i LivePlay? Ta hela funktionsturen i stället.",
+      "tour": "Ta funktionsturen",
+      "latest": "Senaste versionen",
+      "read": "Se vad som är nytt",
+      "older": "Tidigare versioner"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versioner",
+      "more": "Mer i den här versionen",
+      "fixed": "Även åtgärdat:",
+      "github": "Fullständiga versionsnyheter på GitHub"
+    },
+    "v26": {
+      "title": "Hela rummet på cue.",
+      "summary": "Händelser för ljus, mixer och video, spellisteflikar, cartsidor och volymautomation.",
+      "lead": "LivePlay 2.6 når längre än högtalarna. Köer kan nu utlösa ljus, mixer och video från tidslinjen, långa shower viks ihop i flikar, carts sprids över sidor och volymen kan ritas direkt på vågformen.",
+      "sections": {
+        "events": {
+          "kicker": "Händelser",
+          "title": "En kö. Allt på scenen.",
+          "text": "Placera händelser på en kös vågform så utlöser LivePlay var och en på sin markering: en ljuskö, en webbförfrågan, en faderrörelse på ditt mixerbord eller en annan kö. Servern håller tiden, så allt landar samtidigt även när ingen sitter vid skärmen.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control och HTTP",
+            "Behringer X Air-fadrar, mute och snapshots",
+            "Utlös vid start, slut, paus, återupptagning eller när som helst"
+          ]
+        },
+        "presets": {
+          "kicker": "Förinställningar",
+          "title": "Ställ in en gång. Använd överallt.",
+          "text": "Spara inställningarna du ofta behöver som en namngiven förinställning på en anslutning. Peka valfritt antal händelser mot den, och när riggen ändras uppdaterar du förinställningen en gång.",
+          "points": [
+            "”Salsljus 40 %”, redo för vilken kö som helst",
+            "En ändring uppdaterar alla händelser",
+            "Åsidosätt ett fält på en enskild händelse"
+          ]
+        },
+        "tabs": {
+          "kicker": "Spellisteflikar",
+          "title": "Långa shower, snyggt ihopvikta.",
+          "text": "Ge varje akt, scen eller set en egen flik. Spela nästa utlöser alltid det enda ”Näst på tur” för hela showen och visar vilken flik det ligger på, så att du kan blicka framåt utan att tappa bort dig.",
+          "points": [
+            "Tillbaka till början, vidare till nästa flik eller stopp",
+            "Flytta köer mellan flikar",
+            "Öppna en flik i ett eget fönster"
+          ]
+        },
+        "pages": {
+          "kicker": "Cartsidor",
+          "title": "Plats för varje ljud.",
+          "text": "Ordna dina carts på sidor för varje scen eller uppgift. Varje sida har sin egen storlek och färg, och kan följa med eller flyttas ut till en annan skärm.",
+          "points": [
+            "4 till 64 carts per sida",
+            "Tangenter för den synliga sidan eller fästa vid en cart",
+            "Flytta carts mellan sidor"
+          ]
+        },
+        "automation": {
+          "kicker": "Volymautomation",
+          "title": "Rita mixen på vågformen.",
+          "text": "Klicka för att lägga till en punkt, dra linjen för att sänka musiken under ett tal eller lyfta den i en refräng. Vågformen visar exakt vad publiken kommer att höra.",
+          "points": [
+            "Lägg till, dra och ta bort punkter",
+            "Dra ner en hel markering i ett drag",
+            "Förlyssna från valfri punkt i hörlurarna"
+          ]
+        },
+        "relink": {
+          "kicker": "Länka om media",
+          "title": "Borttappat, upphittat.",
+          "text": "Om en fil flyttas flaggar LivePlay kön innan någon kör den. Peka ut en mapp så matchas varje saknad fil efter namn, eller byt till en ny fil och behåll kön precis som du ställde in den.",
+          "points": [
+            "Varnas innan du trycker på Spela",
+            "Länka om en hel show från en mapp",
+            "Byt fil utan att förlora inställningar"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Din show på ett Stream Deck.",
+          "text": "LivePlay har nu en officiell modul i Bitfocus Companion. Sök efter LivePlay när du lägger till en anslutning, så får ett Stream Deck, webbknappar på en surfplatta eller någon annan Companion-yta färdiga knappar som följer din show.",
+          "points": [
+            "Köknappar i dina färger som fylls medan de spelar",
+            "GO, carts, Stoppa allt, nödstopp och mixern",
+            "Ansluter med en API-token när inloggning är på"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "En hel spellista i en cart",
+          "text": "Släpp en spellisteflik på en cart för att starta den med ett tryck och se återstående tid."
+        },
+        "duckTimes": {
+          "title": "Ducking i din takt",
+          "text": "Ställ in hur snabbt musiken sänks och hur mjukt den kommer tillbaka, kö för kö. Shower från tidigare versioner behåller sin snabba ducking som förut."
+        },
+        "stopFades": {
+          "title": "Stoppa allt, på ditt sätt",
+          "text": "Låt Stoppa allt tona ut varje kö med köns egen uttoning vid stopp i stället för en fast tid."
+        },
+        "stopKey": {
+          "title": "Stoppa aktuell cue",
+          "text": "Stoppa bara den kö du startade senast, med en tangent, en MIDI-not eller Companion, och låt allt annat spela vidare."
+        },
+        "openFile": {
+          "title": "Öppna shower från dina filer",
+          "text": "Dubbelklicka på en show, nu även på Linux. LivePlay frågar alltid innan en öppen show ersätts."
+        },
+        "waveformPan": {
+          "title": "Panorera med mittenknappen",
+          "text": "Dra med mittenknappen för att flytta runt i en inzoomad vågform."
+        },
+        "sealed": {
+          "title": "Lösenord förblir krypterade",
+          "text": "Lösenord och nycklar i dina anslutningar visas som punkter och lagras krypterade så att bara serverdatorn kan läsa dem. Öppna showen någon annanstans så ber LivePlay dig att logga in igen."
+        },
+        "compat": {
+          "title": "Öppna äldre shower",
+          "text": "Shower från 2.5 öppnas oförändrade. När en show väl har sparats i 2.6 ska du hålla dig till 2.6 eller senare: LivePlay 2.5 skulle tappa dess flikar, cartsidor och anslutningar."
+        }
+      },
+      "fixes": "pålitligare händelser och anslutningar, uppspelning som inte längre fastnar på saknade mediefiler, importer som aldrig skriver över en annan kös fil, kortkommandon som håller sig borta från popup-fönster och redigerare, cartknappar som Companion utlöser rätt på varje sida, korrigerade macOS-byggen (nu macOS 13.3 eller senare), ett fönster som får plats bredvid andra appar, tydligare accentfärger och en mer ordnad inställningssida med inställningarna grupperade efter ämne, en förklaring under var och en och en etikett för vem den tillhör."
+    },
+    "v25": {
+      "title": "En riktig mixer för din show.",
+      "summary": "Bussar och kanalremsor, 32-bands EQ, hårdvaruutgångar efter namn och teamkonton.",
+      "lead": "LivePlay 2.5 lade en komplett mixer i appen. Ge musik, effekter och röster egna remsor, forma dem ordentligt och ta med samma show till vilken lokal som helst.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mixer",
+          "title": "Varje ljud får en egen remsa.",
+          "text": "Skapa bussar för musik, effekter och utrop och balansera dem på kanalremsor, precis som på ett mixerbord. Routa dem in i varandra, direkt till en utgång eller via aux-sends.",
+          "points": [
+            "Master- och Preview-roller på vanliga bussar",
+            "Aux-sends pre- och post-fader",
+            "Tilldela hela grupper på en gång"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ och dynamik",
+          "title": "Forma det. Håll det.",
+          "text": "En parametrisk EQ med grafen i centrum och en spektrumanalysator i realtid, följd av en gate och en kompressor som visar vad de gör med signalen.",
+          "points": [
+            "Upp till 32 band av valfri filtertyp",
+            "Analysator i realtid bakom kurvan",
+            "Stereobredd med monosäker bas"
+          ]
+        },
+        "outputs": {
+          "kicker": "Hårdvaruutgångar",
+          "title": "Showen reser. Routingen följer med.",
+          "text": "Shower pratar med utgångar via namn, och varje dator kopplar de namnen till sina egna ljudkort. På en ny plats visar LivePlay vad som saknas, och du drar dit en fysisk utgång för att lösa det.",
+          "points": [
+            "Namngivna utgångar, inte ljudkort",
+            "Saknad hårdvara tystnar och säger till",
+            "Ommappning med dra och släpp"
+          ]
+        },
+        "workspace": {
+          "kicker": "Arbetsyta",
+          "title": "Ordna det på ditt sätt.",
+          "text": "Spellista, Cartspelare och Mixer fungerar likadant. Visa dem, låt en fylla skärmen, lägg dem vid en kant eller flytta dem till en annan skärm.",
+          "points": [
+            "En layoutmodell för alla paneler",
+            "Koppla loss paneler till en andra skärm",
+            "Kommer tillbaka som du lämnade det"
+          ]
+        },
+        "accounts": {
+          "kicker": "Konton",
+          "title": "En inloggning för alla i teamet.",
+          "text": "Ge operatörer och administratörer egna inloggningar, se vem som är ansluten och skapa API-tokens för showkontrollverktyg i stället för att dela ett lösenord.",
+          "points": [
+            "Operatörs- och administratörsroller",
+            "API-tokens för verktyg som Companion",
+            "Flytta teamet till en annan server"
+          ]
+        },
+        "fades": {
+          "kicker": "Toningar och timing",
+          "title": "Övergångar utan vassa kanter.",
+          "text": "Ge varje kö en egen uttoning vid stopp, låt loopar tona över i sig själva och låt en kö vänta innan nästa startar.",
+          "points": [
+            "Toningar lika långa som ljudet",
+            "Sömlösa loop-övertoningar",
+            "Vänta före nästa"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "En enda inställningssida",
+          "text": "Alla inställningar på ett ställe, och dina personliga val följer med till varje skärm."
+        },
+        "multiEdit": {
+          "title": "Redigera många köer samtidigt",
+          "text": "Ändra valfri egenskap för en hel markering av köer."
+        },
+        "groupTime": {
+          "title": "Grupper vet sin längd",
+          "text": "Se hur länge en grupp pågår och hur mycket som återstår, även när den är stängd."
+        },
+        "sends": {
+          "title": "Bussar som bara skickar",
+          "text": "En buss kan mata andra enbart via sends, utan egen huvudutgång."
+        },
+        "tray": {
+          "title": "Servern i systemfältet",
+          "text": "Kör ljudmotorn tyst i bakgrunden, utan konsolfönster."
+        },
+        "youtubeFormat": {
+          "title": "Välj YouTube-format",
+          "text": "Bestäm vad importerat ljud sparas som, även WAV."
+        }
+      },
+      "fixes": "stöd för Linux offline och äldre distributioner, en stabilare YouTube-import, ett sidhuvud som anpassas efter fönstret, användardata som alltid sparas och många korrigeringar i mixer och anslutningar."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Showkontroll",
+        "text": "Stöd för Bitfocus Companion, plus uppspelningsåtgärderna Fortsätt på kö och Jump Cue."
+      },
+      "v23": {
+        "title": "Showläge och ärliga mätare",
+        "text": "Ett Showläge för pekskärm, LUFS- och true peak-mätning, senaste projekt och konfigurerbar numrering."
+      },
+      "v22": {
+        "title": "Övergångar i radiostil",
+        "text": "Starta nästa-markörer, en standardövergång för nya spår och automatisk cueing av nästa post."
+      },
+      "v21": {
+        "title": "Snabbare import",
+        "text": "Importera och ta bort många filer på en gång."
+      },
+      "v20": {
+        "title": "En ny ljudmotor",
+        "text": "En dedikerad C++-motor med lokal eller fjärrstyrd drift, loudness-mål och automatisk serverupptäckt."
+      }
+    }
   }
 }

@@ -23,14 +23,18 @@
 #include "liveplay/audio/engine.hpp"
 #include "liveplay/audio/types.hpp"
 #include "liveplay/core/output_map.hpp"
+#include "liveplay/events/events.hpp"
 
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <filesystem>
 #include <functional>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -305,6 +309,11 @@ json bus_sends_to_json(const BusDef& b);
 // migration on load — its "main"/"monitor" buses become the master/preview
 // holders and output.type "master" is rewritten (D25).
 inline constexpr int kBusSchemaVersion = 2;
+// The show-file format a document is at (F-08). 2.6 added playlist tabs, cart
+// pages and events, and a 2.5 LivePlay that saves a 2.6 show drops them, so
+// documents say they are 2.6 and later versions can tell. A pre-2.6 document
+// is upgraded once on its way in (see upgrade_document in project_state.cpp).
+inline constexpr const char* kDocumentVersion = "2.6.0";
 
 // Ids of the buses synthesised when a document brings no role holder of its
 // own. Ids are arbitrary — a loaded document's "main"/"monitor" keep working,
@@ -342,6 +351,16 @@ struct MasterAssignment {
 };
 
 // Describes issues detected and fixed when loading a corrupt project.
+// An HTTP event's headers as they were a moment ago (ProjectState::
+// recent_event_secrets_): the connection and normalised address they were
+// given for, and when.
+struct RecentEventSecret {
+    std::string connection;
+    std::string base_url;
+    std::string headers;
+    std::chrono::steady_clock::time_point at;
+};
+
 struct RepairInfo {
     bool repaired = false;
     std::vector<std::string> issues;
@@ -413,6 +432,14 @@ struct BusMigrationSummary {
     }
 };
 
+// Where a selection step may go (ProjectState::step_selection, F-05). At
+// namespace scope: as a nested type with member initializers it could not be
+// a default argument inside the class (GCC and Clang refuse it).
+struct StepScope {
+    bool        whole_show = false;
+    std::string tab_id;
+};
+
 class ProjectState {
 public:
     ProjectState(audio::AudioEngine& engine, OutputMap& outputs);
@@ -429,7 +456,15 @@ public:
     bool save(const std::filesystem::path& path) const;
 
     // Replace state from an in-memory JSON document. Same semantics as load.
-    bool load_from_json(const json& doc);
+    // `from_disk`: the document was read from a show file on this machine, so
+    // its sealed credentials are opened. A document from a request body never
+    // has them opened (R2-02): they ask for a sign-in instead.
+    bool load_from_json(const json& doc, bool from_disk = false);
+
+    // Whether `doc` is the show that is open (same showId; for a document
+    // from a client that doesn't know showIds, the same saved folder and the
+    // same name). Tokens may not replace the open show with another (R2-09).
+    bool is_same_show(const json& doc) const;
 
     // Returns and clears any repair info recorded during the last load /
     // load_from_json call. The repair has already been applied in memory;
@@ -445,6 +480,25 @@ public:
     // result. Useful when the caller wants to trigger an explicit repair
     // after the fact. Does NOT save to disk.
     RepairInfo repair_project();
+
+    // Audio items (playlist and cart-only) whose media file can't be found by
+    // resolve_media_path. Each entry is { uuid, displayName, mediaFileName,
+    // mediaPath }. Every client polls it (issue #80), so it never stats under
+    // mutex_ and never waits long on the filesystem: the files are checked by
+    // one background scan at a time, and a poll answers from the last finished
+    // scan. It waits for a new one (briefly) only when that scan hasn't seen
+    // some item's media yet. A stat on a dead share takes ~21 s on Windows, and
+    // on an NFS hard mount it can block for good.
+    json missing_media() const;
+
+    // Relink every missing item to a file of the same name (case-insensitive)
+    // found under `folder`. A match inside the project folder is referenced
+    // where it is; anything else is copied into media_root() first, because a
+    // project never reads media from outside its own folder. Each relink goes
+    // through update_item, so the item is re-decoded. Returns
+    // { relinked: [{ uuid, patch }], missing: [ ...still missing... ] }; the
+    // caller broadcasts the patches. Takes mutex_ itself; never call it locked.
+    json locate_missing_media(const std::filesystem::path& folder, bool recursive);
 
     // Serialise the engine-facing portion (cues/mixers/routing).
     json to_json() const;
@@ -472,7 +526,23 @@ public:
     // Replace the full project document. The server extracts audio items
     // (uuid → file path) and re-mirrors them onto the engine. Other fields
     // are stored verbatim for the client to read back.
-    bool replace_full_document(const json& doc);
+    //
+    // `keep_live_parts` is an ordinary save of the same show (POST
+    // /api/project/save with a document): the parts with their own endpoints
+    // (tabs, pages, connections, cart keys) stay as the server has them, since
+    // the saving client's copy may predate another client's change.
+    //
+    // `may_edit_connections` false (an API token, F-30, R2-09): the
+    // document's eventConnections are ignored, the show's own kept, and so are
+    // the events on its cues (a token runs the show; it doesn't rewire what
+    // the show's cues send, or where).
+    bool replace_full_document(const json& doc, bool keep_live_parts = false,
+                               bool may_edit_connections = true);
+
+    // An item's events as an API token would see them (every header value
+    // masked), or null for no such item. The item routes refuse a token's
+    // change to them (R2-09).
+    json item_events_for_token(const std::string& uuid) const;
 
     // Path to the open project file (.liveplay), if any. Empty if the project
     // is in-memory only.
@@ -481,6 +551,11 @@ public:
 
     // Clear everything and rewind the AudioEngine to an empty graph.
     void reset();
+
+    // Stop every background thread and drop the broadcasters. Called at
+    // shutdown before the control server is destroyed, because those threads
+    // report through callbacks that capture it. Safe to call more than once.
+    void stop_background_work();
 
     // ---- High-level mutations --------------------------------------------
     // Wraps engine + state updates atomically so REST handlers can call a
@@ -556,9 +631,35 @@ public:
     // provided it is used directly; when omitted the project-wide
     // settings.stopAllFadeMs (default 1000 ms) applies. The resolved fade wins
     // over every per-track fade-out (global fade always wins); a resolved fade
-    // of 0 is an instant panic stop. The preview audition fades with the rest
+    // of 0 is an instant stop. The preview audition fades with the rest
     // unless settings.stopAllStopsPreview is false (#60).
-    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt);
+    //
+    // Events (#23): the cues it stops fire their end events only when
+    // settings.stopAllFiresEvents is true (default false), and those may not
+    // start or resume a cue. A Stop All that arrives while the previous one is
+    // still fading out, or within kStopAllDoubleTap of an instant one (the
+    // operator's double tap, from any source), is a panic instead.
+    //
+    // `own_fades`: each cue over its own Stop button fade, at once for one
+    // that has none (a 2.5 custom action's Stop All), whatever the settings.
+    void stop_all_cues(std::optional<long long> fade_ms = std::nullopt, bool panic = false,
+                       bool own_fades = false);
+    // The panic: every cue stops at once, and every event dies — markers
+    // scheduled, jobs queued, fades events started (they stop where they are)
+    // — and no stopped cue fires an end event, whatever the settings say.
+    void panic() { stop_all_cues(0, true); }
+    // Stop Current Cue (#87, F-36): the cue fired most recently that is still
+    // sounding, playlist or cart, with its own stop fade unless `fade_ms` says
+    // otherwise. One already fading out is skipped (R2-13); a paused one is
+    // taken only when nothing sounds. Returns its uuid, or empty when nothing
+    // is playing.
+    std::string stop_current_cue(std::optional<long long> fade_ms = std::nullopt);
+    // On-air item uuids, the one fired most recently first.
+    std::vector<std::string> on_air_by_recency() const;
+    // On-air item uuids in the order GO and Up Next consider them: the one
+    // fired first first, or with settings.goContinuesFrom "latest" the one
+    // fired last first (R2-08).
+    std::vector<std::string> on_air_for_go() const;
 
     // Trigger an item by uuid: audio items go through play_item; group items
     // are dispatched per their startBehavior (play-first / play-all),
@@ -620,8 +721,15 @@ public:
     // playlist. When several are playing we take the one furthest down the
     // playlist — a show advances downward, so that's the operator's position.
     // With nothing selected and nothing playing, the step starts from the top.
+    //
+    // In a show with playlist tabs the step keeps to one tab and stops at its
+    // edge (F-05): the tab named by `scope.tab_id` (what the caller is looking
+    // at), else the selected cue's, else the furthest playing cue's, else the
+    // first. `scope.whole_show` walks every tab, as before tabs existed.
+    using SelectionScope = StepScope;
     std::string step_selection(int delta,
-                               const std::vector<std::string>& anchor_candidates = {});
+                               const std::vector<std::string>& anchor_candidates = {},
+                               const SelectionScope& scope = {});
 
     // Show Mode: the simplified, touch-friendly playback view. Server-owned so
     // a Companion button, a tablet and the operator's laptop stay in step.
@@ -703,6 +811,39 @@ public:
     // Item uuid bound to a cart slot, or empty if the slot is unbound.
     std::string cart_slot_item_uuid(int slot) const;
 
+    // ---- Playlist tabs and cart pages (#74), see show_tabs.hpp -------------
+    // What's bound to `cart` on `page` (both zero-based), or empty.
+    std::string cart_item_at(int page, int cart) const;
+    // What's bound to a raw slot number (the `slot` of summary.cart), or empty
+    // when no page shows that slot (F-04: the index API means the raw slot, so
+    // it never changes when pages are reordered).
+    std::string cart_item_at_slot(int slot) const;
+    // { playlistTabs, cartPages, limits }
+    json project_tabs() const;
+
+    // ---- Credentials (F-01, F-23) -----------------------------------------
+    // Every HTTP header text anywhere in `j` (a document, an item, a frame, a
+    // connection list) with its secret values masked, or every value when
+    // `all_values` (an API token's view). No client is ever sent a secret:
+    // the control server runs every JSON it sends through this.
+    static void mask_secrets(json& j, bool all_values);
+    // Cheap pre-check on a serialised payload: false means nothing to mask.
+    static bool may_hold_secrets(const std::string& serialized);
+    // { cartSlotKeys, cartPinnedKeys }: the position keys (position on a page
+    // → key) and the keys pinned to one cart (raw slot → key), checked.
+    json cart_keys() const;
+    // Replaces whichever of the two `patch` carries; returns what's stored.
+    json set_cart_keys(const json& patch);
+    // Drops pins whose cart is no longer bound (F-13). The new pin map when
+    // anything went, else null.
+    json drop_pins_without_carts();
+    // Replaces whichever of playlistTabs / cartPages the patch carries.
+    // Carts no page owns any more are removed with their pins (F-18); their
+    // slots are added to `removed_slots`.
+    json set_project_tabs(const json& patch, std::vector<int>* removed_slots = nullptr);
+    // Every page with its carts, for control surfaces.
+    json cart_pages() const;
+
     // ---- Per-device routing ---------------------------------------------
     // Ensure a "device mixer" exists for `device_name` (the user-visible
     // name from /api/devices). Opens the audio device if needed, creates a
@@ -732,7 +873,10 @@ public:
     // pre-listen). At most one preview is
     // active at a time; starting a new one replaces the old. Returns true
     // on success.
-    bool start_preview(const std::string& item_uuid);
+    // `start_seconds` (source-file time) starts the audition there instead
+    // of at the in-point: the Playback tab's "Preview from cursor".
+    bool start_preview(const std::string& item_uuid,
+                       std::optional<double> start_seconds = std::nullopt);
     // Stops the audition and — when there was one — announces it through the
     // preview-stopped broadcaster, whoever asked: the DELETE route, a moved
     // preview role, Stop All, or the audition simply reaching its end.
@@ -762,6 +906,8 @@ public:
 
     // Cart slot binding (slot → item uuid). Slot < 0 clears.
     bool set_cart_slot(int slot, const std::string& item_uuid);
+    // Whether some cart page shows `slot` (show_tabs.hpp slot_is_shown).
+    bool cart_slot_is_shown(int slot) const;
     bool clear_cart_slot(int slot);
 
     // patch_theme() was removed in U4 along with PATCH /api/project/theme —
@@ -777,8 +923,13 @@ public:
     // object on every edit, so failing the request over one stray key would
     // break every settings change in the app. Pass `dropped_out` to learn
     // which keys did not land, e.g. to report them on the API response.
+    //
+    // `from_event`: an event moved these settings (the liveplay plugin's
+    // stop-fade-mode). Like an event's bus change, that moves the show's
+    // state, not the show: the operator's value is what gets saved (F-22).
     bool patch_settings(const json& patch,
-                        std::vector<std::string>* dropped_out = nullptr);
+                        std::vector<std::string>* dropped_out = nullptr,
+                        bool from_event = false);
 
     // ---- Introspection ---------------------------------------------------
     std::vector<CueMeta> list_cues() const;
@@ -888,6 +1039,11 @@ public:
     // `outputs_changed`, since a second client's output-map view is now stale.
     PatchBusResult patch_bus(const std::string& id, const json& patch,
                              std::string* materialised_output = nullptr);
+    // The same change made by an EVENT (a fade landing, a mute cue). The mixer
+    // and every client follow it, but it is show state, not the show: save()
+    // keeps writing the value the operator had there, until the operator sets
+    // that field again (patch_bus). A desk's scene recall works the same way.
+    PatchBusResult patch_bus_from_event(const std::string& id, const json& patch);
     // Refuses a role holder (D24) — `why`, when given, receives the reason
     // in the words the API reports. Items assigned to the deleted bus fall
     // back to the master bus by having their busId cleared; buses that fed
@@ -904,6 +1060,11 @@ public:
     // straight at the strip without writing the document or broadcasting, the
     // same shape as set_bus_pan_live. The client PATCHes the settled value.
     bool set_bus_dsp_live(const std::string& id, const json& dsp);
+
+    // One send's level, live, the same shape again: for the steps of an
+    // event's send fade, which patch_bus settles when it lands. False if the
+    // bus has no such send or its destination has no strip.
+    bool set_bus_send_live(const std::string& id, const std::string& send_id, float level_db);
 
     // Turn a bus's stored tone controls into engine parameters. Public because
     // the shape of StripDspParams is the engine's, not the document's, and
@@ -1005,6 +1166,37 @@ private:
     std::filesystem::path media_root_ = std::filesystem::current_path() / "media";
     std::string           project_name_ = "Untitled";
     std::filesystem::path project_file_path_;
+
+    // missing_media()'s background file check. Shared with the scan's detached
+    // thread rather than reached through `this`, because a stat on a dead mount
+    // may never return and the thread can outlive us.
+    struct MediaScan {
+        std::mutex              m;
+        std::condition_variable cv;
+        bool                    running  = false;
+        // A poll gave up waiting for the running scan; the rest don't wait.
+        bool                    waited_out = false;
+        std::uint64_t           finished = 0;     // scans completed
+        // The last finished scan: media reference -> its file is missing.
+        std::unordered_map<std::string, bool> missing_by_ref;
+    };
+    std::shared_ptr<MediaScan> media_scan_ = std::make_shared<MediaScan>();
+
+    // Bus fields an event has changed since the operator last set them: bus
+    // id -> JSON pointer into that bus's document entry ("/gainDb",
+    // "/dsp/hpf/freq") -> the operator's value (nullopt: there was none).
+    // save() writes these instead of the live value. Under mutex_.
+    std::unordered_map<std::string, std::map<std::string, std::optional<json>>> event_bus_overrides_;
+    // The same for settings an event changed (F-22): key → the operator's
+    // value (nullopt = absent), written back by save(). Under mutex_.
+    std::map<std::string, std::optional<json>> event_settings_overrides_;
+    // Until when a further Stop All counts as the double tap (a panic): the
+    // last one's fade plus kStopAllDoubleTap. Under mutex_.
+    std::chrono::steady_clock::time_point stop_all_tap_until_{};
+    static constexpr std::chrono::milliseconds kStopAllDoubleTap{500};
+    // patch_bus's work, whoever asked (patch_bus / patch_bus_from_event).
+    PatchBusResult apply_bus_patch(const std::string& id, const json& patch,
+                                   std::string* materialised_output);
 
     // The full client-side project document (items, cart, theme, etc.). The
     // server treats most of this as opaque user data — only audio items have
@@ -1389,15 +1581,12 @@ private:
     struct DuckedEntry {
         audio::CueId cue_id;
         float        original_gain_db;
+        // How long the level takes to come back (#78: duckFadeOut).
+        std::chrono::milliseconds release = audio::PlaybackItem::kDefaultGainRamp;
     };
-    // A scheduled custom action: at `time_point` seconds (absolute time
-    // within the audio file, before in_point trimming), do `action`. Driven
-    // by the sequencer alongside crossfade / stop-fade.
-    struct ScheduledCustomAction {
-        double  time_point  = 0.0;
-        json    action;       // copy of the project document's action node
-        bool    triggered    = false;
-    };
+    // Bring every cue a ducker held down back to where it was, each over
+    // its entry's release time. Engine calls only; takes no locks.
+    void restore_ducked(const std::vector<DuckedEntry>& ducked);
     struct SequencedItem {
         std::string              uuid;
         audio::CueId             cue_id;
@@ -1430,12 +1619,37 @@ private:
         // next cue on purpose. Disables the seamless pre-roll for this item.
         double                   advance_delay_sec    = 0.0;
         std::vector<DuckedEntry> ducked;
-        std::vector<ScheduledCustomAction> custom_actions;
+        // Event system (#84). The item's events, snapshotted at play_item and
+        // refreshed by update_item. "time" events use absolute file seconds
+        // (like start_next_time) and are scheduled a little ahead by the
+        // sequencer so they land on their mark rather than on its next tick.
+        std::string                    display_name;
+        std::vector<events::ItemEvent> events;
+        // What the sequencer saw last tick: transport changes fire pause /
+        // resume / end, and a playhead that jumps back (loop, seek) re-arms
+        // the "time" events behind it. last_pos < 0 = not seen yet.
+        audio::TransportState          last_transport = audio::TransportState::Stopped;
+        double                         last_pos       = -1.0;
+        bool                           end_fired      = false;
+        // Stop All took it: no more markers while it fades, and its end events
+        // may not start a cue (a panic is a panic — see stop_all_cues).
+        bool                           stopped_by_stop_all = false;
+        // The cues whose events started this one, for its time markers.
+        std::vector<std::string>       marker_chain;
+        // The playlist tab whose cart started the run this cue belongs to
+        // (#61): the tab's first cue, and every cue the run advanced into,
+        // into the next tab too when a `continue` tab ran off its end. A stop
+        // of that cart stops the whole run (F-17). Empty otherwise.
+        std::string                    run_tab;
     };
     std::vector<SequencedItem> sequenced_items_;
     std::mutex                 sequencer_mutex_;
     std::thread                sequencer_thread_;
     std::atomic<bool>          sequencer_running_{false};
+    // Bumped when the show's running items are dropped, so a sequencer pass
+    // that collected work from the old show doesn't act on it in the new one.
+    std::atomic<std::uint64_t> sequencer_epoch_{0};
+    void forget_sequenced_items();
 
     void start_sequencer();
     void stop_sequencer();
@@ -1459,7 +1673,30 @@ private:
     // doc_patch op advance_pending: {fromUuid, dueInMs} while a wait runs,
     // fromUuid "" when none does.
     void broadcast_advance_pending(const std::string& from_uuid, long long due_in_ms);
-    void execute_custom_action(const json& action);
+    // One event to hand to the dispatcher. delay_sec > 0 schedules it ahead.
+    struct EventFire {
+        std::string       item_uuid;
+        std::string       item_name;
+        events::ItemEvent event;
+        std::string       trigger;
+        double            delay_sec = 0.0;
+        bool              after_stop_all = false;   // see SequencedItem
+        std::vector<std::string> marker_chain;      // see SequencedItem
+    };
+    // `si`'s events for a non-time trigger (start / end / pause / resume).
+    static void collect_event_fires(const SequencedItem& si, const std::string& trigger,
+                                    std::vector<EventFire>& out);
+    // Resolve connections and queue. Takes mutex_; call with no lock held.
+    void dispatch_event_fires(std::vector<EventFire> fires);
+    // Builds a dispatcher job; nullopt (with `why`) if it can't run.
+    std::optional<events::Job> make_event_job_locked(const events::ItemEvent& ev,
+                                                     const json* draft_connection,
+                                                     events::FireContext ctx,
+                                                     std::string& why) const;
+    // What plugins may ask of us (events::Host). Declared before events_ so
+    // it outlives the dispatcher's threads.
+    std::unique_ptr<events::Host>       event_host_;
+    std::unique_ptr<events::Dispatcher> events_;
 
     // Resolve the uuid the given item should auto-advance to, for its
     // endBehavior (next / goto-item / goto-index only; empty for loop /
@@ -1488,12 +1725,59 @@ private:
     bool item_on_air(const std::string& uuid);
 
 public:
-    // Subscribe to "external" custom actions the server can't perform on its
-    // own — currently just http-request. The control server installs a
-    // handler that broadcasts the action as a doc_patch so a connected
-    // client makes the actual fetch. Keeps a libcurl/winhttp dependency
-    // out of the server.
-    void set_external_action_handler(std::function<void(const json&)> handler);
+    // ---- Event system (#84) — see liveplay/events/events.hpp ----
+    // Every plugin's schema, for GET /api/events/plugins.
+    json event_plugins() const;
+    // The project's connections (document root "eventConnections").
+    json event_connections() const;
+    // Replace them; returns the stored list (malformed entries dropped).
+    json set_event_connections(const json& connections);
+    // `connections` as an API token may see them: an HTTP connection's header
+    // values hidden, names kept. Sent back unchanged, hidden values keep the
+    // stored ones (the store paths check), so a round trip loses nothing.
+    static json redact_event_connections(json connections);
+    // Fire one event now, for the Test buttons. `draft_connection`, when an
+    // object, is used instead of looking event.connectionId up: it lets the
+    // connection editor test settings it hasn't saved.
+    events::Result test_event(const json& event, const json& draft_connection,
+                              const std::string& item_uuid);
+    // Called (no lock held, from a dispatcher thread) after every event runs,
+    // with { itemUuid, eventId, trigger, plugin, action, ok, error? }.
+    void set_event_fired_broadcaster(std::function<void(const json&)> cb);
+    // Called with the connection list whenever a connection's sign-in state
+    // changes on its own (a 401, a success after one).
+    void set_connections_broadcaster(std::function<void(const json&)> cb);
+    // Re-derives which connections need a sign-in after the items changed
+    // (an event's own credentials entered, or the last event that lacked them
+    // gone), and tells every client when that moved.
+    void refresh_connection_auth();
+    // A plugin's live option list (events::Plugin::options) for the connection
+    // `connection_id`, or `draft_connection` when that is an object. Returns
+    // { options: [...], error?: "..." }.
+    json event_options(const std::string& plugin, const std::string& source,
+                       const std::string& connection_id, const json& draft_connection,
+                       const json& values);
+    // Devices a plugin finds on the network: [{ label, name, config }].
+    json event_discover(const std::string& plugin, std::chrono::milliseconds budget);
+
+    // ---- Verbs for the LivePlay event plugin (events::Host) ----
+    // Pause / resume a loaded item's cue. False when it has none.
+    bool pause_item(const std::string& uuid);
+    bool resume_item(const std::string& uuid);
+    // A playing cue's level relative to its item's own volume, in dB: 0 as
+    // set, negative when ducked. nullopt when it isn't playing.
+    std::optional<double> cue_level_offset_db(const std::string& uuid);
+    bool set_cue_level_offset_db(const std::string& uuid, double offset_db);
+    // A bus's fader heard at once, not saved: the in-between steps of a fade.
+    bool set_bus_gain_live(const std::string& id, float db);
+    // document_["buses"], and the logical outputs a bus can be routed to.
+    json buses_document() const;
+    std::vector<std::string> output_names() const;
+    // Fan a doc_patch out to every client (the ui-state broadcaster).
+    void notify_clients(const json& patch);
+    // The engine's master gain; `notify` sends master_gain_changed.
+    double master_gain_db() const;
+    void set_master_gain_db(float db, bool notify);
 
     // Install a callback invoked whenever the "Up Next" override changes for
     // ANY reason (client request or server-side arming). The control server
@@ -1509,7 +1793,30 @@ public:
 
 private:
     std::function<void()> preview_stopped_broadcaster_;
-    std::function<void(const json&)> external_action_handler_;
+    std::function<void(const json&)> event_fired_broadcaster_;
+    // event_connections_changed, when a connection's sign-in state moves.
+    std::function<void(const json&)> connections_broadcaster_;
+    // Connections that need the operator to sign in again (F-23): id →
+    // "missing" (a secret sealed on another machine, or never given) or
+    // "rejected" (the device answered 401/403). Not saved; shown to clients
+    // as each connection's `auth`. Under mutex_.
+    std::map<std::string, std::string> connection_auth_;
+    // The connections with their `auth` filled in. Under mutex_.
+    json connections_with_auth_locked() const;
+    // Re-derives "missing" from the document, and drops "rejected" for any
+    // connection whose secrets `before` shows were changed. Under mutex_.
+    void refresh_connection_auth_locked(const json& before = json());
+    // Seals every secret in `doc` for disk, bound to its connection, address
+    // and header / opens every sealed one (what can't be opened stays sealed
+    // and its connection asks for a sign-in). A secret that can't be sealed
+    // (no usable key) is written as a mask, never as plain text (R2-03); the
+    // return value counts them.
+    static int seal_secrets(json& doc);
+    static void open_secrets(json& doc);
+    // Each HTTP event's own headers as they were a moment ago, by event id,
+    // so Undo of a delete gets the event's own credential back (R2-19).
+    // Under mutex_.
+    std::unordered_map<std::string, RecentEventSecret> recent_event_secrets_;
     std::function<void(const std::string&)> next_item_broadcaster_;
     std::function<void(const json&)> ui_state_broadcaster_;
 
@@ -1525,32 +1832,34 @@ private:
     // Build an initial empty document with default theme + empty sections.
     static json default_empty_document();
 
-    // Extract every audio item from the client document and mirror it onto
-    // the engine + cues_/item_uuid_to_cue_ tables. Used after load and after
-    // replace_full_document.
-    void mirror_items_to_engine_locked();
+    // Unload the engine cues whose audio item is no longer in the document
+    // (removed, or no longer audio). Caller MUST hold mutex_. Touches no file:
+    // a stat on a dead share takes ~21 s on Windows and can hang for good on
+    // an NFS hard mount, and every request waits on mutex_ meanwhile (#21).
+    // (It replaced mirror_items_to_engine_locked, which also decoded every
+    // unloaded item — a missing file included — under the lock.)
+    void unload_gone_cues_locked();
 
-    // Run mirror_items_to_engine_locked() asynchronously on a worker thread.
-    // The caller's mutex is released first. Sets loading_audio_=true for the
-    // duration. Used by load() so the document is returned to the client
-    // immediately and audio loading proceeds in the background.
+    // Load the document's audio into the engine on a worker thread (the load
+    // thread). The caller's mutex is released first. Sets loading_audio_=true
+    // for the duration. Used by load() so the document is returned to the
+    // client immediately and audio loading proceeds in the background.
     void start_async_mirror();
 
-    // ---- Single-item async audio load (#43) --------------------------------
-    // add_item() / update_item() used to run mirror_items_to_engine_locked()
-    // while holding mutex_, so the synchronous audio decode of ONE new file
+    // ---- Single-item async audio load (#43, #21) ------------------------------
+    // add_item() / update_item() used to decode under mutex_, so ONE new file
     // blocked every other request (play_item, stop, state, WS/HTTP handlers)
     // for its full duration. Instead they now reserve the CueId under the lock,
-    // register a placeholder CueMeta, and hand the decode to a background
-    // loader thread which publishes the finished cue afterwards.
+    // register a placeholder CueMeta, and hand the work to a background loader
+    // thread which publishes the finished cue afterwards. Finding the file is
+    // part of that work, for the same reason (#21).
 
     // Reserve a cue id for `uuid`, register the placeholder CueMeta, and queue
-    // the decode. Caller MUST hold mutex_. Returns the reserved id (never empty
-    // unless `path` is empty). `item` is the document node, used for the
-    // placeholder's display name / duration and re-read when the load lands.
-    audio::CueId begin_item_load_locked(const std::string& uuid,
-                                        const std::filesystem::path& path,
-                                        const json& item);
+    // the load. Caller MUST hold mutex_. Returns the reserved id, or empty when
+    // the item names no media. `item` is the document node: its mediaPath /
+    // mediaServerPath are resolved by the loader, its display name / duration
+    // seed the placeholder, and it is re-read when the load lands.
+    audio::CueId begin_item_load_locked(const std::string& uuid, const json& item);
 
     // Loader thread body: decode queued items and publish them.
     void loader_loop();
@@ -1558,8 +1867,8 @@ private:
 
     // Apply one document item's engine-visible properties (gain, fades,
     // out point, LTC) to its PlaybackItem. Caller must hold mutex_. Shared by
-    // mirror_items_to_engine_locked() and the loader's publish step so the two
-    // paths can't drift apart.
+    // the load thread and the loader's publish step so the two paths can't
+    // drift apart.
     void apply_item_properties_locked(const json& item, const audio::CueId& cue);
 
     // Block until `uuid`'s queued decode has finished (or `timeout` elapses).
@@ -1571,7 +1880,10 @@ private:
     struct LoadRequest {
         std::string           uuid;
         audio::CueId          cue_id;
-        std::filesystem::path path;
+        std::filesystem::path path;          // found by the loader, from these:
+        std::string           media_path;    // the item's mediaPath
+        std::string           server_path;   // its mediaServerPath
+        std::string           folder;        // the project's folderPath
     };
     std::deque<LoadRequest>         load_queue_;
     std::unordered_set<std::string> pending_load_uuids_;

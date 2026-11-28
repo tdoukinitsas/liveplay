@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64 bits)",
-      "buttonText": "Télécharger .exe",
-      "size": "~150 Mo"
+      "buttonText": "Télécharger .exe"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 et plus récents (arm64)",
-      "buttonText": "Télécharger .dmg",
-      "size": "~140 Mo"
+      "description": "M1 et plus récents (arm64), macOS 13.3+",
+      "buttonText": "Télécharger .dmg"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Mac Intel (x64), macOS 11+",
-      "buttonText": "Télécharger .dmg",
-      "size": "~145 Mo"
+      "description": "Mac Intel (x64), macOS 13.3+",
+      "buttonText": "Télécharger .dmg"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": "Télécharger .AppImage",
-      "size": "~155 Mo"
+      "buttonText": "Télécharger .AppImage"
     },
     "recommended": "Recommandé pour votre système",
     "showOtherOS": "Télécharger pour un autre système d’exploitation",
@@ -63,7 +59,8 @@
       "step1": "Cliquez sur « Informations complémentaires » dans la boîte de dialogue d’avertissement.",
       "step2": "Cliquez sur le bouton « Exécuter quand même » qui apparaît, puis poursuivez l’installation normalement.",
       "outro": "Si c’est votre navigateur qui a bloqué le téléchargement, choisissez d’abord « Conserver » pour enregistrer le programme d’installation."
-    }
+    },
+    "sizeMB": "~{n} Mo"
   },
   "contribute": {
     "title": "Contribuer",
@@ -84,15 +81,25 @@
     },
     "playlist": {
       "title": "Préparez, envoyez",
-      "description": "Glissez votre musique et vos effets dans une playlist de cues, et choisissez comment chacun enchaîne sur le suivant : continuer, boucler ou sauter. Pilotez toute la conduite à la souris, à l’écran tactile, au clavier ou avec un contrôleur MIDI."
+      "description": "Glissez votre musique et vos effets dans une playlist de cues, et choisissez comment chacun enchaîne sur le suivant : continuer, boucler ou sauter. Pilotez toute la conduite à la souris, à l’écran tactile, au clavier ou avec un contrôleur MIDI.",
+      "points": [
+        "Continuer, boucler ou sauter après chaque cue",
+        "Souris, tactile, clavier ou MIDI",
+        "Groupes pour scènes, actes et sets"
+      ]
     },
     "cart": {
       "title": "Jingles et sons instantanés",
-      "description": "Gardez jingles, virgules et annonces à portée de doigt dans le lecteur de cartouches, prêts à partir par-dessus tout ce qui joue déjà."
+      "description": "Gardez jingles, virgules et annonces à portée de doigt dans le lecteur de cartouches, prêts à partir par-dessus tout ce qui joue déjà.",
+      "points": [
+        "Part par-dessus tout ce qui joue",
+        "Un raccourci clavier par cartouche",
+        "Pré-écoute au casque d’abord"
+      ]
     },
     "ducking": {
       "title": "Ducking automatique",
-      "description": "Les annonces et les effets baissent la musique pendant qu’ils jouent, puis la font remonter en douceur. Un cue peut aussi tout arrêter pour un changement de scène net."
+      "description": "Les annonces et les effets baissent la musique pendant qu’ils jouent, puis la font remonter en douceur. Un cue peut aussi tout arrêter pour un changement de scène net. Vous choisissez à quelle vitesse la musique baisse et avec quelle douceur elle revient."
     },
     "interface": {
       "title": "Organisé à votre façon",
@@ -100,11 +107,25 @@
     },
     "showMode": {
       "title": "Mode spectacle",
-      "description": "Le mode spectacle transforme l’écran en grandes commandes tactiles et masque tout ce qui permettrait de modifier le spectacle : rien ne bouge par erreur une fois les portes ouvertes."
+      "description": "Le mode spectacle transforme l’écran en grandes commandes tactiles et masque tout ce qui permettrait de modifier le spectacle : rien ne bouge par erreur une fois les portes ouvertes.",
+      "points": [
+        "Grandes commandes tactiles",
+        "L’édition est verrouillée",
+        "Un seul interrupteur pour l’activer"
+      ]
     },
     "waveform": {
       "title": "Édition sur la forme d’onde",
       "description": "Réduisez chaque son exactement au passage voulu et dessinez ses fondus directement sur la forme d’onde. LivePlay peut aussi rogner les silences et égaliser les niveaux pour vous, afin que chaque cue arrive à un volume homogène."
+    },
+    "automation": {
+      "title": "Automation du volume",
+      "description": "Dessinez le niveau d'un cue directement sur sa forme d'onde. Cliquez pour ajouter un point, faites glisser la ligne pour baisser la musique sous une annonce ou la relever pour un refrain, ou sélectionnez un passage et baissez-le d'un seul geste. La forme d'onde montre exactement ce qui sera entendu, et vous pouvez pré-écouter au casque depuis n'importe quel point avant le spectacle.",
+      "points": [
+        "Dessinez les niveaux sur la forme d’onde",
+        "Sélectionnez un passage et baissez-le",
+        "Pré-écoute depuis n’importe quel point"
+      ]
     },
     "properties": {
       "title": "Chaque cue au détail près",
@@ -124,15 +145,30 @@
     },
     "mixer": {
       "title": "Une vraie console pour votre spectacle",
-      "description": "Donnez à la musique, aux effets et aux annonces leurs propres bus et équilibrez-les sur des tranches, comme sur une console physique. Routez les bus les uns dans les autres, directement vers une sortie ou via des départs aux, et assignez tout un groupe de cues d’un coup."
+      "description": "Donnez à la musique, aux effets et aux annonces leurs propres bus et équilibrez-les sur des tranches, comme sur une console physique. Routez les bus les uns dans les autres, directement vers une sortie ou via des départs aux, et assignez tout un groupe de cues d’un coup.",
+      "points": [
+        "Des bus avec tranches complètes",
+        "Routage entre bus ou départs aux",
+        "Assignez des groupes entiers d’un coup"
+      ]
     },
     "eqDynamics": {
       "title": "EQ et dynamique sur chaque bus",
-      "description": "Sculptez chaque bus avec un EQ paramétrique et un analyseur de spectre en direct, puis tenez-le avec un gate et un compresseur. Les bus stéréo peuvent être élargis ou resserrés, en gardant le bas du spectre bien au centre."
+      "description": "Sculptez chaque bus avec un EQ paramétrique et un analyseur de spectre en direct, puis tenez-le avec un gate et un compresseur. Les bus stéréo peuvent être élargis ou resserrés, en gardant le bas du spectre bien au centre.",
+      "points": [
+        "Jusqu’à 32 bandes d’EQ avec analyseur en direct",
+        "Gate et compresseur sur chaque bus",
+        "Largeur stéréo avec basses mono-compatibles"
+      ]
     },
     "limiter": {
       "title": "Limiteur brickwall et cibles de loudness",
-      "description": "Un limiteur brickwall sur chaque sortie tient les crêtes intempestives loin des enceintes, et la console vous montre quand il agit. Choisissez une cible de loudness, du broadcast au streaming en passant par le live : limiteur, indicateurs de niveau et formes d’onde s’y alignent."
+      "description": "Un limiteur brickwall sur chaque sortie tient les crêtes intempestives loin des enceintes, et la console vous montre quand il agit. Choisissez une cible de loudness, du broadcast au streaming en passant par le live : limiteur, indicateurs de niveau et formes d’onde s’y alignent.",
+      "points": [
+        "Un limiteur sur chaque sortie",
+        "Cibles broadcast, streaming et live",
+        "Indicateurs et formes d’onde suivent"
+      ]
     },
     "meters": {
       "title": "Mesure de niveau de qualité broadcast",
@@ -156,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "En local ou à distance",
-      "description": "Faites tourner le moteur audio sur le même ordinateur ou sur une machine en coulisses reliée à vos interfaces audio, et pilotez tout depuis n’importe où sur le réseau. Le son vient du moteur, pas de l’écran : le spectacle continue même si un poste de contrôle tombe."
+      "description": "Faites tourner le moteur audio sur le même ordinateur ou sur une machine en coulisses reliée à vos interfaces audio, et pilotez tout depuis n’importe où sur le réseau. Le son vient du moteur, pas de l’écran : le spectacle continue même si un poste de contrôle tombe.",
+      "points": [
+        "Moteur et écrans sur des machines séparées",
+        "La lecture continue si un écran décroche",
+        "Pilotage depuis tout le réseau"
+      ]
     },
     "discovery": {
       "title": "Travaillez ensemble, repartez vite",
@@ -168,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Tous vos réglages au même endroit",
-      "description": "Tous vos réglages sont réunis sur une seule page. Vos préférences personnelles, comme la langue et le thème, vous suivent sur chaque écran où vous vous connectez, tandis que le spectacle sonne partout de la même façon."
+      "description": "Tous vos réglages sont réunis sur une seule page, groupés par thème et expliqués au fil de la lecture. Un badge indique à qui appartient chacun : à vous, au spectacle, à cet ordinateur ou au serveur. Votre thème vous suit sur chaque écran où vous vous connectez, tandis que le spectacle sonne partout de la même façon."
     },
     "audioEngine": {
       "title": "Un moteur audio C++ robuste",
@@ -177,6 +218,68 @@
     "ltc": {
       "title": "Timecode SMPTE",
       "description": "Envoyez du timecode SMPTE avec vos cues pour que la lumière, la vidéo et les autres équipements suivent votre spectacle."
+    },
+    "missingMedia": {
+      "title": "Retrouver l’audio manquant",
+      "description": "Si un fichier est déplacé ou supprimé, LivePlay signale le cue avant que quiconque ne le lance. Indiquez-lui un dossier et chaque fichier manquant est retrouvé et réassocié par son nom, ou remplacez un seul fichier sans perdre les réglages du cue.",
+      "points": [
+        "Signalé avant tout lancement",
+        "Réassociez tout un spectacle depuis un dossier",
+        "Remplacez un fichier, gardez les réglages"
+      ]
+    },
+    "groupEvents": {
+      "title": "Pilotez toute la salle",
+      "intro": "Un seul cue peut lancer la lumière, la vidéo et la console. LivePlay tient le temps, pour que tout tombe ensemble."
+    },
+    "events": {
+      "title": "Des événements sur la timeline",
+      "description": "Placez des événements sur la forme d’onde d’un cue pour déclencher un cue lumière via OSC ou MIDI Show Control, appeler une API web, bouger un fader sur une console X Air ou lancer un autre cue. Le serveur déclenche chacun pile au bon moment : le spectacle reste synchronisé même sans personne devant l’écran.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control et HTTP",
+        "Consoles Behringer X Air",
+        "Lancer ou arrêter d’autres cues"
+      ]
+    },
+    "connections": {
+      "title": "Des connexions vers votre matériel",
+      "description": "Configurez une seule fois par spectacle chaque console lumière, console de mixage, port MIDI ou service web. LivePlay trouve les consoles X Air sur le réseau, lit les noms de leurs canaux et de leurs snapshots, et plafonne le niveau auquel un événement peut pousser un fader."
+    },
+    "tabs": {
+      "title": "Un onglet par acte",
+      "description": "Découpez un long spectacle en onglets de playlist pour chaque acte, scène ou set. Un seul « À suivre » les traverse tous, et chaque onglet décide de ce qui se passe après son dernier cue : retour en haut, passage à l’onglet suivant ou arrêt.",
+      "points": [
+        "Nommez et colorez chaque onglet",
+        "Un seul « À suivre » pour tout le spectacle",
+        "Ouvrez un onglet dans sa propre fenêtre"
+      ]
+    },
+    "cartPages": {
+      "title": "Des pages et des pages de cartouches",
+      "description": "Rangez vos cartouches sur des pages nommées et colorées de 4 à 64 emplacements. Les touches d’emplacement déclenchent la page affichée, et les touches épinglées lancent un son favori depuis n’importe quelle page.",
+      "points": [
+        "4 à 64 cartouches par page",
+        "Détachez une page sur un autre écran",
+        "Touches épinglées actives sur toutes les pages"
+      ]
+    },
+    "presets": {
+      "title": "Des préréglages pour votre matériel",
+      "description": "Enregistrez « Lumière salle à 40 % » une fois sur une connexion et utilisez-le sur n’importe quel cue. Modifiez le préréglage, et tous les événements qui l’utilisent suivent.",
+      "points": [
+        "Réglages nommés pour chaque connexion",
+        "Une modification met à jour chaque événement",
+        "Remplacez un seul champ si besoin"
+      ]
+    },
+    "companion": {
+      "title": "Pilotage au Stream Deck avec Companion",
+      "description": "LivePlay dispose d’un module officiel pour Bitfocus Companion : un Stream Deck ou toute autre surface de contrôle Companion peut piloter votre spectacle. Chaque touche affiche le nom et la couleur de son cue, et se remplit pendant la lecture.",
+      "points": [
+        "GO, cues, cartouches, Tout arrêter et arrêt d’urgence",
+        "Mutes, PFL et niveau master de la console",
+        "Comptes à rebours et progression en direct sur les touches"
+      ]
     }
   },
   "ports": {
@@ -200,11 +303,334 @@
     "description": "Pilotez la lecture, modifiez projets et routage, et suivez l’état en direct via HTTP et WebSocket. Quand l’identification est activée, donnez à Companion, à un système de show control ou à un script son propre jeton d’API depuis Paramètres, rubrique Comptes, au lieu de partager le mot de passe de quelqu’un. La référence développeur couvre l’authentification, chaque endpoint, les commandes, les événements et des exemples d’intégration.",
     "referenceLabel": "Référence de l’API pour les développeurs"
   },
+  "companion": {
+    "get": "Obtenir le module Companion",
+    "getCompanion": "Télécharger Bitfocus Companion",
+    "credit": "Module créé par {name}",
+    "padAlt": "Touches Companion pour LivePlay pendant un spectacle : GO avec le cue suivant, le cue en cours avec son compte à rebours, Tout arrêter, arrêt d’urgence, cinq cartouches dont une en lecture, mutes de la console, PFL et niveau master"
+  },
   "footer": {
     "license": "est distribué sous licence",
     "developedBy": "Développé par",
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "Voir sur GitHub",
     "contributors": "Contributeurs"
+  },
+  "site": {
+    "skip": "Aller au contenu",
+    "menu": "Menu",
+    "close": "Fermer",
+    "features": "Fonctionnalités",
+    "download": "Télécharger",
+    "api": "API",
+    "whatsNew": "Nouveautés",
+    "newIn": "Nouveau dans {version}",
+    "enlarge": "Voir en taille réelle : {name}",
+    "footerNav": "Liens du site"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Gratuit et open source pour Windows, macOS et Linux",
+      "title": "Chaque son, pile au bon moment.",
+      "download": "Télécharger gratuitement",
+      "seeNew": "Découvrir les nouveautés de {version}"
+    },
+    "audience": {
+      "label": "Pour qui est LivePlay",
+      "theatre": {
+        "title": "Théâtre",
+        "text": "Effets sonores, musique d’accompagnement et changements de scène, dans l’ordre et pile sur la réplique."
+      },
+      "radio": {
+        "title": "Radio",
+        "text": "Tapis, jingles et enchaînements, avec des niveaux fiables à l’antenne."
+      },
+      "events": {
+        "title": "Événements live",
+        "text": "Entrées en scène, virgules et annonces pour conférences, remises de prix et spectacles."
+      },
+      "parties": {
+        "title": "Soirées",
+        "text": "Préparez la musique, baissez-la pour les discours et profitez de la soirée."
+      }
+    },
+    "how": {
+      "title": "Prêt en trois étapes",
+      "one": {
+        "title": "Déposez votre audio",
+        "text": "Glissez musique et effets, ou récupérez un morceau sur YouTube. LivePlay peut rogner les silences et égaliser les niveaux pour vous."
+      },
+      "two": {
+        "title": "Alignez vos cues",
+        "text": "Mettez-les dans l’ordre de la conduite, regroupez-les par scène et choisissez ce que fait chacun ensuite."
+      },
+      "three": {
+        "title": "Appuyez sur Lire le suivant",
+        "text": "Pilotez tout le spectacle avec un seul bouton, un écran tactile, votre clavier ou un contrôleur MIDI."
+      }
+    },
+    "numbers": {
+      "label": "LivePlay en chiffres",
+      "carts": "cartouches par page",
+      "eq": "bandes d’EQ par bus",
+      "languages": "langues",
+      "platforms": "plateformes de bureau",
+      "cost": "frais de licence, à vie"
+    },
+    "teaser": {
+      "eyebrow": "Tout juste sorti",
+      "title": "Nouveau dans LivePlay {version}",
+      "text": "Vos cues pilotent désormais la lumière, la console et la vidéo. Les longs spectacles ont des onglets, les cartouches ont des pages, et le volume se dessine directement sur la forme d’onde.",
+      "button": "Voir toutes les nouveautés"
+    },
+    "tech": {
+      "eyebrow": "Pour les équipes techniques"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Notes de version",
+      "title": "Quoi de neuf dans LivePlay",
+      "lead": "Les principaux ajouts de chaque version, du plus récent au plus ancien. Vous découvrez LivePlay ? Suivez plutôt la visite complète des fonctionnalités.",
+      "tour": "Suivre la visite guidée",
+      "latest": "Dernière version",
+      "read": "Voir les nouveautés",
+      "older": "Versions précédentes"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Versions",
+      "more": "Aussi dans cette version",
+      "fixed": "Également corrigé :",
+      "github": "Notes de version complètes sur GitHub"
+    },
+    "v26": {
+      "title": "Pilotez toute la salle.",
+      "summary": "Des événements pour la lumière, la console et la vidéo, des onglets de playlist, des pages de cartouches et l’automation du volume.",
+      "lead": "LivePlay 2.6 voit plus loin que les enceintes. Vos cues déclenchent désormais la lumière, la console et la vidéo depuis la timeline, les longs spectacles se rangent dans des onglets, les cartouches s’étalent sur plusieurs pages et le volume se dessine directement sur la forme d’onde.",
+      "sections": {
+        "events": {
+          "kicker": "Événements",
+          "title": "Un cue. Toute la scène.",
+          "text": "Placez des événements sur la forme d’onde d’un cue et LivePlay déclenche chacun à son repère : un cue lumière, une requête web, un mouvement de fader sur votre console ou un autre cue. Le serveur garde le temps : tout tombe ensemble, même sans personne devant l’écran.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control et HTTP",
+            "Faders, mutes et snapshots Behringer X Air",
+            "Au début, à la fin, à la pause, à la reprise ou à tout moment"
+          ]
+        },
+        "presets": {
+          "kicker": "Préréglages d’événements",
+          "title": "Un réglage. Partout.",
+          "text": "Enregistrez vos réglages habituels comme préréglage nommé sur une connexion. Reliez-y autant d’événements que vous voulez et, quand l’installation change, mettez à jour le préréglage une seule fois.",
+          "points": [
+            "« Lumière salle 40 % », prêt pour tout cue",
+            "Une modification met à jour chaque événement",
+            "Remplacez un seul champ sur un événement"
+          ]
+        },
+        "tabs": {
+          "kicker": "Onglets de playlist",
+          "title": "Longs spectacles, bien rangés.",
+          "text": "Donnez à chaque acte, scène ou set son propre onglet. « Lire le suivant » lance toujours l’unique « À suivre » du spectacle et indique dans quel onglet il se trouve : vous regardez plus loin sans perdre votre place.",
+          "points": [
+            "Retour en haut, onglet suivant ou arrêt",
+            "Déplacez les cues entre onglets",
+            "Ouvrez un onglet dans sa propre fenêtre"
+          ]
+        },
+        "pages": {
+          "kicker": "Pages de cartouches",
+          "title": "De la place pour chaque son.",
+          "text": "Organisez vos cartouches en pages pour chaque scène ou tâche. Chaque page a sa taille et sa couleur, et peut suivre la lecture ou se détacher sur un autre écran.",
+          "points": [
+            "4 à 64 cartouches par page",
+            "Touches pour la page visible ou épinglées à une cartouche",
+            "Déplacez les cartouches entre pages"
+          ]
+        },
+        "automation": {
+          "kicker": "Automation du volume",
+          "title": "Dessinez le mix sur la forme d’onde.",
+          "text": "Cliquez pour ajouter un point, faites glisser la ligne pour baisser la musique sous un discours ou la relever sur un refrain. La forme d’onde montre exactement ce que le public entendra.",
+          "points": [
+            "Ajoutez, déplacez et supprimez des points",
+            "Baissez toute une sélection d’un geste",
+            "Pré-écoute au casque depuis n’importe quel point"
+          ]
+        },
+        "relink": {
+          "kicker": "Réassocier les médias",
+          "title": "Fichiers perdus, retrouvés.",
+          "text": "Si un fichier est déplacé, LivePlay signale le cue avant que quiconque ne le lance. Indiquez un dossier et chaque fichier manquant est retrouvé par son nom, ou remplacez-le par un nouveau fichier en gardant le cue exactement tel que vous l’avez réglé.",
+          "points": [
+            "Alerte avant d’appuyer sur lecture",
+            "Réassociez tout un spectacle depuis un dossier",
+            "Remplacez un fichier sans perdre les réglages"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Votre spectacle sur un Stream Deck.",
+          "text": "LivePlay a désormais un module officiel dans Bitfocus Companion. Cherchez LivePlay en ajoutant une connexion : un Stream Deck, des boutons web sur une tablette ou toute autre surface Companion reçoit des touches prêtes à l’emploi qui suivent votre spectacle.",
+          "points": [
+            "Des touches de cue à vos couleurs, qui se remplissent pendant la lecture",
+            "GO, cartouches, Tout arrêter, arrêt d’urgence et la console",
+            "Connexion par jeton d’API quand l’identification est activée"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "Toute une playlist dans une cartouche",
+          "text": "Déposez un onglet de playlist sur une cartouche pour le lancer d’un simple toucher et suivre le temps restant."
+        },
+        "duckTimes": {
+          "title": "Le ducking à votre rythme",
+          "text": "Réglez, cue par cue, la vitesse à laquelle la musique baisse et la douceur avec laquelle elle revient. Les spectacles des versions précédentes gardent le ducking rapide qu’ils ont toujours eu."
+        },
+        "stopFades": {
+          "title": "Tout arrêter, à votre façon",
+          "text": "Laissez « Tout arrêter » faire sortir chaque cue avec son propre fondu du bouton Arrêt plutôt qu’avec une durée fixe."
+        },
+        "stopKey": {
+          "title": "Arrêter le cue en cours",
+          "text": "Arrêtez uniquement le dernier cue lancé, depuis une touche, une note MIDI ou Companion, et laissez tout le reste jouer."
+        },
+        "openFile": {
+          "title": "Ouvrez vos spectacles depuis vos fichiers",
+          "text": "Double-cliquez sur un spectacle, sous Linux aussi. LivePlay demande toujours avant de remplacer un spectacle ouvert."
+        },
+        "waveformPan": {
+          "title": "Défilement au bouton du milieu",
+          "text": "Faites glisser avec le bouton du milieu pour vous déplacer dans une forme d’onde zoomée."
+        },
+        "sealed": {
+          "title": "Les mots de passe restent chiffrés",
+          "text": "Les mots de passe et les clés de vos connexions s’affichent sous forme de points et sont chiffrés de sorte que seule la machine du serveur puisse les lire. Ouvrez le spectacle ailleurs et LivePlay vous demande de vous reconnecter."
+        },
+        "compat": {
+          "title": "Ouvrir des spectacles plus anciens",
+          "text": "Les spectacles de la version 2.5 s’ouvrent sans changement. Une fois un spectacle enregistré en 2.6, gardez-le en 2.6 ou ultérieur : LivePlay 2.5 perdrait ses onglets, ses pages de cartouches et ses connexions."
+        }
+      },
+      "fixes": "des événements et connexions plus fiables, une lecture qui ne se bloque plus sur les médias manquants, des imports qui n’écrasent jamais le fichier d’un autre cue, des raccourcis clavier qui restent à l’écart des fenêtres contextuelles et des éditeurs, des touches de cartouche que Companion déclenche correctement sur chaque page, des builds macOS corrigés (désormais macOS 13.3 ou ultérieur), une fenêtre qui tient à côté des autres applications, des couleurs d’accent plus nettes et une page Paramètres mieux rangée, avec des réglages groupés par thème, une description sous chacun et un badge indiquant à qui il appartient."
+    },
+    "v25": {
+      "title": "Une vraie console pour votre spectacle.",
+      "summary": "Bus et tranches, EQ 32 bandes, sorties matérielles nommées et comptes d’équipe.",
+      "lead": "LivePlay 2.5 a intégré une console complète à l’application. Donnez à la musique, aux effets et aux voix leurs propres tranches, sculptez-les comme il faut et emmenez le même spectacle dans n’importe quelle salle.",
+      "sections": {
+        "mixer": {
+          "kicker": "Console",
+          "title": "Chaque son a sa tranche.",
+          "text": "Créez des bus pour la musique, les effets et les annonces et équilibrez-les sur des tranches, comme sur une console physique. Routez-les les uns dans les autres, directement vers une sortie ou via des départs aux.",
+          "points": [
+            "Rôles Master et Preview sur des bus ordinaires",
+            "Départs aux pré- et post-fader",
+            "Assignez des groupes entiers d’un coup"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ et dynamique",
+          "title": "Sculptez. Tenez.",
+          "text": "Un EQ paramétrique piloté au graphique avec analyseur de spectre en direct, puis un gate et un compresseur qui montrent ce qu’ils font au signal.",
+          "points": [
+            "Jusqu’à 32 bandes, tous types de filtres",
+            "Analyseur en direct derrière la courbe",
+            "Largeur stéréo avec basses mono-compatibles"
+          ]
+        },
+        "outputs": {
+          "kicker": "Sorties matérielles",
+          "title": "Le spectacle voyage. Le routage suit.",
+          "text": "Les spectacles désignent leurs sorties par leur nom, et chaque ordinateur relie ces noms à ses propres cartes son. Dans une nouvelle salle, LivePlay signale ce qui manque et il suffit d’y glisser une sortie physique.",
+          "points": [
+            "Des sorties nommées, pas des cartes son",
+            "Matériel absent : silence et alerte",
+            "Réaffectation par glisser-déposer"
+          ]
+        },
+        "workspace": {
+          "kicker": "Espace de travail",
+          "title": "Organisez tout à votre façon.",
+          "text": "Playlist, lecteur de cartouches et console fonctionnent tous de la même manière. Affichez-les, remplissez l’écran avec l’un d’eux, rangez-les sur un bord ou déplacez-les sur un autre écran.",
+          "points": [
+            "Un seul modèle de disposition pour chaque panneau",
+            "Détachez les panneaux sur un second écran",
+            "Tout revient comme vous l’avez laissé"
+          ]
+        },
+        "accounts": {
+          "kicker": "Comptes",
+          "title": "Un accès pour chaque membre.",
+          "text": "Donnez aux opérateurs et aux administrateurs leurs propres identifiants, voyez qui est connecté et créez des jetons d’API pour les outils de show control au lieu de partager un mot de passe.",
+          "points": [
+            "Rôles opérateur et administrateur",
+            "Jetons d’API pour des outils comme Companion",
+            "Déplacez votre équipe vers un autre serveur"
+          ]
+        },
+        "fades": {
+          "kicker": "Fondus et timing",
+          "title": "Des transitions sans accroc.",
+          "text": "Donnez à chaque cue son propre fondu du bouton Arrêt, fondez les boucles sur elles-mêmes et faites patienter un cue avant le lancement du suivant.",
+          "points": [
+            "Des fondus aussi longs que l’audio",
+            "Fondus de boucle sans raccord",
+            "Attente avant le suivant"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "Une seule page de paramètres",
+          "text": "Tous les paramètres au même endroit, et vos préférences personnelles vous suivent sur chaque écran."
+        },
+        "multiEdit": {
+          "title": "Modifiez plusieurs cues à la fois",
+          "text": "Changez n’importe quelle propriété sur toute une sélection de cues."
+        },
+        "groupTime": {
+          "title": "Les groupes connaissent leur durée",
+          "text": "Voyez combien de temps dure un groupe et ce qu’il reste, même lorsqu’il est replié."
+        },
+        "sends": {
+          "title": "Des bus qui ne font qu’envoyer",
+          "text": "Un bus peut alimenter les autres uniquement par des départs, sans sortie principale propre."
+        },
+        "tray": {
+          "title": "Le serveur dans la zone de notification",
+          "text": "Faites tourner le moteur audio discrètement en arrière-plan, sans fenêtre de console."
+        },
+        "youtubeFormat": {
+          "title": "Choisissez votre format YouTube",
+          "text": "Décidez du format d’enregistrement de l’audio importé, WAV compris."
+        }
+      },
+      "fixes": "prise en charge de Linux hors ligne et des distributions plus anciennes, import YouTube plus solide, en-tête qui s’adapte à la fenêtre, données utilisateur toujours enregistrées, et de nombreux correctifs pour la console et les connexions."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Show control",
+        "text": "Prise en charge de Bitfocus Companion, plus les actions de lecture Continuer sur cue et Jump Cue."
+      },
+      "v23": {
+        "title": "Mode spectacle et mesures honnêtes",
+        "text": "Un mode spectacle tactile, la mesure LUFS et true peak, les projets récents et une numérotation configurable."
+      },
+      "v22": {
+        "title": "Enchaînements façon radio",
+        "text": "Marqueurs « Lancer le suivant », transition par défaut pour les nouvelles pistes et mise en place automatique de l’élément suivant."
+      },
+      "v21": {
+        "title": "Imports plus rapides",
+        "text": "Importez et supprimez de nombreux fichiers à la fois."
+      },
+      "v20": {
+        "title": "Un nouveau moteur audio",
+        "text": "Un moteur C++ dédié, en local ou à distance, avec cibles de loudness et découverte automatique du serveur."
+      }
+    }
   }
 }

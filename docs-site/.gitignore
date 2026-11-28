@@ -18,6 +18,11 @@ dist
 # Screenshots copied in from client/public/screenshots at build time
 public/screenshots
 
+# Generated from the English copy by scripts/generate-seo.mjs
+public/sitemap.xml
+public/llms.txt
+public/llms-full.txt
+
 # Misc
 .DS_Store
 *.local

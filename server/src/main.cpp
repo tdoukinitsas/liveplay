@@ -12,6 +12,7 @@
 #include "liveplay/core/server_config.hpp"
 #include "liveplay/core/user_prefs.hpp"
 #include "liveplay/core/user_store.hpp"
+#include "liveplay/core/secrets.hpp"
 #include "liveplay/crash_handler.hpp"
 #include "liveplay/logger.hpp"
 #include "liveplay/util/unicode_path.hpp"
@@ -597,7 +598,9 @@ std::filesystem::path choose_data_dir(int argc, char** argv,
     // A file an administrator placed beside the executable is still the
     // installation's intent; carry it over once rather than ignore it. Never
     // overwrite: after the first run the copy here is the one being edited.
-    for (const char* name : {"liveplay.json", "users.json", "outputs.json"}) {
+    // secret.key too: every show this installation sealed depends on it, so a
+    // data folder that moves without it strands their credentials (R2-20).
+    for (const char* name : {"liveplay.json", "users.json", "outputs.json", "secret.key"}) {
         std::error_code ec;
         const fs::path from = exe_dir / name, to = user_dir / name;
         if (fs::exists(from, ec) && !fs::exists(to, ec)) {
@@ -1253,6 +1256,11 @@ int server_main(int argc, char** argv) {
 
     // Who may talk to this server. Machine-owned, beside outputs.json for the
     // same reason: the accounts belong to the rig, not to the show on it.
+    // The key that seals credentials in show files (F-23). Machine-owned like
+    // the accounts: it never travels with a show, so a show opened on another
+    // rig asks for its credentials again instead of revealing them.
+    core::secrets::set_key_path(data_dir / "secret.key");
+
     auto users = std::make_unique<core::UserStore>();
     users->set_path(data_dir / "users.json");
     users->load();   // absent file is the open posture, stated below
@@ -1553,7 +1561,11 @@ int server_main(int argc, char** argv) {
     reset_crash_restart_guard();
     if (beacon) beacon->stop();
     beacon.reset();
+    // In this order: the project's threads (sequencer, event lanes, fades)
+    // report through callbacks that capture the control server, so they must
+    // be gone before it is. Stopped first, it ignores anything still reported.
     server->stop();
+    project->stop_background_work();
     server.reset();
     backup->stop();
     backup.reset();

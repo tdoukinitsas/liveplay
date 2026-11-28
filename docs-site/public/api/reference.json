@@ -1246,7 +1246,7 @@
         "cart": [],
         "buses": [],
         "server": {
-          "version": "2.5.0",
+          "version": "2.6.0",
           "meterBroadcastHz": 30,
           "masterChannels": 32,
           "previewMasterL": 30,
@@ -1288,7 +1288,7 @@
         "ok": true,
         "uuid": "item-uuid"
       },
-      "notes": "POST and GET both act. Uses the armed override, then derives the next item from active playback. Does not implicitly start the first cue of an idle playlist.",
+      "notes": "POST and GET both act. Uses the armed override, then derives the next item from active playback: with several cues on air, from the one fired first, or with settings.goContinuesFrom \"latest\" the one fired last (the desktop's Up Next and Space follow the same setting). Pressing a cue that is already playing doesn't change the firing order. Does not implicitly start the first cue of an idle playlist.",
       "errors": [
         [
           "404",
@@ -1319,7 +1319,7 @@
       "response": {
         "ok": true
       },
-      "notes": "Empty body is accepted. Stops Preview only if settings.stopAllStopsPreview is true (default true). Does not clear PFL. Negative fade values are clamped by project state.",
+      "notes": "Empty body is accepted. Stops Preview only if settings.stopAllStopsPreview is true (default true). Does not clear PFL. Negative fade values are clamped by project state. The stopped cues fire their end events only if settings.stopAllFiresEvents is true (default false), and those may not start or resume a cue. A Stop All that arrives while the previous one is still fading, or within 0.5 s of an instant one, from any client, is a panic (see /api/transport/panic). With settings.stopAllUsesItemFade (and no fade_ms), each cue fades over its own Stop button fade instead, and the Stop All fade covers only cues that have none.",
       "errors": [
         [
           "400",
@@ -1327,6 +1327,59 @@
         ]
       ],
       "sourceLine": 2956
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/stop_current",
+      "title": "Stop the current cue",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "fade_ms",
+          "integer (ms)",
+          "No",
+          "The cue's own Stop fade",
+          "Explicit fade for this stop; 0 cuts."
+        ]
+      ],
+      "request": {},
+      "response": {
+        "ok": true,
+        "uuid": "item-uuid"
+      },
+      "notes": "Stops the cue fired most recently that is still sounding, playlist or cart. A cue already in its stop fade is skipped, so a second press stops the one before it rather than cutting it; a paused cue is taken only when nothing is sounding. The desktop's Stop Current Cue key and MIDI action use this rule.",
+      "errors": [
+        [
+          "404",
+          "nothing is playing"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/panic",
+      "title": "Panic: stop every cue now and kill every event",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": {},
+      "response": {
+        "ok": true
+      },
+      "notes": "Stops every cue at once (no fade). Kills every event: scheduled markers, jobs queued on plugin lanes, and fades events started (they stop where they are). No stopped cue fires an end event, whatever settings.stopAllFiresEvents says. The preview follows settings.stopAllStopsPreview, as for Stop All. The same as pressing Stop All twice.",
+      "errors": [],
+      "sourceLine": 3245
     },
     {
       "methods": [
@@ -1369,6 +1422,20 @@
           "One of",
           "-",
           "Nonzero step; takes precedence over itemUuid."
+        ],
+        [
+          "scope",
+          "string",
+          "No",
+          "tab",
+          "With delta: \"tab\" keeps the step to one playlist tab and stops at its edge; \"show\" walks every tab."
+        ],
+        [
+          "tabId",
+          "string",
+          "No",
+          "The selection's tab",
+          "With delta: the tab to keep to (what the caller is showing). A selection on another tab starts at this tab's top."
         ]
       ],
       "request": {
@@ -1378,11 +1445,15 @@
         "ok": true,
         "itemUuid": "item-uuid"
       },
-      "notes": "Selection is shared session state. Without a selection, stepping uses active playback as an anchor. UUID is not validated by the setter.",
+      "notes": "Selection is shared session state. Without a selection, stepping uses active playback as an anchor. In a show with playlist tabs a step keeps to one tab unless scope is \"show\": the tab named by tabId, else the selection's, else the furthest playing cue's, else the first. The desktop's arrow keys and MIDI use the same rule. UUID is not validated by the setter.",
       "errors": [
         [
           "400",
           "delta must be non-zero"
+        ],
+        [
+          "400",
+          "scope must be \"tab\" or \"show\""
         ],
         [
           "404",
@@ -1552,7 +1623,7 @@
         "slot": 0,
         "uuid": "item-uuid"
       },
-      "notes": "Path: zero-based slot. POST and GET both act. Empty slot/unplayable target: 404.",
+      "notes": "Path: the raw slot number, the slot summary.cart reports (0..6399). Each cart page owns a block of 64 numbers from its slotBase, so 0..63 are the first page ever made (as in a show from before pages) and reordering pages never changes what a number fires. A slot that no page shows (its page was removed or shrunk below it) is 404. POST and GET both act. For a page and position as the cart wall shows them, use /api/transport/cart/<page>/<cart>/play.",
       "errors": [
         [
           "404",
@@ -1567,6 +1638,87 @@
     },
     {
       "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/cart/<int>/stop",
+      "title": "Stop a cart slot",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": true,
+        "slot": 0,
+        "uuid": "item-uuid",
+        "stopped": true
+      },
+      "notes": "Path: the raw slot number, as for /api/transport/cart/<slot>/play. `stopped` is false when nothing was playing (or waiting to advance) for it to stop. A cart bound to a playlist tab stops that tab's run: its cues, any cue the run advanced into (a `continue` tab runs into the next), and an advance waiting out \"wait before next\".",
+      "errors": [
+        [
+          "404",
+          "cart slot is empty"
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "path": "/api/transport/cart/<int>/<int>/play",
+      "title": "Trigger a cart by page and position",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": true,
+        "page": 0,
+        "cart": 3,
+        "uuid": "item-uuid"
+      },
+      "notes": "Path: zero-based page, then zero-based cart on it. Pages count in tab order, so reordering them changes which page an index means; carts are also reachable by UUID through /api/project/items/<uuid>/play. POST and GET both act.",
+      "errors": [
+        [
+          "404",
+          "cart is empty or doesn't exist"
+        ],
+        [
+          "404",
+          "item not loaded into engine"
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/transport/cart/<int>/<int>/stop",
+      "title": "Stop a cart by page and position",
+      "category": "Transport and selection",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": true,
+        "page": 0,
+        "cart": 3,
+        "uuid": "item-uuid",
+        "stopped": true
+      },
+      "notes": "`stopped` is false when there was nothing to stop. A cart bound to a playlist tab stops that tab's run: its cues, any cue the run advanced into (a `continue` tab runs into the next), and an advance waiting out \"wait before next\".",
+      "errors": [
+        [
+          "404",
+          "cart is empty or doesn't exist"
+        ]
+      ]
+    },
+    {
+      "methods": [
         "GET"
       ],
       "path": "/api/project",
@@ -1578,7 +1730,7 @@
       "request": null,
       "response": {
         "name": "Show",
-        "version": "2.5.0",
+        "version": "2.6.0",
         "items": [],
         "cartItems": [],
         "cartOnlyItems": [],
@@ -1595,7 +1747,7 @@
           "audioTotal": 0
         }
       },
-      "notes": "Document-shaped response, not a fixed whitelist. Example is abbreviated; derived outputTargetLevels and live cueId annotations are included by the server.",
+      "notes": "Document-shaped response, not a fixed whitelist. Example is abbreviated; derived outputTargetLevels and live cueId annotations are included by the server. No client is sent a credential: in an HTTP connection's, preset's or event's headers, the value of a credential-looking header (Authorization, Proxy-Authorization, Cookie, or a name containing token, key, secret, pass, auth, session, signature or credential) is sent as \"••••••\", and an API token gets \"••••••\" for every header value. This applies to every JSON response and WebSocket frame.",
       "errors": [],
       "sourceLine": 4155,
       "responseSchema": "ProjectDocument"
@@ -1634,7 +1786,7 @@
           "audioTotal": 0
         }
       },
-      "notes": "No items or buses array. settings includes derived outputTargetLevels (omitted in this example for space). Fetch buses separately.",
+      "notes": "No items or buses array. settings includes derived outputTargetLevels (omitted in this example for space). Fetch buses separately. For an API token, HTTP connections' header values in eventConnections are hidden.",
       "errors": [],
       "sourceLine": 4162,
       "responseSchema": "ProjectHeader"
@@ -1729,8 +1881,12 @@
         "itemCount": 1,
         "needsRepair": false
       },
-      "notes": "Returns ProjectHeader plus needsRepair and optional repairIssues/migration; example is abbreviated. Audio loading can continue after response. Broadcasts project_changed. Loading replaces the active project.",
+      "notes": "Returns ProjectHeader plus needsRepair and optional repairIssues/migration; example is abbreviated. Audio loading can continue after response. Broadcasts project_changed. Loading replaces the active project. A document in the body is never treated as read from disk: its sealed credentials are not opened (those connections ask for a sign-in). An API token may load a show file, not a document.",
       "errors": [
+        [
+          "403",
+          "API tokens can open a show file, not send a show"
+        ],
         [
           "400",
           "load failed"
@@ -1804,8 +1960,12 @@
         "ok": true,
         "path": "C:/Shows/Show/show.liveplay"
       },
-      "notes": "JSON body is required (use {}). No configured path: 400. Save does not copy media for Save As. A rejected embedded document is logged and the existing document is still saved. May include migration summary; ordinary save does not emit project_changed.",
+      "notes": "JSON body is required (use {}). No configured path: 400. Save does not copy media for Save As. A rejected embedded document is logged and the existing document is still saved. May include migration summary; ordinary save does not emit project_changed. With an embedded document, the parts with their own routes (tabs, pages, connections, cart keys) stay as the server holds them for the same show.",
       "errors": [
+        [
+          "403",
+          "API tokens can save the open show, not replace it"
+        ],
         [
           "400",
           "no project file path set"
@@ -1856,8 +2016,12 @@
         "itemCount": 0,
         "busSchema": 2
       },
-      "notes": "Returns header (example abbreviated), with optional migration. Broadcasts project_changed. Does not write the .liveplay file; use save.",
+      "notes": "Returns header (example abbreviated), with optional migration. Broadcasts project_changed. Does not write the .liveplay file; use save. An API token can't change event connections this way: the show's own are kept, and another show pushed by a token gets none. An API token may only send the open show (the same showId): another show is refused, and the cues' events are kept as stored whatever the document says.",
       "errors": [
+        [
+          "403",
+          "API tokens can update the open show, not replace it"
+        ],
         [
           "400",
           "document not accepted"
@@ -1991,8 +2155,12 @@
         "uuid": "opening",
         "cueId": "cue-id"
       },
-      "notes": "Returned cueId can be empty (groups or failed load). Missing uuid/duplicate uuid/unloadable media is not reliably reported as an HTTP error. Re-read the document. Broadcast item_added echoes the submitted item, not a canonical inserted object.",
+      "notes": "Returned cueId can be empty (groups or failed load). Missing uuid/duplicate uuid/unloadable media is not reliably reported as an HTTP error. Re-read the document. Broadcast item_added echoes the submitted item, not a canonical inserted object. An API token may not add a cue with events.",
       "errors": [
+        [
+          "403",
+          "API tokens can't add a cue's events"
+        ],
         [
           "400",
           "missing 'item' object"
@@ -2029,8 +2197,12 @@
         "ok": true,
         "uuid": "item-uuid"
       },
-      "notes": "Path: project UUID. Broadcasts item_updated with the submitted patch. No strict field whitelist or schema validation; malformed types can fail in state/engine code. Save separately.",
+      "notes": "Path: project UUID. Broadcasts item_updated with the submitted patch. No strict field whitelist or schema validation; malformed types can fail in state/engine code. Save separately. An API token may send back a cue's events exactly as it was shown them, but not change them: they reach saved connections with their credentials.",
       "errors": [
+        [
+          "403",
+          "API tokens can't change a cue's events"
+        ],
         [
           "404",
           "item not found"
@@ -2305,7 +2477,7 @@
           "integer",
           "Yes",
           "-",
-          "Use 0..63; route only checks nonnegative."
+          "The raw slot number: a page's slotBase + the cart's position (0..6399)."
         ],
         [
           "itemUuid",
@@ -2324,7 +2496,7 @@
         "slot": 0,
         "itemUuid": "opening"
       },
-      "notes": "State rejects slot >=64 but the route still returns 200 and broadcasts cart_slot_set. UUID existence is not checked. Cart display size is a client concern.",
+      "notes": "itemUuid may be \"tab:<tabId>\" to make the cart start a whole playlist tab. The slot must be one a cart page shows (a show with no pages has one of 16, or more for a show from before 2.6 whose carts used later slots). UUID existence is not checked. Broadcasts cart_slot_set. See GET /api/cart/pages for each page's carts.",
       "errors": [
         [
           "400",
@@ -2332,10 +2504,189 @@
         ],
         [
           "400",
+          "no cart page shows that slot"
+        ],
+        [
+          "400",
+          "slot out of range"
+        ],
+        [
+          "400",
           "Handler exception (JSON parsing, type conversion or operation failure); message varies."
         ]
       ],
       "sourceLine": 4917
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/cart/pages",
+      "title": "List cart pages and their carts",
+      "category": "Playlist items and carts",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "pages": [
+          {
+            "page": 0,
+            "id": "default",
+            "name": "Walk-in",
+            "size": 16,
+            "carts": [
+              {
+                "cart": 3,
+                "address": "0,3",
+                "itemUuid": "item-uuid",
+                "name": "Doors"
+              }
+            ]
+          }
+        ]
+      },
+      "notes": "Every page in tab order with its bound carts. A show that has never had pages reports one page of 16. address is the page,cart form the transport routes take.",
+      "errors": [
+        [
+          "500",
+          "internal error"
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "path": "/api/project/tabs",
+      "title": "Read or replace playlist tabs and cart pages",
+      "category": "Playlist items and carts",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "playlistTabs",
+          "array",
+          "No",
+          "unchanged",
+          "PUT: {id, name, color?, atEnd: wrap|continue|stop}. [] returns to the single implicit tab."
+        ],
+        [
+          "cartPages",
+          "array",
+          "No",
+          "unchanged",
+          "PUT: {id, name, color?, size: 4..64, slotBase}. A missing or clashing slotBase is assigned a free block. [] returns to the single default page."
+        ]
+      ],
+      "request": {
+        "cartPages": [
+          {
+            "id": "walk-in",
+            "name": "Walk-in",
+            "size": 8,
+            "slotBase": 0
+          }
+        ]
+      },
+      "response": {
+        "playlistTabs": [],
+        "cartPages": [
+          {
+            "id": "walk-in",
+            "name": "Walk-in",
+            "size": 8,
+            "slotBase": 0
+          }
+        ],
+        "limits": {
+          "maxPlaylistTabs": 100,
+          "maxCartPages": 100,
+          "minCartsPerPage": 4,
+          "maxCartsPerPage": 64,
+          "defaultCartsPerPage": 16,
+          "cartSlotsPerPage": 64
+        }
+      },
+      "notes": "What exists, shared by all clients; which tab a client is looking at is local to it. A top-level item is on the tab its tabId names, or the first tab. PUT broadcasts tabs_changed. Limits are defined by the server. A page left out of a PUT takes its carts with it: their bindings and pinned keys are removed (each broadcast as cart_slot_cleared, then cart_keys_changed), so a new page given the same block of slot numbers starts empty.",
+      "errors": [
+        [
+          "400",
+          "expected an object"
+        ],
+        [
+          "400",
+          "a list that is not an array"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "path": "/api/project/cart-keys",
+      "title": "Read or replace the cart keys",
+      "category": "Playlist items and carts",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "cartSlotKeys",
+          "object",
+          "No",
+          "unchanged",
+          "PUT: position on a page (0..63, as a string key) → {key, ctrlKey, shiftKey, altKey}. Fires that position on whichever page a desktop window shows."
+        ],
+        [
+          "cartPinnedKeys",
+          "object",
+          "No",
+          "unchanged",
+          "PUT: raw slot (as a string key) → binding. Fires that one cart from any page."
+        ]
+      ],
+      "request": {
+        "cartPinnedKeys": {
+          "64": {
+            "key": "F5",
+            "ctrlKey": false,
+            "shiftKey": false,
+            "altKey": false
+          }
+        }
+      },
+      "response": {
+        "cartSlotKeys": {},
+        "cartPinnedKeys": {
+          "64": {
+            "key": "F5",
+            "ctrlKey": false,
+            "shiftKey": false,
+            "altKey": false
+          }
+        }
+      },
+      "notes": "The show's keyboard layout for the cart wall. PUT replaces whichever of the two it carries and answers with what was stored, after checking: a binding needs a non-empty key; a pin needs a bound cart in its slot; a key pinned twice keeps its first cart; anything else is dropped. Broadcasts cart_keys_changed. A cart that is cleared takes its pin with it. An ordinary save (POST /api/project/save with a document) never changes these.",
+      "errors": [
+        [
+          "400",
+          "expected an object"
+        ],
+        [
+          "400",
+          "'cartSlotKeys' must be an object"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing); message varies."
+        ]
+      ]
     },
     {
       "methods": [
@@ -3074,6 +3425,13 @@
           "Yes",
           "-",
           "Project audio item UUID."
+        ],
+        [
+          "startSeconds",
+          "number (s)",
+          "No",
+          "The item's inPoint",
+          "Start the audition at this source-file position (Preview from cursor). Past the out-point, it plays to the end of the file."
         ]
       ],
       "request": {
@@ -3084,7 +3442,7 @@
         "itemUuid": "opening",
         "cueId": "preview-cue"
       },
-      "notes": "Uses a separate cue through the Preview-role bus. Replaces any current preview; does not trigger show sequencing. A successful response does not prove Preview is mapped to audible hardware. Broadcasts preview_started.",
+      "notes": "Uses a separate cue through the Preview-role bus. Replaces any current preview; does not trigger show sequencing. A successful response does not prove Preview is mapped to audible hardware. Broadcasts preview_started. Applies the item's volume and volume automation, not its fades.",
       "errors": [
         [
           "400",
@@ -4616,7 +4974,7 @@
           }
         ]
       },
-      "notes": "Entries have name/full_path/kind; kind is home, drive, dir or file. File entries also have size in bytes. Dot-prefixed names are hidden. Empty path honors configured roots; normal paths are canonicalized and checked. Audio filter: wav/aiff/aif/flac/mp3/ogg/m4a/aac/opus/wma/caf; inclusion does not guarantee decode support.",
+      "notes": "Entries have name/full_path/kind; kind is home, drive, dir or file. File entries also have size in bytes. Dot-prefixed names are hidden. Empty path honors configured roots; normal paths are canonicalized and checked. Audio filter: wav/aiff/aif/flac/mp3, the formats the engine can decode.",
       "errors": [
         [
           "404",
@@ -4698,7 +5056,7 @@
           "binary",
           "Yes",
           "-",
-          "Each part is written; filename from Content-Disposition, default upload.bin."
+          "Each part is written; filename from Content-Disposition. Every part must be a wav, aiff, aif, flac or mp3 file, or nothing is saved."
         ]
       ],
       "request": {
@@ -4709,7 +5067,7 @@
           "C:/Shows/Show/media/opening.wav"
         ]
       },
-      "notes": "Content-Type: multipart/form-data with boundary. Use curl -F \"file=@opening.wav\". Total body size limited by maxUploadBytes. Uses basename; overwrites an existing same-named file. Does not create project items or queue waveforms.",
+      "notes": "Content-Type: multipart/form-data with boundary. Use curl -F \"file=@opening.wav\". Total body size limited by maxUploadBytes. Uses the basename and never overwrites: a different file with a taken name is saved as \"name (2).ext\", and identical bytes return the copy already there. Use the returned path. Does not create project items or queue waveforms.",
       "errors": [
         [
           "413",
@@ -4726,6 +5084,10 @@
         [
           "400",
           "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ],
+        [
+          "415",
+          "unsupported audio format: use WAV, AIFF, FLAC or MP3"
         ]
       ],
       "sourceLine": 3946
@@ -4745,7 +5107,7 @@
           "string",
           "Yes",
           "-",
-          "Nonempty source path within permitted roots."
+          "Nonempty source path within permitted roots, to a wav, aiff, aif, flac or mp3 file."
         ]
       ],
       "request": {
@@ -4754,11 +5116,15 @@
       "response": {
         "dest_path": "C:/Shows/Show/media/opening.wav"
       },
-      "notes": "Overwrites the destination basename unless source and destination resolve to the same path. JSON parse/type and filesystem exceptions become 500 in this handler.",
+      "notes": "Never overwrites. A different file with a taken name is saved as \"name (2).ext\", identical bytes return the copy already there, and a file already in the media folder stays put. Store the returned path. JSON parse/type and filesystem exceptions become 500 in this handler.",
       "errors": [
         [
           "400",
           "missing source_path"
+        ],
+        [
+          "400",
+          "source is not a file"
         ],
         [
           "404",
@@ -4775,6 +5141,10 @@
         [
           "403",
           "Path is outside configured filesystem roots."
+        ],
+        [
+          "415",
+          "unsupported audio format: use WAV, AIFF, FLAC or MP3"
         ]
       ],
       "sourceLine": 3991
@@ -5222,6 +5592,412 @@
         ]
       ],
       "source": "Crow app.h / settings.h / http_response.h (installed dependency)"
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/media/missing",
+      "title": "List items whose media file is missing",
+      "category": "Filesystem and media",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "missing": [
+          {
+            "uuid": "opening",
+            "displayName": "Opening",
+            "mediaFileName": "opening.wav",
+            "mediaPath": "media/opening.wav"
+          }
+        ]
+      },
+      "notes": "Audio items in the playlist and cart whose media resolves to no existing file (mediaPath against the project folder, then mediaServerPath). One stat per audio item; the desktop polls it to badge items.",
+      "errors": []
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/media/locate",
+      "title": "Relink missing media from a folder",
+      "category": "Filesystem and media",
+      "auth": "Operator",
+      "apiToken": "No",
+      "fields": [
+        [
+          "folder",
+          "string",
+          "Yes",
+          "-",
+          "Server folder within permitted roots to search."
+        ],
+        [
+          "recursive",
+          "boolean",
+          "No",
+          "true",
+          "Also search subfolders (stops after 200,000 entries)."
+        ]
+      ],
+      "request": {
+        "folder": "D:/Audio/Show",
+        "recursive": true
+      },
+      "response": {
+        "relinked": [
+          {
+            "uuid": "opening",
+            "patch": {
+              "mediaFileName": "opening.wav",
+              "mediaPath": "media/opening.wav",
+              "mediaServerPath": "C:/Shows/Show/media/opening.wav"
+            }
+          }
+        ],
+        "missing": []
+      },
+      "notes": "Matches each missing item by file name, case-insensitively. A match inside the project folder is referenced in place; anything else is copied into the project media folder first (renamed \"name (2).ext\" rather than overwriting a different file). Each relink is applied as an item update (the cue is re-decoded) and broadcast as item_updated.",
+      "errors": [
+        [
+          "400",
+          "missing folder"
+        ],
+        [
+          "403",
+          "Path is outside configured filesystem roots."
+        ],
+        [
+          "404",
+          "no such folder"
+        ],
+        [
+          "500",
+          "Handler exception (JSON parsing, type conversion or operation failure); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/events/plugins",
+      "title": "List event plugins",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "plugins": [
+          {
+            "id": "osc",
+            "label": "OSC",
+            "icon": "settings_input_antenna",
+            "needsConnection": true,
+            "connectionFields": [],
+            "actions": []
+          }
+        ]
+      },
+      "notes": "Each plugin's schema (EventPlugin). Built per request, so live lists such as the server machine's MIDI output ports are current.",
+      "errors": []
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/events/connections",
+      "title": "List event connections",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "connections": [
+          {
+            "id": "c1",
+            "name": "Lighting desk",
+            "plugin": "osc",
+            "enabled": true,
+            "config": {
+              "host": "192.168.1.50",
+              "port": 8000
+            }
+          }
+        ]
+      },
+      "notes": "No client is sent a credential: in an HTTP connection's, preset's or event's headers, the value of a credential-looking header (Authorization, Proxy-Authorization, Cookie, or a name containing token, key, secret, pass, auth, session, signature or credential) is sent as \"••••••\", and an API token gets \"••••••\" for every header value. This applies to every JSON response and WebSocket frame. A connection whose credentials need entering again carries auth: \"missing\" (sealed on another machine, or never given) or \"rejected\" (the device answered 401 or 403); it is not saved.",
+      "errors": []
+    },
+    {
+      "methods": [
+        "PUT"
+      ],
+      "path": "/api/events/connections",
+      "title": "Replace event connections",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "No (403)",
+      "fields": [
+        [
+          "connections",
+          "EventConnection[]",
+          "Yes",
+          "-",
+          "The complete list; entries without id or plugin are dropped."
+        ]
+      ],
+      "request": {
+        "connections": [
+          {
+            "id": "c1",
+            "name": "Lighting desk",
+            "plugin": "osc",
+            "enabled": true,
+            "config": {
+              "host": "192.168.1.50",
+              "port": 8000
+            }
+          }
+        ]
+      },
+      "response": {
+        "ok": true,
+        "connections": []
+      },
+      "notes": "Stores the list in the project document and broadcasts event_connections_changed. A header value sent back as \"••••••\" keeps the stored one for that header name; a new value replaces it, and clears a \"rejected\" or \"missing\" sign-in once nothing the connection needs is still missing. An ordinary save leaves the list as stored. API tokens can't change connections: they decide where the server sends requests and hold the credentials.",
+      "errors": [
+        [
+          "403",
+          "API tokens can't change event connections"
+        ],
+        [
+          "400",
+          "missing 'connections' array"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/events/test",
+      "title": "Fire an event now",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "event",
+          "object",
+          "Yes",
+          "-",
+          "plugin, action, options and optional connectionId and presetId (an ItemEvent without its trigger)."
+        ],
+        [
+          "connection",
+          "EventConnection",
+          "No",
+          "-",
+          "Use this unsaved connection instead of looking connectionId up."
+        ],
+        [
+          "itemUuid",
+          "string",
+          "No",
+          "-",
+          "Item whose name fills {item.name}."
+        ]
+      ],
+      "request": {
+        "event": {
+          "plugin": "osc",
+          "action": "message",
+          "connectionId": "c1",
+          "options": {
+            "address": "/eos/cue/1/go",
+            "args": []
+          }
+        }
+      },
+      "response": {
+        "ok": false,
+        "error": "HTTP 401 from http://10.0.0.5/go: the credentials were refused",
+        "auth": "rejected"
+      },
+      "notes": "Reports the plugin's result. Always 200 for a well-formed request; failure is ok=false with error. Exception: 403 when an API token sends an unsaved (draft) connection of any plugin; saved connections may be tested. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>. A failure caused by credentials adds auth: \"missing\" or \"rejected\". A test never changes a saved connection's sign-in state. Masked values (\"••••••\") in the draft connection or event are the stored ones.",
+      "errors": [
+        [
+          "400",
+          "missing 'event' object"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/events/jobs/<string>",
+      "title": "Collect a slow event request",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [],
+      "request": null,
+      "response": {
+        "ok": false,
+        "error": "Failed to read connection"
+      },
+      "notes": "Path: the jobId from a pending answer of /api/events/test, /options or /discover. While it runs: {\"pending\":true,\"jobId\":\"...\"}. Once finished: that request's own result, once. A result nobody collects is dropped after two minutes.",
+      "errors": [
+        [
+          "404",
+          "no such job"
+        ],
+        [
+          "500",
+          "Handler exception; message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/events/options",
+      "title": "Read a live option list",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "Plugin id."
+        ],
+        [
+          "source",
+          "string",
+          "Yes",
+          "-",
+          "The field's optionsFrom."
+        ],
+        [
+          "connectionId",
+          "string",
+          "No",
+          "-",
+          "A saved connection."
+        ],
+        [
+          "connection",
+          "EventConnection",
+          "No",
+          "-",
+          "An unsaved connection, used instead of connectionId."
+        ],
+        [
+          "values",
+          "object",
+          "No",
+          "{}",
+          "The form's values for the field's dependsOn."
+        ]
+      ],
+      "request": {
+        "plugin": "xair",
+        "source": "strips",
+        "connectionId": "c1"
+      },
+      "response": {
+        "options": [
+          {
+            "value": "ch/05",
+            "label": "Ch 05 · Playback 1-L"
+          }
+        ]
+      },
+      "notes": "What a field declared with optionsFrom offers, read from the device (strip names, snapshots). When the device cannot be reached, the plugin returns what it can (static options) with error set; the request still succeeds. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>. 403 when an API token sends an unsaved connection.",
+      "errors": [
+        [
+          "403",
+          "API tokens can't use an unsaved connection"
+        ],
+        [
+          "400",
+          "missing plugin or source"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
+    },
+    {
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/events/discover",
+      "title": "Find devices on the network",
+      "category": "Events",
+      "auth": "Operator",
+      "apiToken": "Yes",
+      "fields": [
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "A plugin whose schema has discoverable: true."
+        ],
+        [
+          "timeoutMs",
+          "integer",
+          "No",
+          "1500",
+          "How long to listen, 200..10000."
+        ]
+      ],
+      "request": {
+        "plugin": "xair"
+      },
+      "response": {
+        "devices": [
+          {
+            "label": "Stage — XR18 at 192.168.1.20 (firmware 1.22)",
+            "name": "Stage",
+            "config": {
+              "host": "192.168.1.20",
+              "port": 10024
+            }
+          }
+        ]
+      },
+      "notes": "Searches every network of the server machine. Each device's config fills a connection's fields; name suggests its name. An empty list when nothing answers or the plugin cannot discover. Waits on the network off the I/O threads: a request not finished within 50 ms answers {\"pending\":true,\"jobId\":\"...\"}, and the result comes from GET /api/events/jobs/<id>.",
+      "errors": [
+        [
+          "400",
+          "missing plugin"
+        ],
+        [
+          "400",
+          "Handler exception (JSON parsing or type conversion); message varies."
+        ]
+      ]
     }
   ],
   "schemas": [
@@ -5416,14 +6192,21 @@
           "object",
           "No",
           "No ducking",
-          "mode: no-ducking/stop-all/duck-others; duckLevel linear number, duckFadeIn/duckFadeOut seconds."
+          "mode: no-ducking/stop-all/duck-others; duckLevel linear number; duckFadeIn/duckFadeOut seconds (0..60), how long duck-others takes to pull the other cues down and to bring them back. Absent = 50 ms each (pre-2.6 behaviour)."
         ],
         [
-          "customActions",
-          "object[]",
+          "events",
+          "ItemEvent[]",
           "No",
           "[]",
-          "Each has timePoint seconds and action object; see CustomAction."
+          "Audio items: events fired by the server (see ItemEvent). Replaces the pre-2.6 customActions, which are migrated on load."
+        ],
+        [
+          "volumeAutomation",
+          "object",
+          "No",
+          "Absent (none)",
+          "Audio items: { enabled boolean, points [{ t number (s, source-file time), db number }] }. Gain on top of volume; linear in dB between points, holding the first/last point outside them; db <= -60 is silence, max +10. enabled false keeps the points but bypasses them. Applies live to a playing cue and to pre-listen."
         ],
         [
           "ltcEnabled",
@@ -5445,40 +6228,192 @@
           "No",
           "4",
           "0=24, 1=25, 2=29.97NDF, 3=29.97DF, 4=30."
+        ],
+        [
+          "tabId",
+          "string",
+          "No",
+          "first tab",
+          "Top-level items: the playlist tab it is on."
         ]
       ]
     },
     {
-      "name": "CustomAction",
-      "description": "The sequencer processes timed actions on project audio items. HTTP actions are sent to clients for execution; the server does not issue an outbound HTTP request.",
+      "name": "ItemEvent",
+      "description": "An event on an audio item (#84). The server fires it; the sequencer schedules \"time\" events ahead so they land on their mark. String options may use {item.name}, {item.uuid}, {trigger} and {time}. Pre-2.6 customActions are migrated to events on load.",
       "fields": [
         [
-          "type",
+          "id",
           "string",
           "Yes",
           "-",
-          "play-item, play-index, stop-all, http-request."
+          "Stable identity, echoed in event_fired."
         ],
         [
-          "uuid",
+          "name",
           "string",
-          "play-item",
-          "-",
-          "Project UUID."
+          "No",
+          "\"\"",
+          "Label."
         ],
         [
-          "index",
-          "integer[]",
-          "play-index",
-          "-",
-          "Zero-based tree indices."
+          "enabled",
+          "boolean",
+          "No",
+          "true",
+          "Disabled events never fire."
         ],
         [
-          "request",
+          "trigger",
+          "string",
+          "Yes",
+          "-",
+          "time, start, end (stopped or finished), pause, resume."
+        ],
+        [
+          "time",
+          "number",
+          "time",
+          "0",
+          "Seconds on the file timeline, like inPoint/outPoint. Markers before where playback starts, or jumped over by a seek, do not fire; a loop re-arms them (unless once)."
+        ],
+        [
+          "once",
+          "boolean",
+          "No",
+          "false",
+          "time events: fire once per play, not again when the cue loops or is sought back over the marker. Set on events migrated from 2.5 customActions."
+        ],
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "osc, midi, http or liveplay."
+        ],
+        [
+          "action",
+          "string",
+          "Yes",
+          "-",
+          "An action id from the plugin's schema."
+        ],
+        [
+          "connectionId",
+          "string|null",
+          "Plugin",
+          "-",
+          "An eventConnections id, for plugins with needsConnection."
+        ],
+        [
+          "options",
           "object",
-          "http-request",
+          "No",
+          "{}",
+          "Values for the action's fields."
+        ],
+        [
+          "presetId",
+          "string",
+          "No",
+          "absent",
+          "A preset on the event's connection. Supplies action and options; the event's own options override single fields."
+        ]
+      ]
+    },
+    {
+      "name": "EventConnection",
+      "description": "A project-level event destination, e.g. an OSC host and port or a MIDI output port.",
+      "fields": [
+        [
+          "id",
+          "string",
+          "Yes",
           "-",
-          "url string, method GET/POST/PUT/DELETE, contentType form/json, optional body object. Desktop executes; server does not validate."
+          "Referenced by ItemEvent.connectionId."
+        ],
+        [
+          "name",
+          "string",
+          "No",
+          "\"\"",
+          "Label."
+        ],
+        [
+          "plugin",
+          "string",
+          "Yes",
+          "-",
+          "The plugin it belongs to."
+        ],
+        [
+          "enabled",
+          "boolean",
+          "No",
+          "true",
+          "Events through a disabled connection report an error instead of firing."
+        ],
+        [
+          "config",
+          "object",
+          "No",
+          "{}",
+          "Values for the plugin's connectionFields."
+        ],
+        [
+          "presets",
+          "array",
+          "No",
+          "absent",
+          "Reusable {id, name, action, options}. An event pointing at one takes its action and options from it."
+        ],
+        [
+          "auth",
+          "string",
+          "Response only",
+          "absent",
+          "\"missing\" or \"rejected\": the connection's credentials need entering again. Never saved."
+        ]
+      ]
+    },
+    {
+      "name": "EventPlugin",
+      "description": "A plugin schema. Clients render every event and connection form from it. Field types: string, text, number, integer, boolean, enum (options, allowCustom), item (a project item uuid), list (fields describes one row); showIf shows a field only when a sibling has one of the listed values. Optional: discoverable (POST /api/events/discover); on fields, optionsFrom + dependsOn (live lists via POST /api/events/options) and unit (display).",
+      "fields": [
+        [
+          "id",
+          "string",
+          "Yes",
+          "-",
+          "Plugin id."
+        ],
+        [
+          "label, icon, description",
+          "string",
+          "Yes",
+          "-",
+          "Display; icon is a Material Symbols name."
+        ],
+        [
+          "needsConnection",
+          "boolean",
+          "Yes",
+          "-",
+          "Whether events pick a connection."
+        ],
+        [
+          "connectionFields",
+          "object[]",
+          "Yes",
+          "-",
+          "Fields of a connection's config."
+        ],
+        [
+          "actions",
+          "object[]",
+          "Yes",
+          "-",
+          "id, label, optional summary template, fields."
         ]
       ]
     },
@@ -5491,7 +6426,7 @@
           "string",
           "No",
           "Empty",
-          "Project label and document version."
+          "Project label and show-file version: \"2.6.0\" (a document from before 2.6 says \"2.0.0\" and is upgraded once on load: ducks keep their 50 ms timing, customActions become events)."
         ],
         [
           "items",
@@ -5512,7 +6447,7 @@
           "object[]",
           "No",
           "[]",
-          "slot integer (0..63), itemUuid string; server stores index [-1, slot]."
+          "slot integer (raw slot: page slotBase + position, 0..6399), itemUuid string; server stores index [-1, slot]."
         ],
         [
           "cartSlotKeys",
@@ -5520,6 +6455,13 @@
           "No",
           "{}",
           "Slot bindings: key string; ctrlKey/shiftKey/altKey booleans."
+        ],
+        [
+          "eventConnections",
+          "EventConnection[]",
+          "No",
+          "[]",
+          "Event destinations; managed through /api/events/connections. On disk, credential header values are sealed with a key kept on the server machine. A full-document PUT that omits it keeps the current list for the same show only."
         ],
         [
           "settings",
@@ -5569,6 +6511,27 @@
           "Compatibility only",
           "{}",
           "Read for seeding user preferences; not maintained as project preferences."
+        ],
+        [
+          "playlistTabs",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one implicit tab."
+        ],
+        [
+          "cartPages",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one page of 16 carts."
+        ],
+        [
+          "cartPinnedKeys",
+          "object",
+          "No",
+          "{}",
+          "Raw slot → key binding that fires that cart from any page. Managed through /api/project/cart-keys."
         ]
       ]
     },
@@ -5631,6 +6594,41 @@
           "Conditional",
           "Absent",
           "Included by document/load when normalization reports changes."
+        ],
+        [
+          "eventConnections",
+          "EventConnection[]",
+          "Yes",
+          "[]",
+          "Event destinations (see /api/events/connections)."
+        ],
+        [
+          "playlistTabs",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one implicit tab."
+        ],
+        [
+          "cartPages",
+          "array",
+          "No",
+          "[]",
+          "See /api/project/tabs. Absent or empty: one page of 16 carts."
+        ],
+        [
+          "cartPinnedKeys",
+          "object",
+          "No",
+          "{}",
+          "Item uuid to a key binding that fires that cart from any page."
+        ],
+        [
+          "tabLimits",
+          "object",
+          "Yes",
+          "-",
+          "The limits on tabs and pages, defined by the server."
         ]
       ]
     },
@@ -5728,6 +6726,13 @@
           "crossfade/start-next."
         ],
         [
+          "goContinuesFrom",
+          "string",
+          "No",
+          "earliest",
+          "earliest/latest: with several cues on air and no Up Next armed, which one GO, Up Next and summary.next continue from."
+        ],
+        [
           "autoCueNextWithoutEndBehavior",
           "boolean",
           "No",
@@ -5747,6 +6752,20 @@
           "No",
           "true",
           "Include pre-listen in Stop All."
+        ],
+        [
+          "stopAllFiresEvents",
+          "boolean",
+          "No",
+          "false",
+          "The cues Stop All stops fire their end events (never on a panic)."
+        ],
+        [
+          "stopAllUsesItemFade",
+          "boolean",
+          "No",
+          "false",
+          "Stop All (without an explicit fade_ms) and stop-all ducking fade each cue over its own Stop button fade; cues with none use stopAllFadeMs (Stop All) or the incoming cue's fade (ducking). A panic always cuts."
         ],
         [
           "disableAutoVolumeAndTrim, disableSilenceWarning",
@@ -6578,7 +7597,7 @@
           "object[]",
           "Yes",
           "-",
-          "slot integer, itemUuid string, playing boolean; optional name/color strings."
+          "One per bound cart a page shows, in page order: slot (the raw slot for /api/transport/cart/<slot>/*), page and cart integers (zero-based, page in strip order, for /api/transport/cart/<page>/<cart>/*), address string \"page,cart\", pageId/pageName strings, itemUuid string, playing boolean; optional name/color/type strings. A cart bound to a playlist tab has type \"tab\", tabId, the tab's name and colour, and plays while any of the tab's cues does."
         ],
         [
           "buses",
@@ -7203,6 +8222,24 @@
         "notes": "Same preview inclusion setting as REST; cancels pending delayed advances. PFL is separate."
       },
       {
+        "type": "stop_current",
+        "purpose": "Stop the current cue",
+        "fields": [
+          [
+            "fade_ms",
+            "integer (ms)",
+            "No",
+            "The cue's own Stop fade",
+            "Explicit fade; 0 cuts."
+          ]
+        ],
+        "example": {
+          "type": "stop_current"
+        },
+        "reply": "No direct success reply; observe state/events.",
+        "notes": "Same as POST /api/transport/stop_current: the cue fired most recently that is still sounding, skipping one already fading out."
+      },
+      {
         "type": "go",
         "purpose": "Trigger armed or derived next cue",
         "fields": [],
@@ -7336,6 +8373,20 @@
             "No",
             "0",
             "Nonzero step; 0 does nothing."
+          ],
+          [
+            "scope",
+            "string",
+            "No",
+            "tab",
+            "\"show\" walks every playlist tab."
+          ],
+          [
+            "tabId",
+            "string",
+            "No",
+            "The selection's tab",
+            "The tab to keep to."
           ]
         ],
         "example": {
@@ -7343,7 +8394,7 @@
           "delta": 1
         },
         "reply": "No direct success reply; observe state/events.",
-        "notes": "Uses current selection or active playback anchor; emits selection_changed when state setter is called."
+        "notes": "Same rule as POST /api/selection with delta; emits selection_changed when the selection moves."
       },
       {
         "type": "set_show_mode",
@@ -7517,6 +8568,33 @@
         },
         "reply": "{\"type\":\"pong\"}",
         "notes": "No server-initiated JSON heartbeat or mandated ping interval."
+      },
+      {
+        "type": "set_view",
+        "purpose": "Say which tab and page this client shows",
+        "fields": [
+          [
+            "playlistTab",
+            "string",
+            "No",
+            "\"\"",
+            "Playlist tab id."
+          ],
+          [
+            "cartPage",
+            "string",
+            "No",
+            "\"\"",
+            "Cart page id."
+          ]
+        ],
+        "example": {
+          "type": "set_view",
+          "playlistTab": "default",
+          "cartPage": "default"
+        },
+        "reply": "doc_patch client_view_id with this connection's id; everyone gets client_views.",
+        "notes": "Only so another operator can choose to follow it. Never stored in the show."
       }
     ],
     "events": [
@@ -8560,33 +9638,195 @@
         "notes": "Notification only; no periodic countdown or cancellation frame is guaranteed."
       },
       {
-        "op": "custom_action_http",
-        "purpose": "Sequencer asks connected clients to execute an HTTP action",
+        "op": "event_fired",
+        "purpose": "An item event ran",
         "fields": [
           [
-            "action",
-            "CustomAction",
+            "itemUuid",
+            "string",
             "Yes",
             "-",
-            "Original action, type=http-request."
+            "Item the event belongs to (\"\" for a test)."
+          ],
+          [
+            "eventId",
+            "string",
+            "Yes",
+            "-",
+            "ItemEvent id."
+          ],
+          [
+            "trigger",
+            "string",
+            "Yes",
+            "-",
+            "time, start, end, pause, resume or test."
+          ],
+          [
+            "plugin, action",
+            "string",
+            "Yes",
+            "-",
+            "What ran."
+          ],
+          [
+            "ok",
+            "boolean",
+            "Yes",
+            "-",
+            "Whether the plugin succeeded."
+          ],
+          [
+            "error",
+            "string",
+            "No",
+            "-",
+            "Why not."
+          ],
+          [
+            "auth",
+            "string",
+            "No",
+            "-",
+            "\"missing\" or \"rejected\" when the failure was the credentials."
+          ],
+          [
+            "connectionId",
+            "string",
+            "No",
+            "-",
+            "The connection the event used."
           ]
         ],
         "example": {
           "type": "doc_patch",
-          "op": "custom_action_http",
-          "action": {
-            "type": "http-request",
-            "request": {
-              "method": "POST",
-              "url": "http://controller.local/cue",
-              "contentType": "json",
-              "body": {
-                "cue": 1
-              }
-            }
-          }
+          "op": "event_fired",
+          "itemUuid": "opening",
+          "eventId": "e1",
+          "trigger": "time",
+          "plugin": "osc",
+          "action": "message",
+          "ok": true
         },
-        "notes": "Broadcast to all clients. The desktop handles it; multiple connected executors can issue duplicate requests. Third-party monitoring clients should ignore it unless intentionally acting as an executor."
+        "notes": "Sent after every fired event, including ones skipped for a missing or disabled connection. Test fires report through the REST reply instead."
+      },
+      {
+        "op": "event_connections_changed",
+        "purpose": "Event connections replaced",
+        "fields": [
+          [
+            "connections",
+            "EventConnection[]",
+            "Yes",
+            "-",
+            "The stored list."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "event_connections_changed",
+          "connections": []
+        },
+        "notes": "Follows PUT /api/events/connections, and a connection's sign-in state changing (a 401, a success after one, credentials entered). Credentials are masked as for every frame."
+      },
+      {
+        "op": "tabs_changed",
+        "purpose": "Playlist tabs or cart pages changed",
+        "fields": [
+          [
+            "playlistTabs",
+            "array",
+            "Yes",
+            "-",
+            "The stored tabs."
+          ],
+          [
+            "cartPages",
+            "array",
+            "Yes",
+            "-",
+            "The stored pages."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "tabs_changed",
+          "playlistTabs": [],
+          "cartPages": []
+        },
+        "notes": "Follows PUT /api/project/tabs."
+      },
+      {
+        "op": "cart_keys_changed",
+        "purpose": "The cart keys changed",
+        "fields": [
+          [
+            "cartSlotKeys",
+            "object",
+            "Yes",
+            "-",
+            "Position keys, as stored."
+          ],
+          [
+            "cartPinnedKeys",
+            "object",
+            "Yes",
+            "-",
+            "Keys pinned to carts (raw slot → binding), as stored."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "cart_keys_changed",
+          "cartSlotKeys": {},
+          "cartPinnedKeys": {}
+        },
+        "notes": "Follows PUT /api/project/cart-keys, a cleared cart that had a pin, and a removed page."
+      },
+      {
+        "op": "client_views",
+        "purpose": "Which tab and page each operator shows",
+        "fields": [
+          [
+            "views",
+            "array",
+            "Yes",
+            "-",
+            "{id, label, playlistTab, cartPage} for each connection that has sent set_view. label is the signed-in user's name, or \"Client <id>\"; never an address."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "client_views",
+          "views": [
+            {
+              "id": 3,
+              "label": "Client 3",
+              "playlistTab": "default",
+              "cartPage": "default"
+            }
+          ]
+        },
+        "notes": "Sent on any change and when a client disconnects."
+      },
+      {
+        "op": "client_view_id",
+        "purpose": "This connection's own id",
+        "fields": [
+          [
+            "id",
+            "integer",
+            "Yes",
+            "-",
+            "The id this connection has in client_views."
+          ]
+        ],
+        "example": {
+          "type": "doc_patch",
+          "op": "client_view_id",
+          "id": 3
+        },
+        "notes": "Direct reply to set_view, so a client can leave itself out of a list of operators to follow."
       }
     ]
   }

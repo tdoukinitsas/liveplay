@@ -21,26 +21,22 @@
     "windows": {
       "title": "Windows",
       "description": "Windows 10/11 (64-bit)",
-      "buttonText": ".exe İndir",
-      "size": "~150 MB"
+      "buttonText": ".exe İndir"
     },
     "macArm": {
       "title": "macOS — Apple Silicon",
-      "description": "M1/M2/M3 ve daha yenisi (arm64)",
-      "buttonText": ".dmg İndir",
-      "size": "~140 MB"
+      "description": "M1 ve üzeri (arm64), macOS 13.3+",
+      "buttonText": ".dmg İndir"
     },
     "macIntel": {
       "title": "macOS — Intel",
-      "description": "Intel Mac’ler (x64), macOS 11+",
-      "buttonText": ".dmg İndir",
-      "size": "~145 MB"
+      "description": "Intel Mac'ler (x64), macOS 13.3+",
+      "buttonText": ".dmg İndir"
     },
     "linux": {
       "title": "Linux",
       "description": "AppImage (x64)",
-      "buttonText": ".AppImage İndir",
-      "size": "~155 MB"
+      "buttonText": ".AppImage İndir"
     },
     "recommended": "Sisteminiz için önerilir",
     "showOtherOS": "Başka bir işletim sistemi için indir",
@@ -63,7 +59,8 @@
       "step1": "Uyarı iletişim kutusunda \"Ek bilgi\"ye tıklayın.",
       "step2": "Görünen \"Yine de çalıştır\" düğmesine tıklayın, ardından kuruluma normal şekilde devam edin.",
       "outro": "İndirmeyi tarayıcınız engellediyse, önce yükleyiciyi kaydetmek için \"Sakla\"yı seçin."
-    }
+    },
+    "sizeMB": "~{n} MB"
   },
   "contribute": {
     "title": "Katkıda Bulunun",
@@ -84,15 +81,25 @@
     },
     "playlist": {
       "title": "Cue'ları Dizin, Tek Tuşla Başlatın",
-      "description": "Müziklerinizi ve efektlerinizi bir cue listesine sürükleyin ve her birinin bir sonrakine nasıl geçeceğini seçin: devam etsin, döngüye girsin ya da atlasın. Tüm akışı fare, dokunmatik ekran, klavye ya da MIDI kontrolcüsüyle yönetin."
+      "description": "Müziklerinizi ve efektlerinizi bir cue listesine sürükleyin ve her birinin bir sonrakine nasıl geçeceğini seçin: devam etsin, döngüye girsin ya da atlasın. Tüm akışı fare, dokunmatik ekran, klavye ya da MIDI kontrolcüsüyle yönetin.",
+      "points": [
+        "Her cue'dan sonra devam, döngü ya da atlama",
+        "Fare, dokunmatik, klavye ya da MIDI",
+        "Sahneler, perdeler ve setler için gruplar"
+      ]
     },
     "cart": {
       "title": "Anında Sesler ve Jingle'lar",
-      "description": "Jingle'lar, vurgu sesleri ve anonslar kartuş oynatıcıda tek dokunuş uzağınızda; o an ne çalıyorsa onun üzerine hemen başlatılmaya hazır."
+      "description": "Jingle'lar, vurgu sesleri ve anonslar kartuş oynatıcıda tek dokunuş uzağınızda; o an ne çalıyorsa onun üzerine hemen başlatılmaya hazır.",
+      "points": [
+        "Çalan her şeyin üzerine başlar",
+        "Her kartuşa bir klavye kısayolu",
+        "Önce kulaklıkta ön dinleme"
+      ]
     },
     "ducking": {
       "title": "Otomatik Kısma",
-      "description": "Anonslar ve efektler çalarken müziği kıssın, bittiğinde yumuşakça geri getirsin. Temiz bir sahne değişimi için bir cue diğer her şeyi durdurabilir."
+      "description": "Anonslar ve efektler çalarken müziği kıssın, bittiğinde yumuşakça geri getirsin. Temiz bir sahne değişimi için bir cue diğer her şeyi durdurabilir. Müziğin ne kadar hızlı alçalacağını ve ne kadar yumuşak geri döneceğini siz seçersiniz."
     },
     "interface": {
       "title": "Size Göre Düzen",
@@ -100,11 +107,25 @@
     },
     "showMode": {
       "title": "Gösteri Modu",
-      "description": "Gösteri Modu ekranı büyük, dokunmatik dostu kontrollere dönüştürür ve gösteriyi değiştirebilecek her şeyi gizler; kapılar açıldıktan sonra hiçbir şey yanlışlıkla değişmez."
+      "description": "Gösteri Modu ekranı büyük, dokunmatik dostu kontrollere dönüştürür ve gösteriyi değiştirebilecek her şeyi gizler; kapılar açıldıktan sonra hiçbir şey yanlışlıkla değişmez.",
+      "points": [
+        "Büyük, dokunmatik dostu kontroller",
+        "Düzenleme kilitlenir",
+        "Tek düğmeyle açılır"
+      ]
     },
     "waveform": {
       "title": "Dalga Formunda Kırpma",
       "description": "Her sesi tam istediğiniz bölüme göre kırpın ve fade'lerini doğrudan dalga formu üzerinde şekillendirin. LivePlay sessizliği sizin yerinize kırpabilir ve seviyeleri dengeleyebilir; böylece her cue tutarlı bir ses seviyesinde gelir."
+    },
+    "automation": {
+      "title": "Ses otomasyonu",
+      "description": "Bir cue'nun seviyesini doğrudan dalga formunun üzerine çizin. Nokta eklemek için tıklayın, müziği bir konuşmanın altında kısmak ya da nakaratta yükseltmek için çizgiyi sürükleyin veya bir bölümü seçip tek hamlede kısın. Dalga formu tam olarak ne duyulacağını gösterir; gösteriden önce herhangi bir noktadan kulaklıkla ön dinleme yapabilirsiniz.",
+      "points": [
+        "Seviyeleri dalga formuna çizin",
+        "Bir bölümü seçip aşağı çekin",
+        "İstediğiniz noktadan ön dinleme"
+      ]
     },
     "properties": {
       "title": "Her Cue'ya İnce Ayar",
@@ -124,15 +145,30 @@
     },
     "mixer": {
       "title": "Gösteriniz İçin Gerçek Bir Mikser",
-      "description": "Müziğe, efektlere ve anonslara kendi bus'larını verin ve onları tıpkı bir mikser masasındaki gibi kanal şeritlerinde dengeleyin. Bus'ları birbirine, doğrudan bir çıkışa ya da aux gönderimleriyle yönlendirin ve bütün bir cue grubunu tek seferde atayın."
+      "description": "Müziğe, efektlere ve anonslara kendi bus'larını verin ve onları tıpkı bir mikser masasındaki gibi kanal şeritlerinde dengeleyin. Bus'ları birbirine, doğrudan bir çıkışa ya da aux gönderimleriyle yönlendirin ve bütün bir cue grubunu tek seferde atayın.",
+      "points": [
+        "Tam kanal şeritli bus'lar",
+        "Bus'lar arası yönlendirme ya da aux gönderimleri",
+        "Cue gruplarını tek seferde atayın"
+      ]
     },
     "eqDynamics": {
       "title": "Her Bus'ta EQ ve Dinamik",
-      "description": "Her bus'ı parametrik EQ ve canlı spektrum analizörüyle şekillendirin, ardından gate ve kompresörle kontrol altında tutun. Stereo bus'lar genişletilip daraltılabilir; bas bölgesi merkezde sağlam kalır."
+      "description": "Her bus'ı parametrik EQ ve canlı spektrum analizörüyle şekillendirin, ardından gate ve kompresörle kontrol altında tutun. Stereo bus'lar genişletilip daraltılabilir; bas bölgesi merkezde sağlam kalır.",
+      "points": [
+        "Canlı analizörlü 32 banda kadar EQ",
+        "Her bus'ta gate ve kompresör",
+        "Mono uyumlu baslı stereo genişlik"
+      ]
     },
     "limiter": {
       "title": "Brickwall Limiter ve Ses Yüksekliği Hedefleri",
-      "description": "Her çıkıştaki brickwall limiter kaçak tepeleri hoparlörlerden uzak tutar, mikser de limiter devreye girdiğinde bunu gösterir. Yayından streaming'e, canlı sese kadar bir ses yüksekliği hedefi seçin; limiter, ölçerler ve dalga formları buna uyar."
+      "description": "Her çıkıştaki brickwall limiter kaçak tepeleri hoparlörlerden uzak tutar, mikser de limiter devreye girdiğinde bunu gösterir. Yayından streaming'e, canlı sese kadar bir ses yüksekliği hedefi seçin; limiter, ölçerler ve dalga formları buna uyar.",
+      "points": [
+        "Her çıkışta bir limiter",
+        "Yayın, streaming ve canlı hedefleri",
+        "Metreler ve dalga formları da uyum sağlar"
+      ]
     },
     "meters": {
       "title": "Yayın Kalitesinde Ölçüm",
@@ -156,7 +192,12 @@
     },
     "remoteOperation": {
       "title": "Yerel ya da Uzaktan Çalışma",
-      "description": "Ses motorunu aynı bilgisayarda ya da ses arabirimlerinizin bulunduğu kulisteki bir makinede çalıştırın ve her şeyi ağın herhangi bir yerinden kontrol edin. Ses ekrandan değil motordan gelir; kontrol bilgisayarlarından biri koparsa bile gösteri çalmaya devam eder."
+      "description": "Ses motorunu aynı bilgisayarda ya da ses arabirimlerinizin bulunduğu kulisteki bir makinede çalıştırın ve her şeyi ağın herhangi bir yerinden kontrol edin. Ses ekrandan değil motordan gelir; kontrol bilgisayarlarından biri koparsa bile gösteri çalmaya devam eder.",
+      "points": [
+        "Motor ve ekranlar ayrı makinelerde",
+        "Bir ekran düşse de çalmaya devam eder",
+        "Ağın her yerinden kontrol edin"
+      ]
     },
     "discovery": {
       "title": "Birlikte Çalışın, Hızla Toparlanın",
@@ -168,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Tüm Ayarlar Tek Yerde",
-      "description": "Tüm ayarlarınız tek bir sayfada. Dil ve tema gibi kişisel tercihleriniz oturum açtığınız her ekranda sizinle gelir; gösterinin kendisi ise her yerde aynı duyulur."
+      "description": "Tüm ayarlarınız tek bir sayfada, konuya göre gruplanmış ve yerinde açıklanmış. Bir rozet her ayarın kime ait olduğunu gösterir: size, gösteriye, bu bilgisayara ya da sunucuya. Temanız oturum açtığınız her ekranda sizinle gelir; gösterinin kendisi ise her yerde aynı duyulur."
     },
     "audioEngine": {
       "title": "Sağlam C++ Ses Motoru",
@@ -177,6 +218,68 @@
     "ltc": {
       "title": "SMPTE Zaman Kodu",
       "description": "Cue'larınızla birlikte SMPTE zaman kodu gönderin; ışık, video ve diğer ekipmanlar gösterinizi takip etsin."
+    },
+    "missingMedia": {
+      "title": "Eksik Sesleri Bulun",
+      "description": "Bir dosya taşınır ya da silinirse LivePlay, cue daha başlatılmadan onu işaretler. Bir klasör gösterin, eksik dosyaların hepsi adlarına göre bulunup yeniden bağlansın; ya da cue'nun ayarlarını kaybetmeden tek bir dosyayı değiştirin.",
+      "points": [
+        "Kimse başlatmadan işaretlenir",
+        "Tüm gösteriyi tek klasörden yeniden bağlayın",
+        "Dosyayı değiştirin, ayarlar kalsın"
+      ]
+    },
+    "groupEvents": {
+      "title": "Tüm salonu tek cue ile yönetin",
+      "intro": "Tek bir cue ışıkları, videoyu ve mikseri başlatabilir. Zamanı LivePlay tutar; böylece her şey aynı anda yerine oturur."
+    },
+    "events": {
+      "title": "Zaman Çizelgesinde Olaylar",
+      "description": "Bir cue'nun dalga formuna olaylar yerleştirin: OSC ya da MIDI Show Control ile bir ışık cue'su tetikleyin, bir web API'sini çağırın, bir X Air mikserinde fader oynatın ya da başka bir cue başlatın. Sunucu her olayı tam zamanında tetikler; ekranın başında kimse olmasa bile gösteri senkron kalır.",
+      "points": [
+        "OSC, MIDI, MIDI Show Control ve HTTP",
+        "Behringer X Air mikserleri",
+        "Diğer cue'ları başlatın ya da durdurun"
+      ]
+    },
+    "connections": {
+      "title": "Ekipmanınıza Bağlantılar",
+      "description": "Her ışık masasını, mikseri, MIDI portunu ya da web hizmetini gösteri başına bir kez ayarlayın. LivePlay ağdaki X Air mikserlerini bulur, kanal ve snapshot adlarını okur ve bir olayın fader'ı ne kadar yükseltebileceğini sınırlar."
+    },
+    "tabs": {
+      "title": "Her Perdeye Bir Sekme",
+      "description": "Uzun bir gösteriyi her perde, sahne ya da set için çalma listesi sekmelerine bölün. Tek bir Sıradaki hepsini kapsar; her sekme de son cue'dan sonra ne olacağına kendisi karar verir: başa dön, sonraki sekmeye geç ya da dur.",
+      "points": [
+        "Her sekmeye ad ve renk",
+        "Tüm gösteri için tek Sıradaki",
+        "Her sekmeyi kendi penceresinde açın"
+      ]
+    },
+    "cartPages": {
+      "title": "Sayfa Sayfa Kartuşlar",
+      "description": "Kartuşlarınızı 4 ila 64 kartuşluk, adlandırılmış ve renk kodlu sayfalara ayırın. Yuva tuşları baktığınız sayfayı tetikler, sabitlenmiş tuşlar ise favori bir sesi her sayfadan çalar.",
+      "points": [
+        "Her sayfada 4 ila 64 kartuş",
+        "Bir sayfayı başka ekrana taşıyın",
+        "Sabitlenmiş tuşlar her sayfada çalışır"
+      ]
+    },
+    "presets": {
+      "title": "Ekipmanınıza Özel Ön Ayarlar",
+      "description": "«Salon ışıkları %40» ayarını bir bağlantıya bir kez kaydedin ve istediğiniz cue'da kullanın. Ön ayarı değiştirdiğinizde onu kullanan tüm olaylar da güncellenir.",
+      "points": [
+        "Her bağlantı için adlandırılmış ayarlar",
+        "Tek değişiklik tüm olayları günceller",
+        "Gerektiğinde tek bir alanı geçersiz kılın"
+      ]
+    },
+    "companion": {
+      "title": "Companion ile Stream Deck Kontrolü",
+      "description": "LivePlay'in Bitfocus Companion için resmî bir modülü var; böylece bir Stream Deck ya da başka herhangi bir Companion kontrol yüzeyi gösterinizi yönetebilir. Her tuş kendi cue'sunun adını ve rengini gösterir, cue çaldıkça dolar.",
+      "points": [
+        "GO, cue'lar, kartuşlar, Tümünü durdur ve acil durdurma",
+        "Mikser mute, PFL ve master seviyesi",
+        "Tuşlarda canlı geri sayım ve ilerleme"
+      ]
     }
   },
   "ports": {
@@ -200,11 +303,334 @@
     "description": "Oynatmayı kontrol edin, projeleri ve yönlendirmeyi düzenleyin, canlı durumu HTTP ve WebSocket üzerinden izleyin. Oturum açma etkinse Companion'a, bir gösteri kontrol sistemine ya da bir betiğe birinin parolasını paylaşmak yerine Ayarlar'daki Hesaplar bölümünden kendi API belirtecini verin. Geliştirici başvurusu kimlik doğrulamayı, tüm uç noktaları, komutları, olayları ve entegrasyon örneklerini kapsar.",
     "referenceLabel": "Geliştirici API Başvurusu"
   },
+  "companion": {
+    "get": "Companion modülünü edinin",
+    "getCompanion": "Bitfocus Companion'ı indirin",
+    "credit": "Modül: {name}",
+    "padAlt": "Gösteri sırasında LivePlay için Companion tuşları: sıradaki cue ile GO, geri sayan çalan cue, Tümünü durdur, acil durdurma, biri çalan beş kartuş, mikser mute, PFL ve master seviyesi"
+  },
   "footer": {
     "license": "şu lisansla dağıtılır:",
     "developedBy": "Geliştiren",
     "developerName": "Thomas Doukinitsas",
     "viewOnGitHub": "GitHub'da Görüntüle",
     "contributors": "Katkıda Bulunanlar"
+  },
+  "site": {
+    "skip": "İçeriğe geç",
+    "menu": "Menü",
+    "close": "Kapat",
+    "features": "Özellikler",
+    "download": "İndir",
+    "api": "API",
+    "whatsNew": "Yenilikler",
+    "newIn": "{version} sürümünde yeni",
+    "enlarge": "Tam boyutta görüntüle: {name}",
+    "footerNav": "Site bağlantıları"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Windows, macOS ve Linux için ücretsiz ve açık kaynak",
+      "title": "Her ses, tam zamanında.",
+      "download": "Ücretsiz indir",
+      "seeNew": "{version} sürümündeki yenilikleri görün"
+    },
+    "audience": {
+      "label": "LivePlay kimler için",
+      "theatre": {
+        "title": "Tiyatro",
+        "text": "Ses efektleri, alt müzikler ve sahne geçişleri; sırasıyla ve tam replikte."
+      },
+      "radio": {
+        "title": "Radyo",
+        "text": "Fon müzikleri, jingle'lar ve geçişler; yayında güvenebileceğiniz seviyelerle."
+      },
+      "events": {
+        "title": "Canlı etkinlikler",
+        "text": "Konferanslar, ödül törenleri ve sahne şovları için giriş müzikleri, vurgu sesleri ve anonslar."
+      },
+      "parties": {
+        "title": "Partiler",
+        "text": "Müziği sıraya dizin, konuşmalarda kısın ve gecenin tadını çıkarın."
+      }
+    },
+    "how": {
+      "title": "Üç adımda hazır",
+      "one": {
+        "title": "Seslerinizi bırakın",
+        "text": "Müzik ve efektleri sürükleyin ya da YouTube'dan bir parça çekin. LivePlay sessizlikleri kırpıp seviyeleri sizin için eşitleyebilir."
+      },
+      "two": {
+        "title": "Cue'ları dizin",
+        "text": "Akış sırasına koyun, sahnelere göre gruplayın ve her birinin sonra ne yapacağını seçin."
+      },
+      "three": {
+        "title": "Sonrakini Oynat'a basın",
+        "text": "Tüm gösteriyi tek bir düğmeyle, dokunmatik ekrandan, klavyenizden ya da bir MIDI kontrolcüsünden yönetin."
+      }
+    },
+    "numbers": {
+      "label": "Rakamlarla LivePlay",
+      "carts": "kartuş, her sayfada",
+      "eq": "EQ bandı, her bus'ta",
+      "languages": "dil",
+      "platforms": "masaüstü platformu",
+      "cost": "lisans ücreti, sonsuza dek"
+    },
+    "teaser": {
+      "eyebrow": "Yeni çıktı",
+      "title": "LivePlay {version} ile gelenler",
+      "text": "Cue'lar artık ışıklarınızı, mikserinizi ve videonuzu yönetebilir. Uzun gösteriler sekmelere, kartuşlar sayfalara kavuşuyor; sesi de doğrudan dalga formunun üzerine çizebilirsiniz.",
+      "button": "Tüm yenilikleri görün"
+    },
+    "tech": {
+      "eyebrow": "Teknik ekipler için"
+    }
+  },
+  "whatsNew": {
+    "index": {
+      "eyebrow": "Sürüm notları",
+      "title": "LivePlay'de yenilikler",
+      "lead": "Her sürümün en büyük yenilikleri, en yenisi başta. LivePlay'de yeni misiniz? O hâlde tam özellik turuna katılın.",
+      "tour": "Özellik turuna katılın",
+      "latest": "Son sürüm",
+      "read": "Yenilikleri görün",
+      "older": "Önceki sürümler"
+    },
+    "release": {
+      "label": "LivePlay {version}",
+      "versions": "Sürümler",
+      "more": "Bu sürümde daha fazlası",
+      "fixed": "Ayrıca düzeltildi:",
+      "github": "GitHub'da tüm sürüm notları"
+    },
+    "v26": {
+      "title": "Tüm salon tek cue'da.",
+      "summary": "Işık, mikser ve video için olaylar, çalma listesi sekmeleri, kartuş sayfaları ve ses otomasyonu.",
+      "lead": "LivePlay 2.6 hoparlörlerin ötesine uzanıyor. Cue'lar artık zaman çizelgesinden ışıklarınızı, mikserinizi ve videonuzu tetikleyebiliyor; uzun gösteriler sekmelere katlanıyor, kartuşlar sayfalara yayılıyor ve ses doğrudan dalga formunun üzerine çizilebiliyor.",
+      "sections": {
+        "events": {
+          "kicker": "Olaylar",
+          "title": "Tek cue. Sahnedeki her şey.",
+          "text": "Bir cue'nun dalga formuna olaylar yerleştirin, LivePlay her birini tam yerinde tetiklesin: bir ışık cue'su, bir web isteği, mikser masanızda bir fader hareketi ya da başka bir cue. Zamanı sunucu tuttuğu için ekranın başında kimse olmasa bile her şey aynı anda gerçekleşir.",
+          "points": [
+            "OSC, MIDI, MIDI Show Control ve HTTP",
+            "Behringer X Air fader, mute ve snapshot'ları",
+            "Başlangıçta, bitişte, duraklatmada, devamda ya da istediğiniz anda"
+          ]
+        },
+        "presets": {
+          "kicker": "Olay ön ayarları",
+          "title": "Bir kez ayarlayın. Her yerde kullanın.",
+          "text": "Sık kullandığınız ayarları bir bağlantıda adlandırılmış ön ayar olarak kaydedin. İstediğiniz kadar olayı ona bağlayın; sistem değiştiğinde ön ayarı bir kez güncelleyin.",
+          "points": [
+            "«Salon ışıkları %40», her cue için hazır",
+            "Tek değişiklik tüm olayları günceller",
+            "Bir olayda tek bir alanı geçersiz kılın"
+          ]
+        },
+        "tabs": {
+          "kicker": "Çalma listesi sekmeleri",
+          "title": "Uzun gösteriler, derli toplu.",
+          "text": "Her perdeye, sahneye ya da sete kendi sekmesini verin. Sonrakini Oynat her zaman tüm gösterideki tek Sıradaki cue'yu başlatır ve hangi sekmede olduğunu gösterir; böylece yerinizi kaybetmeden ileriye bakabilirsiniz.",
+          "points": [
+            "Başa dön, sonraki sekmeye geç ya da dur",
+            "Cue'ları sekmeler arasında taşıyın",
+            "Bir sekmeyi kendi penceresinde açın"
+          ]
+        },
+        "pages": {
+          "kicker": "Kartuş sayfaları",
+          "title": "Her sese yer var.",
+          "text": "Kartuşlarınızı her sahne ya da iş için sayfalara ayırın. Her sayfanın kendi boyutu ve rengi olur; akışı takip edebilir ya da başka bir ekrana açılabilir.",
+          "points": [
+            "Sayfa başına 4 ila 64 kartuş",
+            "Görünen sayfa için tuşlar ya da tek kartuşa sabitleme",
+            "Kartuşları sayfalar arasında taşıyın"
+          ]
+        },
+        "automation": {
+          "kicker": "Ses otomasyonu",
+          "title": "Miksi dalga formuna çizin.",
+          "text": "Nokta eklemek için tıklayın, müziği bir konuşmanın altında kısmak ya da nakaratta yükseltmek için çizgiyi sürükleyin. Dalga formu, seyircinin tam olarak ne duyacağını gösterir.",
+          "points": [
+            "Nokta ekleyin, sürükleyin, silin",
+            "Tüm seçimi tek hareketle indirin",
+            "İstediğiniz noktadan kulaklıkta ön dinleme"
+          ]
+        },
+        "relink": {
+          "kicker": "Medyayı yeniden bağla",
+          "title": "Kayıp dosyalar bulundu.",
+          "text": "Bir dosya taşınırsa LivePlay, cue daha başlatılmadan onu işaretler. Bir klasör gösterin, eksik dosyaların hepsi adlarına göre eşleşsin; ya da yeni bir dosya koyun, cue tam ayarladığınız gibi kalsın.",
+          "points": [
+            "Oynat'a basmadan önce uyarı",
+            "Tüm gösteriyi tek klasörden yeniden bağlayın",
+            "Ayarları kaybetmeden dosya değiştirin"
+          ]
+        },
+        "companion": {
+          "kicker": "Bitfocus Companion",
+          "title": "Gösteriniz bir Stream Deck'te.",
+          "text": "LivePlay'in artık Bitfocus Companion'da resmî bir modülü var. Bağlantı eklerken LivePlay'i arayın; bir Stream Deck, tabletteki web düğmeleri ya da başka herhangi bir Companion yüzeyi gösterinizi takip eden hazır tuşlara kavuşur.",
+          "points": [
+            "Çaldıkça dolan, sizin renklerinizde cue tuşları",
+            "GO, kartuşlar, Tümünü durdur, acil durdurma ve mikser",
+            "Oturum açma etkinken API belirteciyle bağlanır"
+          ]
+        }
+      },
+      "more": {
+        "wholePlaylist": {
+          "title": "Tek kartuşta koca bir çalma listesi",
+          "text": "Bir çalma listesi sekmesini kartuşa bırakın, tek dokunuşla başlatın ve kalan süreyi izleyin."
+        },
+        "duckTimes": {
+          "title": "Kendi hızınızda kısma",
+          "text": "Müziğin ne kadar hızlı kısılacağını ve ne kadar yumuşak geri geleceğini cue bazında ayarlayın. Önceki sürümlerden gelen gösteriler her zamanki hızlı kısmalarını korur."
+        },
+        "stopFades": {
+          "title": "Tümünü durdur, size göre",
+          "text": "Tümünü durdur, tek sabit süre yerine her cue'yu kendi durdurma fade-out süresiyle kapatsın."
+        },
+        "stopKey": {
+          "title": "Geçerli cue'yu durdur",
+          "text": "Bir tuş, bir MIDI notası ya da Companion ile yalnızca en son başlattığınız cue'yu durdurun; diğer her şey çalmaya devam etsin."
+        },
+        "openFile": {
+          "title": "Gösterileri dosyalarınızdan açın",
+          "text": "Artık Linux'ta da bir gösteriye çift tıklayabilirsiniz. LivePlay, açık bir gösteriyi değiştirmeden önce her zaman sorar."
+        },
+        "waveformPan": {
+          "title": "Orta tuşla kaydırın",
+          "text": "Yakınlaştırılmış dalga formunda gezinmek için orta fare tuşuyla sürükleyin."
+        },
+        "sealed": {
+          "title": "Parolalar şifreli kalır",
+          "text": "Bağlantılarınızdaki parolalar ve anahtarlar nokta olarak görünür ve yalnızca sunucu makinesinin okuyabileceği şekilde şifreli saklanır. Gösteriyi başka bir yerde açtığınızda LivePlay yeniden oturum açmanızı ister."
+        },
+        "compat": {
+          "title": "Eski gösterileri açma",
+          "text": "2.5 gösterileri değişmeden açılır. Bir gösteri 2.6'da kaydedildikten sonra onu 2.6 veya üzerinde kullanın: LivePlay 2.5 sekmelerini, kartuş sayfalarını ve bağlantılarını kaybeder."
+        }
+      },
+      "fixes": "daha güvenilir olaylar ve bağlantılar, eksik medyada artık takılmayan oynatma, başka bir cue'nun dosyasının üzerine asla yazmayan içe aktarmalar, açılır pencerelere ve düzenleyicilere karışmayan klavye kısayolları, Companion'ın her sayfada doğru tetiklediği kartuş tuşları, düzeltilmiş macOS derlemeleri (artık macOS 13.3 veya üzeri), diğer uygulamaların yanına sığan bir pencere, daha net vurgu renkleri ve ayarların konuya göre gruplandığı, her birinin altında bir açıklama ve kime ait olduğunu gösteren bir rozet bulunan daha düzenli bir Ayarlar sayfası."
+    },
+    "v25": {
+      "title": "Gösteriniz için gerçek bir mikser.",
+      "summary": "Bus'lar ve kanal şeritleri, 32 bantlı EQ, ada göre donanım çıkışları ve ekip hesapları.",
+      "lead": "LivePlay 2.5 uygulamanın içine tam bir mikser getirdi. Müziğe, efektlere ve seslere kendi şeritlerini verin, onları doğru şekilde biçimlendirin ve aynı gösteriyi her mekâna götürün.",
+      "sections": {
+        "mixer": {
+          "kicker": "Mikser",
+          "title": "Her sese kendi şeridi.",
+          "text": "Müzik, efekt ve anonslar için bus'lar oluşturun ve tıpkı bir mikser masasındaki gibi kanal şeritlerinde dengeleyin. Onları birbirine, doğrudan bir çıkışa ya da aux gönderimleriyle yönlendirin.",
+          "points": [
+            "Sıradan bus'larda Master ve Preview rolleri",
+            "Pre ve post-fader aux gönderimleri",
+            "Tüm grupları tek seferde atayın"
+          ]
+        },
+        "eq": {
+          "kicker": "EQ ve dinamik",
+          "title": "Şekillendirin. Dizginleyin.",
+          "text": "Grafik odaklı parametrik EQ ve canlı spektrum analizörü; ardından sinyale ne yaptığını gösteren gate ve kompresör.",
+          "points": [
+            "Her filtre türünden 32 banda kadar",
+            "Eğrinin arkasında canlı analizör",
+            "Mono uyumlu baslı stereo genişlik"
+          ]
+        },
+        "outputs": {
+          "kicker": "Donanım çıkışları",
+          "title": "Gösteri gezer. Yönlendirme peşinden gelir.",
+          "text": "Gösteriler çıkışlara adlarıyla seslenir, her bilgisayar da bu adları kendi ses kartlarına bağlar. Yeni bir mekânda LivePlay eksikleri gösterir, siz de fiziksel bir çıkışı sürükleyip düzeltirsiniz.",
+          "points": [
+            "Ses kartı değil, adlandırılmış çıkışlar",
+            "Eksik donanım susar ve bunu bildirir",
+            "Sürükle-bırak ile yeniden eşleme"
+          ]
+        },
+        "workspace": {
+          "kicker": "Çalışma alanı",
+          "title": "İstediğiniz gibi düzenleyin.",
+          "text": "Çalma Listesi, Kartuş Oynatıcı ve Mikser aynı şekilde çalışır. Onları gösterin, birini tam ekran yapın, bir kenara yaslayın ya da başka bir ekrana taşıyın.",
+          "points": [
+            "Her panel için tek yerleşim modeli",
+            "Panelleri ikinci ekrana ayırın",
+            "Bıraktığınız gibi geri gelir"
+          ]
+        },
+        "accounts": {
+          "kicker": "Hesaplar",
+          "title": "Ekipteki herkese bir giriş.",
+          "text": "Operatörlere ve yöneticilere kendi girişlerini verin, kimin bağlı olduğunu görün ve parola paylaşmak yerine gösteri kontrol araçları için API belirteçleri oluşturun.",
+          "points": [
+            "Operatör ve yönetici rolleri",
+            "Companion gibi araçlar için API belirteçleri",
+            "Ekibinizi başka bir sunucuya taşıyın"
+          ]
+        },
+        "fades": {
+          "kicker": "Fade ve zamanlama",
+          "title": "Pürüzsüz geçişler.",
+          "text": "Her cue'ya kendi durdurma fade-out'unu verin, döngüleri kendi içine yumuşakça bağlayın ve bir cue'yu sonraki başlamadan önce bekletin.",
+          "points": [
+            "Ses kadar uzun fade'ler",
+            "Kesintisiz döngü crossfade'leri",
+            "Sonrakinden önce bekle"
+          ]
+        }
+      },
+      "more": {
+        "settings": {
+          "title": "Tek Ayarlar sayfası",
+          "text": "Tüm ayarlar tek yerde; kişisel tercihleriniz de her ekranda sizinle."
+        },
+        "multiEdit": {
+          "title": "Birçok cue'yu aynı anda düzenleyin",
+          "text": "Seçili tüm cue'larda herhangi bir özelliği değiştirin."
+        },
+        "groupTime": {
+          "title": "Gruplar sürelerini bilir",
+          "text": "Bir grubun ne kadar sürdüğünü ve ne kadar kaldığını kapalıyken bile görün."
+        },
+        "sends": {
+          "title": "Yalnızca gönderen bus'lar",
+          "text": "Bir bus, kendi ana çıkışı olmadan yalnızca gönderimlerle diğerlerini besleyebilir."
+        },
+        "tray": {
+          "title": "Sistem tepsisinde sunucu",
+          "text": "Ses motorunu konsol penceresi olmadan arka planda sessizce çalıştırın."
+        },
+        "youtubeFormat": {
+          "title": "YouTube biçiminizi seçin",
+          "text": "İçe aktarılan sesin hangi biçimde kaydedileceğine karar verin, WAV dahil."
+        }
+      },
+      "fixes": "Linux'ta çevrimdışı ve eski dağıtım desteği, daha sağlam YouTube içe aktarma, pencereyle yeniden boyutlanan başlık, her zaman kaydedilen kullanıcı verileri ve çok sayıda mikser ve bağlantı düzeltmesi."
+    },
+    "timeline": {
+      "v24": {
+        "title": "Gösteri kontrolü",
+        "text": "Bitfocus Companion desteği, ayrıca Cue ile devam ve Jump Cue oynatma eylemleri."
+      },
+      "v23": {
+        "title": "Gösteri Modu ve dürüst metreler",
+        "text": "Dokunmatik ekranlı Gösteri Modu, LUFS ve true-peak ölçümü, son projeler ve yapılandırılabilir numaralandırma."
+      },
+      "v22": {
+        "title": "Radyo tarzı geçişler",
+        "text": "Sonrakini Başlat işaretçileri, yeni parçalar için varsayılan geçiş ve sonraki öğenin otomatik hazırlanması."
+      },
+      "v21": {
+        "title": "Daha hızlı içe aktarma",
+        "text": "Birçok dosyayı aynı anda içe aktarın ve silin."
+      },
+      "v20": {
+        "title": "Yeni bir ses motoru",
+        "text": "Yerel ya da uzaktan çalışma, ses yüksekliği hedefleri ve otomatik sunucu keşfi sunan özel bir C++ motoru."
+      }
+    }
   }
 }

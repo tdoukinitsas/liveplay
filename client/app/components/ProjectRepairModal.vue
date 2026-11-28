@@ -158,7 +158,7 @@ const { t } = useLocalization();
 
   .btn-primary {
     background: var(--color-accent);
-    color: white;
+    color: var(--color-on-accent, #fff);
 
     &:hover {
       opacity: 0.9;

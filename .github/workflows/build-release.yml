@@ -81,13 +81,16 @@ jobs:
             triplet: x64-osx
             artifact_name: macos-x64-build
             electron_args: --mac --x64 --publish never
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 -DCMAKE_OSX_ARCHITECTURES=x86_64"
+            # The 13.3 deployment target lives in server/CMakeLists.txt.
+            cmake_args: "-DCMAKE_OSX_ARCHITECTURES=x86_64"
+            server_arch: x86_64
           - os: macos-latest
             label: macOS Apple Silicon (arm64)
             triplet: arm64-osx
             artifact_name: macos-arm64-build
             electron_args: --mac --arm64 --publish never
-            cmake_args: "-DCMAKE_OSX_DEPLOYMENT_TARGET=12.0"
+            cmake_args: ""
+            server_arch: arm64
     runs-on: ${{ matrix.os }}
     name: ${{ matrix.label }}
 
@@ -248,6 +251,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CI: true
 
+      # Issue #81: every Intel DMG up to 2.5.3 shipped an arm64 server. Check
+      # the server inside the app this job actually packaged, not just the one
+      # cmake built, so a packaging mix-up can't slip through again.
+      - name: Verify packaged macOS server
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apps=(client/dist-electron/mac*/LivePlay.app)
+          if [ ${#apps[@]} -ne 1 ]; then
+            echo "::error::expected exactly one packaged LivePlay.app, found ${#apps[@]}: ${apps[*]:-none}"
+            exit 1
+          fi
+          bash scripts/verify-mac-server.sh             "${apps[0]}/Contents/Resources/server-bin/liveplay-server" ${{ matrix.server_arch }}
+
       - name: Collect installers into /build/
         shell: bash
         run: |
@@ -275,8 +294,53 @@ jobs:
           path: build/*
           retention-days: 5
 
-  release:
+  # Launch the server out of each published macOS DMG on an OLDER macOS than
+  # the build runner. The build runs on the newest SDK, where any symbol it
+  # wrongly imports exists anyway, so a smoke test there proves nothing: that
+  # is how 2.5.x crashed before main() on macOS < 26 while CI was green (#81).
+  verify-macos:
     needs: [check-version, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15-intel
+            label: Intel DMG on macOS 15 (x64)
+            artifact_name: macos-x64-build
+            dmg_glob: "LivePlay-*[0-9].dmg"
+          - os: macos-15
+            label: Apple Silicon DMG on macOS 15 (arm64)
+            artifact_name: macos-arm64-build
+            dmg_glob: "LivePlay-*-arm64.dmg"
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.label }}
+    steps:
+      - name: Download DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ./dmg
+
+      - name: Mount and launch the bundled server
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          dmgs=(./dmg/${{ matrix.dmg_glob }})
+          if [ ${#dmgs[@]} -ne 1 ]; then
+            echo "::error::expected one DMG matching ${{ matrix.dmg_glob }}, found: ${dmgs[*]:-none}"
+            exit 1
+          fi
+          mnt="$(mktemp -d)"
+          hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "${dmgs[0]}"
+          trap 'hdiutil detach "$mnt" -force || true' EXIT
+          server="$mnt/LivePlay.app/Contents/Resources/server-bin/liveplay-server"
+          echo "Host: $(sw_vers -productVersion) $(uname -m)"
+          file "$server"
+          "$server" --help
+
+  release:
+    needs: [check-version, build, verify-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -332,10 +396,16 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml
           # Installer files (.dmg/.zip + blockmaps) have distinct per-arch names
           # and never collide, so copy them all into ./artifacts.
-          for d in artifacts-mac-x64 artifacts-mac-arm64; do
-            [ -d "$d" ] || continue
-            find "$d" -maxdepth 1 -type f ! -name 'latest-mac.yml' -exec cp -f {} artifacts/ \;
-          done
+          # Each job only builds its own arch, but take only that arch's files
+          # anyway: when both jobs built both arches, the arm64 job's copy of
+          # the Intel DMG (holding an arm64 server) overwrote the real one and
+          # shipped in every release up to 2.5.3 (issue #81).
+          if [ -d artifacts-mac-x64 ]; then
+            find artifacts-mac-x64 -maxdepth 1 -type f ! -name 'latest-mac.yml' ! -name '*arm64*' -exec cp -f {} artifacts/ \;
+          fi
+          if [ -d artifacts-mac-arm64 ]; then
+            find artifacts-mac-arm64 -maxdepth 1 -type f -name '*arm64*' -exec cp -f {} artifacts/ \;
+          fi
           python3 - <<'PY'
           import os, yaml
           srcs = [p for p in ("artifacts-mac-x64/latest-mac.yml",

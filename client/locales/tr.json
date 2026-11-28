@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "Üst çubuktaki \"Sessizlik\" geri sayımını gizler.",
     "transitionMode": "Varsayılan geçiş modu",
     "transitionModeHelp": "Yeni içe aktarılan parçaların bir sonrakine nasıl geçeceği. Her parça için Özellikler'den değiştirebilirsiniz.",
+    "goContinuesFrom": "Birden çok cue çalarken GO",
+    "goContinuesFromEarliest": "İlk başlayan cue'dan devam et",
+    "goContinuesFromLatest": "Son başlayan cue'dan devam et",
+    "goContinuesFromHelp": "Birden fazla cue çalarken ve hiçbiri Sıradaki olarak ayarlanmamışken GO ve Sıradaki'nin hangisinden devam edeceği. Kontrol yüzeyleri ve MIDI aynı seçimi izler.",
     "transitionModeCrossfade": "Sonrakine crossfade",
     "transitionModeStartNext": "İşaretçide sonrakini başlat",
     "autoCueNext": "Sonraki öğeyi her zaman Sıradaki yap",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "Bu uygulamanın bağlı olduğu sunucu ve yöneticiler için onun yapılandırması.",
     "sectionUsers": "Hesaplar",
     "sectionUsersHelp": "Bu sunucuyu kimlerin kullanabileceği ve neleri değiştirebileceği.",
+    "stopAllFiresEvents": "«Tümünü Durdur» «Bitişte» olaylarını tetikler",
+    "stopAllFiresEventsHelp": "Kapalıyken «Tümünü Durdur»un durdurduğu cue'lar hiçbir «Bitişte» olayını tetiklemez. Açıkken tetikler, ancak hiçbiri başka bir cue başlatamaz. «Tümünü Durdur» bitmeden ona yeniden basmak paniktir: her şey anında durur ve hiçbir olay tetiklenmez.",
     "stopAllStopsPreview": "«Tümünü Durdur» ön dinlemeyi de durdurur",
     "stopAllStopsPreviewHelp": "Kapalıyken «Tümünü Durdur», ön dinlediğiniz cue'yu durdurmaz.",
     "sectionAppearance": "Görünüm",
@@ -169,13 +175,30 @@
     "accentColorHelp": "Seçimler, çalan cue'lar ve vurgular için kullanılır.",
     "accentColorSwatch": "Vurgu rengi {color}",
     "sectionAbout": "Hakkında",
-    "sectionAboutHelp": "Sürüm, katkıda bulunanlar ve lisans."
+    "sectionAboutHelp": "Sürüm, katkıda bulunanlar ve lisans.",
+    "sectionConnections": "Bağlantılar",
+    "stopAllUsesItemFade": "Durdurulan cue'lar kendi Stop düğmesi geçişini kullanır",
+    "stopAllUsesItemFadeHelp": "Açıkken Stop All ve “Diğer tümünü durdur” ducking modu her cue'yu kendi Stop düğmesi geçişiyle söndürür. Geçişi olmayan cue'lar Stop All geçişini kullanır. Stop All'a iki kez basmak yine her şeyi anında durdurur.",
+    "thisComputer": "Bu bilgisayar",
+    "scopeYou": "Kişisel",
+    "scopeShow": "Bu gösteri",
+    "scopeServer": "Sunucu",
+    "groupLanguageLayout": "Dil ve düzen",
+    "groupDisplay": "Görüntü",
+    "groupGoUpNext": "GO ve Sıradaki",
+    "groupNewCues": "Yeni cue'lar",
+    "groupLoudness": "Ses yüksekliği ve ölçüm",
+    "groupRouting": "Yönlendirme ve zaman kodu",
+    "groupConnection": "Bağlantı",
+    "sectionPlaybackIntro": "Cue'ların nasıl başladığı, durduğu ve birbirine geçtiği; yeni cue'ların hangi ayarlarla başladığı.",
+    "disableAutoVolumeAndTrimHelp": "Yeni cue'lar dosyanın kendi seviyesini ve uzunluğunu korur. Herhangi bir cue'nun seviyesini veya kırpmasını Oynatma sekmesinden yine de ayarlayabilirsiniz."
   },
   "common": {
     "default": "varsayılan",
     "loading": "Yükleniyor…",
     "error": "Hata",
-    "cancel": "İptal"
+    "cancel": "İptal",
+    "moreInfo": "Daha fazla bilgi"
   },
   "project": {
     "enterName": "Proje Adını Girin",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "Eksik bir bus'a yönlendirildi",
     "newGroup": "Yeni Grup"
   },
+  "tabs": {
+    "playlistLabel": "Çalma listesi sekmeleri",
+    "cartLabel": "Kartuş sayfaları",
+    "add_playlist": "Çalma listesi sekmesi ekle",
+    "add_cart": "Kartuş sayfası ekle",
+    "limitReached": "Azami sekme sayısına ulaştınız.",
+    "defaultPlaylist": "Çalma Listesi {n}",
+    "defaultPage": "Sayfa {n}",
+    "edit": "Sekmeyi düzenle",
+    "name": "Ad",
+    "colour": "Renk",
+    "noColour": "Renk yok",
+    "cartCount": "Kartuş sayısı",
+    "fewer": "Daha az kartuş",
+    "more": "Daha fazla kartuş",
+    "cartCountFloor": "{n} altına inilemez: o konumda bir kartuş var.",
+    "atEnd": "Son cue'dan sonra",
+    "atEndWrap": "Bu sekmenin başına dön",
+    "atEndContinue": "Sonraki sekmeyle devam et",
+    "atEndStop": "Durdur",
+    "popOut": "Yeni pencerede aç",
+    "delete": "Sekmeyi sil",
+    "deleteYes": "Sil",
+    "deleteEmpty": "«{name}» silinsin mi?",
+    "deleteConfirm_playlist": "«{name}» ve içindeki {count} öğe silinsin mi?",
+    "deleteConfirm_cart": "«{name}» ve içindeki {count} kartuş silinsin mi?",
+    "deletePlaying": "Bu sekmede çalan bir şey var. Önce onu durdurun.",
+    "upNextOn": "Sıradaki: {name}",
+    "following": "Takip edilen: {name}",
+    "followLost": "{name} çevrimdışı",
+    "followStop": "Takibi bırak",
+    "followSetting": "Başka bir operatörün sekmelerini takip et",
+    "followOff": "Kapalı",
+    "followOffline": "çevrimdışı",
+    "followHelp": "Bu pencere, seçtiğiniz operatörle aynı çalma listesi sekmesini ve kartuş sayfasını gösterir. Bir sekmeye kendiniz tıklarsanız takip sona erer.",
+    "followThisComputer": "Yalnızca bu bilgisayarda kaydedilir.",
+    "followSession": "{name} (oturum {n})",
+    "editPage": "Sayfayı düzenle",
+    "deletePage": "Sayfayı sil",
+    "limitReachedPages": "Azami sayfa sayısına ulaştınız.",
+    "deletePlayingPage": "Bu sayfada çalan bir şey var. Önce onu durdurun.",
+    "deleteConfirmCue": "«{name}» ve içindeki cue silinsin mi?",
+    "deleteConfirmCues": "«{name}» ve içindeki {count} cue silinsin mi?",
+    "deleteConfirmCart": "«{name}» ve içindeki kartuş silinsin mi?",
+    "deleteConfirmCarts": "«{name}» ve içindeki {count} kartuş silinsin mi?",
+    "colourN": "Renk {n}",
+    "pageFull": "«{name}» dolu"
+  },
   "cart": {
     "title": "Kartuş Oynatıcı",
+    "clickToImportOrPlaylist": "İçe aktarmak için tıklayın veya buraya bir öğe, grup ya da çalma listesi sekmesi sürükleyin",
+    "startPlaylist": "Bu kartuş bir çalma listesi başlatsın",
+    "playlistSlot": "Bu kartuş tüm bir çalma listesi sekmesini başlatır",
     "emptySlot": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin",
     "clickToImport": "İçe aktarmak için tıklayın veya buraya bir öğe sürükleyin",
     "configureHotkeys": "Kısayol Tuşlarını Yapılandır",
@@ -217,7 +291,8 @@
     "conflict": "Zaten {slot} numaralı yuvaya atanmış",
     "reserved": "Bu tuş kombinasyonu ayrılmıştır",
     "resetDefaults": "Varsayılanlara Sıfırla",
-    "groupSlot": "Çalma listesi grubu: tüm grubu bu yuvadan çalar"
+    "groupSlot": "Çalma listesi grubu: tüm grubu bu yuvadan çalar",
+    "choosePlaylist": "Hangi çalma listesi başlatılsın?"
   },
   "behaviors": {
     "startPlayNext": "Başlangıç: Sonrakini Oynat",
@@ -239,6 +314,21 @@
     "startNextTitle": "Sonrakini Başlat: {time}",
     "loadingWaveform": "Dalga formu yükleniyor…"
   },
+  "automation": {
+    "enable": "Ses otomasyonu",
+    "enableHint": "Dalga formunun üzerine bir ses zarfı çizin. İşareti kaldırmak onu atlar ve noktaları korur.",
+    "addKeyframe": "Nokta ekle",
+    "addKeyframeHint": "İmlece, cue çalarken de oynatma kafasına bir nokta ekler.",
+    "removeKeyframe": "Noktayı kaldır",
+    "removeKeyframeHint": "Seçili noktayı veya imleçteki noktayı kaldırır. Bir noktaya sağ tıklamak veya Delete tuşu da aynısını yapar.",
+    "clear": "Temizle",
+    "clearHint": "Tüm noktaları kaldırır.",
+    "clearConfirm": "Bu cue'daki tüm ses otomasyonu noktaları kaldırılsın mı?",
+    "previewFromCursor": "İmleçten ön dinleme",
+    "previewFromCursorHint": "Bu cue'yu imleçten itibaren ön dinleme bus'ında otomasyonuyla çalar. İmleci yerleştirmek için dalga formuna tıklayın.",
+    "previewUnavailable": "Bir çıkışa yönlendirilmiş ön dinleme bus'ı gerekir. Mikserde ayarlayın.",
+    "stopPreview": "Ön dinlemeyi durdur"
+  },
   "properties": {
     "title": "Özellikler",
     "resize": "Özellikler panelini yeniden boyutlandır",
@@ -255,8 +345,8 @@
     "startBehavior": "Başlangıç Davranışı",
     "duckingBehavior": "Kısma Davranışı",
     "fadeOutDuration": "Fade-out Süresi",
-    "duckFadeIn": "Kısma Fade-in",
-    "duckFadeOut": "Kısma Fade-out",
+    "duckFadeIn": "Alçalma süresi (saniye)",
+    "duckFadeOut": "Geri dönüş süresi (saniye)",
     "children": "Alt Öğeler",
     "seconds": "saniye",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "Döngünün sonunu bu kadar saniye boyunca başına crossfade yapar. 0, crossfade olmadan döngüye alır.",
     "loopCrossfadeNeedsLoop": "Döngü crossfade'i kullanmak için bu cue'nun bitiş davranışını «Döngü» olarak ayarlayın.",
     "advanceDelay": "Sonrakinden Önce Bekle (saniye)",
-    "advanceDelayHint": "Bu cue bittikten sonra, bitiş davranışı sonraki cue'yu başlatmadan önce bu kadar bekler. Crossfade veya «İşaretçide Sonrakini Başlat» ayarlıysa yok sayılır."
+    "advanceDelayHint": "Bu cue bittikten sonra, bitiş davranışı sonraki cue'yu başlatmadan önce bu kadar bekler. Crossfade veya «İşaretçide Sonrakini Başlat» ayarlıysa yok sayılır.",
+    "duckTimesHint": "Bu cue başladığında diğer cue'ların ne kadar sürede alçalacağı ve bittiğinde ne kadar sürede geri döneceği.",
+    "volumeHelp": "Bu cue'nun seviyesi. Fader'ı sürükleyin ya da -6.5 gibi dB cinsinden bir seviye yazın (sessizlik için -inf).",
+    "playFadeHelp": "Cue her başladığında bu kadar saniyede fade-in yapar. 0 tam seviyede başlar.",
+    "stopFadeHelp": "Cue'yu çıkış noktasından önce bu kadar saniyede fade-out yapar. 0 sonuna kadar tam seviyede çalar.",
+    "crossFadeHelp": "Çıkış noktasından önceki bu kadar saniyede bu cue sönerken sonraki cue üzerine fade-in yapar. 0 çakışma olmadan geçer.",
+    "startNextHelp": "Oynatma işaretçiye ulaştığında, bu cue çalmaya devam ederken sonraki başlar: radyo tarzı bir geçiş.",
+    "duckModeHelp": "Bu cue'nun başlaması çalan diğer cue'lara ne yapar: onları durdurur, olduğu gibi bırakır ya da bitene kadar kısma seviyesine indirir.",
+    "apiTriggerUrlHelp": "Cue'yu başka bir sistemden, bir betikten ya da tarayıcıdan çalmak için bu adrese GET veya POST isteği gönderin.",
+    "groupTrim": "Kırpma",
+    "groupFades": "Fade'ler",
+    "groupStopLoop": "Durdurma ve döngü",
+    "groupTransition": "Geçiş"
   },
   "playback": {
     "panic": "Tüm Cue'ları Durdur",
@@ -449,7 +551,8 @@
     "noDevices": "Çıkış cihazı bulunamadı",
     "silentServer": "Sunucuyu sistem tepsisinde sessizce çalıştır",
     "silentServerHelp": "Sunucuyu konsol penceresi olmadan başlatır. Sistem tepsisindeki (macOS'ta menü çubuğundaki) bir simge, LivePlay kapatıldıktan sonra bile çalıştığını gösterir; menüsünden konsolu gösterebilir, günlükleri açabilir veya sunucuyu durdurabilirsiniz. Sunucu bir sonraki başlatılışında geçerli olur.",
-    "silentServerForced": "LivePlay --silent ile başlatıldığı için bu oturumda açık."
+    "silentServerForced": "LivePlay --silent ile başlatıldığı için bu oturumda açık.",
+    "localPortHelp": "Bu bilgisayarın ses motorunun dinlediği port. Yalnızca başka bir program zaten kullanıyorsa değiştirin."
   },
   "serverConfig": {
     "title": "Sunucu yapılandırması",
@@ -647,6 +750,7 @@
     "currentVersion": "Mevcut Sürüm",
     "newVersion": "Yeni Sürüm",
     "whatsNew": "Yenilikler",
+    "seeWhatsNew": "{version} sürümündeki yenilikleri görün",
     "updatePrompt": "LivePlay'in yeni bir sürümü mevcut. Şimdi indirip kurmak ister misiniz?",
     "manualUpdatePrompt": "LivePlay'in yeni bir sürümü mevcut. İndirme sayfasını ziyaret etmek için aşağıya tıklayın.",
     "downloading": "Güncelleme İndiriliyor",
@@ -689,6 +793,9 @@
     "title": "Kontrolleri yapılandır",
     "tabKeyboard": "Klavye",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "Bir kartuşa sabitlenmiş tuşlar",
+    "pinnedCartsHelp": "Sabitlenmiş tuş, o kartuşu her sayfadan tetikler. Yukarıdaki tuşlar gösterilen sayfadaki bir konumu tetikler.",
+    "keyInUse": "Bu tuş zaten kullanımda.",
     "sectionCartSlots": "Kartuş Yuvaları",
     "sectionPlayback": "Oynatma",
     "sectionVolume": "Ses",
@@ -721,7 +828,10 @@
     "playNext": "Sonrakini oynat",
     "volumeMultiplier": "Ses çarpanı",
     "volumeMultiplierHint": "MIDI adımı başına dB. Küçük adımlarla hareket eden enkoderler veya tekerlekler için artırın.",
-    "nextIn": "Sonraki: {seconds} sn"
+    "nextIn": "Sonraki: {seconds} sn",
+    "stopCurrentCue": "Geçerli cue'yu durdur",
+    "conflictPinned": "Zaten şu kartuşa sabitlenmiş: {cart}",
+    "midiDeviceHelp": "LivePlay'in dinlediği denetleyici. Tüm cihazlar, bağlı her denetleyiciyi dinler."
   },
   "selectProject": {
     "title": "Proje Seç",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "Ses İçe Aktar",
+    "notPlayable": "İçe aktarılmadı: {files}. LivePlay WAV, AIFF, FLAC ve MP3 dosyalarını çalar.",
     "tabServer": "Sunucuda",
     "tabUpload": "Bu bilgisayardan yükle",
     "serverHint": "Sunucudaki dosyalar. Bir klasörü açmak için çift tıklayın. Dosyaları seçin (birden fazlası için Shift veya Ctrl/Cmd ile tıklayın), ardından Seçilenleri İçe Aktar'a tıklayın.",
@@ -809,6 +920,15 @@
     "serverCloseServer": "Sunucuyu kapat",
     "serverCloseClient": "Yalnızca istemciyi kapat",
     "return": "Projeye dön"
+  },
+  "openFileModal": {
+    "title": "Bu dosya açılsın mı?",
+    "message": "{file} açılırsa geçerli gösteri kapanır.",
+    "liveTitle": "Bir gösteri çalıyor",
+    "liveMessage": "Şimdi çalıyor: {cues}. {file} açılırsa bu gösteri kapanır ve sesi durur.",
+    "andMore": "{cues} ve {count} tane daha",
+    "keep": "Geçerli Gösteriyi Koru",
+    "open": "Gösteriyi Kapat ve Aç"
   },
   "deleteSelection": {
     "title": "Öğeleri sil",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}: açmak için tıklayın veya sürükleyin",
     "emptyTitle": "Tüm paneller daraltılmış",
     "emptyHint": "Bir paneli açmak için kenardaki bir çubuğa tıklayın veya onu sürükleyin ya da üstteki düğmeleri kullanın."
+  },
+  "missingMedia": {
+    "badge": "Medya dosyası eksik. Özellikler'den değiştirin ya da Eksik medyayı bul'u kullanın.",
+    "banner": "{count} medya dosyası bulunamıyor.",
+    "locate": "Bul…",
+    "locateHint": "Eksik dosyaların adlarına göre aranacağı bir klasör seçin. Proje dışındaki dosyalar projenin medya klasörüne kopyalanır.",
+    "locateResult": "{relinked} öğe yeniden bağlandı. {missing} öğe hâlâ eksik.",
+    "locateFailed": "Bu klasörde arama yapılamadı: {error}",
+    "replace": "Medya dosyasını değiştir",
+    "replaceFailed": "Medya dosyası değiştirilemedi: {error}",
+    "propertiesHint": "Sunucu bu dosyayı bulamıyor. Yeniden seçmek için değiştir düğmesini kullanın."
+  },
+  "events": {
+    "tab": "Olaylar",
+    "addEvent": "Olay ekle",
+    "addEventHint": "İmlecin bulunduğu yere bir olay ekler. İmleci yerleştirmek için dalga formuna tıklayın.",
+    "addTriggerEvent": "Tetikleyiciyle ekle…",
+    "cursor": "İmleç",
+    "cursorHint": "İmleci taşımak için dalga formuna tıklayın veya sürükleyin ya da zamanı m:ss.mmm biçiminde veya saniye cinsinden yazın.",
+    "manageConnections": "Bağlantıları yönet…",
+    "multiSelect": "Olaylarını düzenlemek için tek bir öğe seçin.",
+    "noEvents": "Henüz olay yok. İmleci yerleştirmek için dalga formuna tıklayın, ardından Olay ekle'ye basın.",
+    "selectEvent": "Düzenlemek için bir olay seçin.",
+    "unsupported": "Bu sunucu olayları desteklemiyor. Kullanmak için LivePlay sunucusunu güncelleyin.",
+    "noPlugins": "Sunucuda olay eklentisi yok.",
+    "loadFailed": "Olay eklentileri sunucudan yüklenemedi.",
+    "loading": "Olay eklentileri yükleniyor…",
+    "retry": "Yeniden dene",
+    "trigger": {
+      "label": "Tetikleyici",
+      "time": "Belirli bir zamanda",
+      "start": "Başlangıçta",
+      "end": "Bitişte",
+      "pause": "Duraklatıldığında",
+      "resume": "Devam edildiğinde"
+    },
+    "name": "Ad",
+    "enabled": "Etkin",
+    "time": "Zaman",
+    "timeHint": "Dosyadaki konum; m:ss.mmm biçiminde veya saniye cinsinden. Kırpılmış bölgenin dışında olay hiç tetiklenmez.",
+    "useCursor": "İmlece taşı",
+    "plugin": "Eklenti",
+    "connection": "Bağlantı",
+    "noConnection": "Bağlantı yok",
+    "connectionMissing": "Bağlantı bulunamadı",
+    "connectionDisabled": "Bu bağlantı devre dışı, bu yüzden olay tetiklenmeyecek.",
+    "noConnectionsForPlugin": "Henüz {plugin} bağlantısı yok.",
+    "action": "Eylem",
+    "preset": "Ön ayar",
+    "presetNone": "Yok (özel)",
+    "presetSave": "Bu ayarları ön ayar olarak kaydet",
+    "presetSaveConfirm": "Ön ayarı kaydet",
+    "presetMissing": "Ön ayar bulunamadı",
+    "presetMissingHelp": "Bu olayın ön ayarı artık yok, bu yüzden tetiklenmeyecek. Başka bir ön ayar veya Yok seçeneğini seçin.",
+    "presetInUse": "«{name}» ön ayarını kullanıyor",
+    "presetEdit": "Ön ayarı düzenle",
+    "presetDetach": "Özel yap",
+    "unknownPlugin": "Bu olay, bu sunucuda bulunmayan «{plugin}» eklentisini kullanıyor. Tetiklenmeyecek.",
+    "outsideTrim": "Kırpılmış bölgenin dışında: bu olay tetiklenmeyecek.",
+    "placeholdersHelp": "Metin alanlarında {item.name}, {item.uuid}, {trigger} ve {time} kullanılabilir; olay tetiklendiğinde sunucu bunları doldurur.",
+    "test": "Test et",
+    "testing": "Test ediliyor…",
+    "testOk": "Gönderildi.",
+    "testFailed": "Başarısız: {error}",
+    "duplicate": "Çoğalt",
+    "delete": "Sil",
+    "lastOk": "Son tetiklenme {time}: OK",
+    "lastError": "Son tetiklenme {time}: başarısız: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(öğe bulunamadı)",
+      "cartItem": "Kartuş {slot} · {name}",
+      "addRow": "Ekle",
+      "removeRow": "Kaldır",
+      "moveUp": "Yukarı taşı",
+      "moveDown": "Aşağı taşı",
+      "refreshOptions": "Listeyi cihazdan yeniden oku"
+    },
+    "connections": {
+      "intro": "Olayların gönderildiği yerler: bir ışık masası, bir MIDI portu, bir webhook. Her bağlantı gösteri için bir kez ayarlanır ve istenen sayıda olayda kullanılabilir.",
+      "noProject": "Bağlantılarını yönetmek için bir proje açın.",
+      "empty": "Henüz bağlantı yok.",
+      "add": "Bağlantı ekle",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Yeni {plugin} bağlantısı",
+      "editTitle": "Düzenle: «{name}»",
+      "name": "Ad",
+      "enabled": "Etkin",
+      "disabled": "devre dışı",
+      "edit": "Düzenle",
+      "save": "Kaydet",
+      "cancel": "İptal",
+      "delete": "Sil",
+      "deleteConfirm": "«{name}» silinsin mi?",
+      "deleteInUse": "{count} olay «{name}» bağlantısını kullanıyor. Başka bir bağlantı atanana kadar tetiklenmeyecekler. Yine de silinsin mi?",
+      "usage": "{count} olay",
+      "unused": "Kullanılmıyor",
+      "unknownPlugin": "Bilinmeyen tür «{plugin}»",
+      "noFields": "Bu türde ayarlanacak bir şey yok.",
+      "addressDropsCredentials": "Bu yeni adresi kaydetmek, kayıtlı kimlik bilgilerini bu bağlantıdan ve onu kullanan olaylardan kaldırır. Bunları yeniden girmeniz istenecek.",
+      "testWith": "Test eylemi",
+      "saveFailed": "Bağlantılar kaydedilemedi: {error}",
+      "discover": "Ağda bul",
+      "discoverNone": "Hiçbir şey bulunamadı. Cihazın açık olduğundan ve sunucuyla aynı ağda bulunduğundan emin olun.",
+      "discoverFailed": "Ağda arama yapılamadı: {error}",
+      "discoverUsed": "{device} kullanılıyor.",
+      "presets": "Ön ayarlar",
+      "presetsHelp": "Olaylar arasında yeniden kullanılacak ayarlar. Bir ön ayarı değiştirdiğinizde onu kullanan tüm olaylar da değişir.",
+      "presetAdd": "Ön ayar ekle",
+      "presetName": "Ön ayar adı",
+      "presetDone": "Tamam",
+      "presetDelete": "Ön ayarı sil (olayları bu ayarları korur)",
+      "enabledFor": "{name} etkin",
+      "editNamed": "Düzenle: {name}",
+      "deleteNamed": "Sil: {name}",
+      "authRejected": "Kimlik bilgileri reddedildi",
+      "authMissing": "Kimlik bilgileri gerekli",
+      "signIn": "Oturum aç",
+      "signInRejectedHelp": "Cihaz bu kimlik bilgilerini reddetti. Bunları Başlıklar altında yeniden girin; kayıtlı olanlar nokta olarak gösterilir.",
+      "signInMissingHelp": "Bu gösterinin kimlik bilgileri başka bir makinede şifrelendi, bu yüzden bu makine onları kullanamaz. Bunları Başlıklar altında yeniden girin.",
+      "signInMany": "{count} bağlantının kimlik bilgilerinin yeniden girilmesi gerekiyor.",
+      "signInRejected": "«{name}» kimlik bilgilerini reddetti. Olaylarının çalışmaya devam etmesi için yeniden oturum açın.",
+      "signInMissing": "«{name}» için kimlik bilgilerinin bu makinede girilmesi gerekiyor.",
+      "signInWaiting": "«{name}» için oturum açılması gerekiyor. Bu bağlantıdaki değişikliklerinizi kaydettiğinizde ya da iptal ettiğinizde burada açılır.",
+      "signInLater": "Şimdi değil",
+      "signInDiscard": "Değişiklikleri at ve oturum aç",
+      "nameHelp": "Bir olay için bağlantı seçerken bu bağlantının görünen adı.",
+      "enabledHelp": "Kapalıyken bu bağlantıya hiçbir şey gönderilmez ve olayları tetiklenmez."
+    },
+    "zoom": "Yakınlaştırma",
+    "zoomIn": "Yakınlaştır",
+    "zoomOut": "Uzaklaştır",
+    "zoomFit": "Dosyanın tamamını göster",
+    "scroll": "Zaman çizelgesini kaydır",
+    "navHint": "Yakınlaştırmak için tekerleği çevirin · Yana kaydırmak için Shift+tekerlek veya orta tuşla sürükleyin",
+    "deleted": "«{name}» silindi.",
+    "undo": "Geri al",
+    "deviceTimeout": "Cihaz zamanında yanıt vermedi.",
+    "headers": {
+      "name": "Ad",
+      "value": "Değer",
+      "valueFor": "{name} değeri",
+      "secret": "Şifreli saklanır, nokta olarak gösterilir",
+      "secretPlaceholder": "Parola, belirteç veya anahtar",
+      "remove": "Başlığı kaldır",
+      "add": "Başlık ekle",
+      "rawLine": "Başlık satırı"
+    },
+    "groupWhen": "Ne zaman",
+    "groupCommand": "Komut",
+    "triggerHelp": "Olay ne zaman tetiklenir: dosyadaki bir anda ya da cue başladığında, duraklatıldığında, devam ettiğinde veya bittiğinde."
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "UDP üzerinden Open Sound Control: ışık masaları, QLab, Companion ve daha fazlası.",
+      "actions": {
+        "message": "Mesaj gönder"
+      },
+      "connection": {
+        "host": {
+          "label": "Ana bilgisayar"
+        },
+        "port": {
+          "label": "Bağlantı noktası"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adres"
+        },
+        "args": {
+          "label": "Argümanlar",
+          "help": "Metin değerlerinde {item.name}, {item.uuid}, {trigger} ve {time} kullanılabilir."
+        },
+        "type": {
+          "label": "Tür"
+        },
+        "value": {
+          "label": "Değer"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Tamsayı",
+          "f": "Kayan noktalı",
+          "s": "Dize",
+          "T": "Doğru",
+          "F": "Yanlış",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Sunucu makinesinden MIDI çıkışı: notalar, CC, program değişikliği, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note On",
+        "note-off": "Note Off",
+        "control-change": "Kontrol değişikliği",
+        "program-change": "Program değişikliği",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (ham)"
+      },
+      "summaries": {
+        "note-on": "kan. {channel} nota {note}",
+        "note-off": "kan. {channel} nota {note}",
+        "control-change": "kan. {channel} CC {controller} = {value}",
+        "program-change": "kan. {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Çıkış portu",
+          "help": "LivePlay sunucusunun çalıştığı makinenin portları; ada göre eşleştirilir."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanal"
+        },
+        "note": {
+          "label": "Nota"
+        },
+        "velocity": {
+          "label": "Velocity"
+        },
+        "controller": {
+          "label": "Kontrolcü"
+        },
+        "value": {
+          "label": "Değer"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "Cihaz kimliği",
+          "help": "127 tüm cihazları hedefler."
+        },
+        "commandFormat": {
+          "label": "Komut biçimi"
+        },
+        "command": {
+          "label": "Komut"
+        },
+        "cue": {
+          "label": "Cue"
+        },
+        "list": {
+          "label": "Cue listesi"
+        },
+        "path": {
+          "label": "Cue yolu"
+        },
+        "data": {
+          "label": "Baytlar (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Işık (genel)",
+          "moving-lights": "Hareketli ışıklar",
+          "sound": "Ses (genel)",
+          "video": "Video (genel)",
+          "all": "Tüm türler"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Web API'si olan her şeye HTTP istekleri: Companion, medya sunucuları, ev otomasyonu.",
+      "actions": {
+        "request": "İstek"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "Temel URL",
+          "help": "Yalnızca http://; HTTPS henüz desteklenmiyor."
+        },
+        "headers": {
+          "label": "Başlıklar",
+          "help": "Her istekle gönderilir. Parolalar, belirteçler ve anahtarlar şifreli saklanır ve nokta olarak gösterilir."
+        },
+        "timeoutMs": {
+          "label": "Zaman aşımı (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Yöntem"
+        },
+        "path": {
+          "label": "Yol"
+        },
+        "headers": {
+          "label": "Başlıklar",
+          "help": "Bağlantının başlıklarına eklenir."
+        },
+        "contentType": {
+          "label": "Gövde türü"
+        },
+        "body": {
+          "label": "Gövde",
+          "help": "{item.name}, {item.uuid}, {trigger} ve {time} kullanılabilir."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Yok",
+          "application/x-www-form-urlencoded": "Form",
+          "text/plain": "Metin"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Bu gösteri: cue'ları başlatın, durdurun ve kısın; dahili mikseri yönetin.",
+      "actions": {
+        "play-item": "Cue oynat",
+        "stop-item": "Cue durdur",
+        "stop-all": "Tümünü durdur",
+        "pause-item": "Cue duraklat",
+        "resume-item": "Cue devam ettir",
+        "arm-next": "Sıradaki yap",
+        "duck-item": "Cue'yu kıs",
+        "bus-level": "Bus fader'ını ayarla",
+        "bus-mute": "Bus mute aç / kapat",
+        "bus-send": "Gönderim seviyesi ayarla",
+        "bus-route": "Bus'ı yönlendir",
+        "bus-dsp": "Bus işlemesini ayarla",
+        "master-level": "Master seviyesini ayarla",
+        "stop-fade-mode": "Stop All geçiş modunu ayarla"
+      },
+      "fields": {
+        "item": {
+          "label": "Cue"
+        },
+        "level": {
+          "label": "Seviye",
+          "help": "Cue'nun kendi ses düzeyine göre: 0 eski haline getirir, -90 sessize alır. Yalnızca çalan cue'yu etkiler; kayıtlı ses düzeyi değişmez."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 anında değiştirir; daha uzun değerler mevcut konumdan geçiş yapar."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Durum"
+        },
+        "send": {
+          "label": "Hedef",
+          "help": "Bus'ın mevcut gönderimleri; önce Mikser'de bir tane ekleyin."
+        },
+        "to": {
+          "label": "Gideceği yer"
+        },
+        "param": {
+          "label": "Ayar"
+        },
+        "value": {
+          "label": "Değer",
+          "help": "Ayarın kendi biriminde; anahtarlar 0 (kapalı) veya 1 (açık)."
+        },
+        "mode": {
+          "label": "Durdurulan cue'ların söneceği geçiş",
+          "help": "Ayarlar > Oynatma: Stop All ve “diğer tümünü durdur” ducking'inin hangi geçişle söndüğü. Panik her zaman keser."
+        },
+        "stopFade": {
+          "label": "Durdurulan cue'ların söneceği geçiş"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Mute kaldır"
+        },
+        "param": {
+          "eqEnabled": "EQ açık (0/1)",
+          "dynEnabled": "Dinamik açık (0/1)",
+          "hpf_freq": "HPF frekansı (20–2000 Hz)",
+          "lpf_freq": "LPF frekansı (1000–24000 Hz)",
+          "gate_on": "Gate açık (0/1)",
+          "gate_threshold": "Gate eşiği (-80–0 dB)",
+          "gate_range": "Gate aralığı (-80–0 dB)",
+          "comp_on": "Kompresör açık (0/1)",
+          "comp_threshold": "Kompresör eşiği (-60–0 dB)",
+          "comp_ratio": "Kompresör oranı (1–60 :1)",
+          "comp_makeup": "Kompresör makeup (-12–24 dB)",
+          "width_width": "Stereo genişlik (0–2 ×)"
+        },
+        "mode": {
+          "item": "Her cue'nun kendi Stop düğmesi geçişi",
+          "global": "Stop All geçişi",
+          "toggle": "İkisi arasında geçiş yap"
+        },
+        "stopFade": {
+          "show": "Stop All geçişi",
+          "cue": "Her cue'nun kendi Stop düğmesi geçişi ya da hemen"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12, XR16, XR18 ve Midas MR mikserleri: snapshot'lar, fader'lar, gönderimler, FX, yönlendirme ve USB kaydedici.",
+      "actions": {
+        "snapshot": "Snapshot çağır",
+        "fader": "Fader ayarla",
+        "send": "Gönderim seviyesi ayarla",
+        "mute": "Mute aç / kapat",
+        "recorder": "USB kaydedici",
+        "fx-type": "FX türünü ayarla",
+        "fx-param": "FX parametresi ayarla",
+        "route-output": "Bir çıkışı yönlendir",
+        "route-main": "Ana çıkışı yönlendir",
+        "check": "Bağlantıyı denetle"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Mikser adresi"
+        },
+        "port": {
+          "label": "Bağlantı noktası"
+        },
+        "maxLevelDb": {
+          "label": "Maks. seviye",
+          "help": "Bir olayın ayarladığı hiçbir fader veya gönderim bunun üzerine çıkmaz."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanal"
+        },
+        "level": {
+          "label": "Seviye",
+          "help": "-90 kapalıdır (-inf). Bağlantının maks. seviyesiyle sınırlanır."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 anında değiştirir; daha uzun değerler mevcut konumdan geçiş yapar."
+        },
+        "send": {
+          "label": "Hedef"
+        },
+        "state": {
+          "label": "Durum"
+        },
+        "command": {
+          "label": "Komut",
+          "help": "Mikserdeki USB belleğe kaydeder."
+        },
+        "slot": {
+          "label": "FX yuvası"
+        },
+        "type": {
+          "label": "Efekt"
+        },
+        "param": {
+          "label": "Parametre"
+        },
+        "value": {
+          "label": "Değer",
+          "help": "Parametrenin kendi biriminde (yanında gösterilir); anahtarlar 0/1'dir, seçenekler 0'dan sayılır."
+        },
+        "output": {
+          "label": "Çıkış"
+        },
+        "source": {
+          "label": "Kaynak",
+          "help": "USB gönderimleri USB dönüşlerini alamaz."
+        },
+        "tap": {
+          "label": "Tap noktası"
+        },
+        "assign": {
+          "label": "Ana çıkış kaynağı"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Mute kaldır"
+        },
+        "command": {
+          "record": "Kaydet",
+          "stop": "Durdur",
+          "record-pause": "Kaydı duraklat",
+          "play": "Oynat",
+          "play-pause": "Oynatmayı duraklat"
+        },
+        "tap": {
+          "keep": "Değiştirme",
+          "0": "Analog giriş",
+          "1": "Analog giriş + mute",
+          "2": "Giriş",
+          "3": "Giriş + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitör",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

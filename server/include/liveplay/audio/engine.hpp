@@ -246,6 +246,15 @@ struct MasterRouteEntry {
     std::optional<MasterDestination> destination;
 };
 
+// The current gains of one aux send, shared between the control thread and
+// every topology snapshot carrying that send. A level move writes these and
+// the next render block hears it, with no topology rebuild: a fade steps fifty
+// times a second, and each rebuild holds the lock the render thread needs.
+struct LiveSendGains {
+    explicit LiveSendGains(std::size_t lanes) : gains(lanes) {}
+    std::vector<std::atomic<float>> gains;
+};
+
 // One strip in the snapshot, with its (at most one — D5) bus→bus destination.
 // The destination is an index into Topology::strips rather than an id, so the
 // render thread resolves it with arithmetic instead of a map lookup.
@@ -265,6 +274,9 @@ struct StripRouteEntry {
         ChannelIndex src_lane = 0;
         ChannelIndex dst_lane = 0;
         float        gain     = 1.0f;
+        // Aux sends only: read this instead of `gain`. Kept alive by
+        // Send::live, in the same snapshot.
+        const std::atomic<float>* live_gain = nullptr;
     };
     std::vector<LaneSend> lane_sends;
 
@@ -287,6 +299,7 @@ struct StripRouteEntry {
         std::size_t           dst_strip = npos;
         bool                  pre_fader = false;
         std::vector<LaneSend> lane_sends;
+        std::shared_ptr<LiveSendGains> live;
     };
     std::vector<Send> sends;
 };
@@ -452,6 +465,9 @@ public:
 
     void unload_cue(const CueId& id);
     PlaybackItem* find_cue(const CueId& id) const;
+    // For a caller that may block between finding a cue and using it, during
+    // which another thread could unload it.
+    std::shared_ptr<PlaybackItem> find_cue_shared(const CueId& id) const;
 
     void play(const CueId& id);
     void stop(const CueId& id);
@@ -492,6 +508,7 @@ public:
     MixerChannelId create_mixer_channel(std::string display_name);
     void remove_mixer_channel(const MixerChannelId& id);
     MixerChannel* find_mixer_channel(const MixerChannelId& id) const;
+    std::shared_ptr<MixerChannel> find_mixer_channel_shared(const MixerChannelId& id) const;
 
     // Snapshot of every live strip, for API/UI enumeration. Taken under the
     // engine lock and returned by value so callers never touch the registry.
@@ -640,6 +657,13 @@ public:
                           const MixerChannelId& dst,
                           bool pre_fader,
                           const std::vector<MixerLaneGain>& lane_gains);
+
+    // Move an existing send's level without rebuilding the topology. False
+    // when the send doesn't exist or `lane_gains` names different lanes, in
+    // which case route_mixer_send is the call to make.
+    bool set_mixer_send_gains_live(const MixerChannelId& src,
+                                   const MixerChannelId& dst,
+                                   const std::vector<MixerLaneGain>& lane_gains);
 
     // Remove one send. No-op when the strip does not make it.
     void unroute_mixer_send(const MixerChannelId& src, const MixerChannelId& dst);
@@ -802,6 +826,7 @@ private:
             MixerChannelId          dst;
             bool                    pre_fader = false;
             std::vector<MixerToMixer::Lane> lanes;
+            std::shared_ptr<LiveSendGains>  live;  // parallel to `lanes`
         };
         std::unordered_map<std::string, std::vector<MixerSend>> mixer_sends;
 

@@ -1,6 +1,9 @@
 <template>
   <div class="settings-pane">
-    <h3 class="settings-pane-title">{{ t('settings.sectionSurfaces') }}</h3>
+    <h3 class="settings-pane-title">
+      {{ t('settings.sectionSurfaces') }}
+      <SettingsScope scope="computer" />
+    </h3>
     <p class="settings-pane-intro">{{ t('settings.sectionSurfacesHelp') }}</p>
 
     <section class="settings-field">
@@ -12,12 +15,14 @@
         <option value="">{{ t('controls.allDevices') }}</option>
         <option v-for="dev in connectedDevices" :key="dev" :value="dev">{{ dev }}</option>
       </select>
-      <p v-if="connectedDevices.length === 0" class="settings-help">{{ t('controls.noDevices') }}</p>
+      <p class="settings-help">
+        {{ connectedDevices.length === 0 ? t('controls.noDevices') : t('controls.midiDeviceHelp') }}
+      </p>
     </section>
 
     <template v-for="category in midiCategories" :key="category">
       <div class="binding-group">
-        <div class="category-header">{{ t(categoryLabelKey(category)) }}</div>
+        <h4 class="settings-group-title">{{ t(categoryLabelKey(category)) }}</h4>
         <div
           v-for="action in midiActionsByCategory(category)"
           :key="action.id"
@@ -85,6 +90,7 @@
 </template>
 
 <script setup lang="ts">
+import SettingsScope from './SettingsScope.vue';
 import {
   MIDI_ACTIONS,
   formatMidiBinding,
@@ -218,13 +224,10 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 2px;
 }
-.category-header {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  margin: 8px 0 6px;
+/* Group headings take the shared look from SettingsPage.vue; only the spacing
+   is this list's, whose rows sit 2px apart rather than the pane's 18px. */
+.binding-group > h4.settings-group-title {
+  margin: 10px 0 6px;
 }
 .action-row {
   display: flex;

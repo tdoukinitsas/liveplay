@@ -30,6 +30,7 @@
 // =====================================================================
 import type { AudioItem, GroupItem, BaseItem } from '~/types/project';
 import { runTime, remainingTime } from '~/utils/groupTiming';
+import { isTabTarget, nextRootItem, tabGroupView, tabIdOfTarget, tabsOf } from '~/utils/tabs';
 
 // ---------------------------------------------------------------------
 // Shapes consumed by Vue components.
@@ -45,7 +46,13 @@ export interface ActiveCueView {
   inPoint?: number;
   outPoint?: number;
   serverCueId?: string | null;
+  // When this window first saw it on air, as a running count: the firing
+  // order that GO and Up Next follow (settings.goContinuesFrom, R2-08).
+  startedSeq?: number;
 }
+
+// Renderer-wide counter for ActiveCueView.startedSeq.
+let _cueStartSeq = 0;
 
 export interface ActiveGroupView {
   uuid: string;
@@ -196,6 +203,7 @@ export const useAudioEngine = () => {
       inPoint: item.inPoint,
       outPoint: item.outPoint,
       serverCueId: cueId,
+      startedSeq: ++_cueStartSeq,
     };
     view.displayName = item.displayName;
     view.duration    = trimmedDuration(item);
@@ -242,14 +250,26 @@ export const useAudioEngine = () => {
     } else if (advanceTarget.action === 'goto-index' && advanceTarget.targetIndex) {
       nextItem = findItemByIndex(advanceTarget.targetIndex);
     } else if (item) {
-      const nextIndex = [...item.index];
-      nextIndex[nextIndex.length - 1]++;
-      nextItem = findItemByIndex(nextIndex);
+      nextItem = nextInOrder(item);
     }
     if (nextItem) {
       if (nextItem.type === 'audio') playCue(nextItem as AudioItem);
       else if (nextItem.type === 'group') triggerGroup(nextItem);
     }
+  };
+
+  // What follows `item` in running order: inside a group, the next sibling;
+  // at the top level, the next cue on its tab, by the tab's at-end rule (a
+  // `wrap` or `stop` tab never runs into the next tab), as Up Next and the
+  // server's own "next" decide it.
+  const nextInOrder = (item: AudioItem | GroupItem): AudioItem | GroupItem | null => {
+    const project = currentProject.value;
+    if (project && item.index.length === 1) {
+      return nextRootItem(project.items, tabsOf(project), item.uuid) as AudioItem | GroupItem | null;
+    }
+    const nextIndex = [...item.index];
+    nextIndex[nextIndex.length - 1]++;
+    return findItemByIndex(nextIndex);
   };
 
   const removeActiveCue = (uuid: string) => {
@@ -277,9 +297,7 @@ export const useAudioEngine = () => {
       } else if (advanceTarget.action === 'goto-index' && advanceTarget.targetIndex) {
         nextItem = findItemByIndex(advanceTarget.targetIndex);
       } else {
-        const nextIndex = [...item.index];
-        nextIndex[nextIndex.length - 1]++;
-        nextItem = findItemByIndex(nextIndex);
+        nextItem = nextInOrder(item);
       }
       if (nextItem) {
         if (nextItem.type === 'audio') playCue(nextItem as AudioItem);
@@ -313,9 +331,7 @@ export const useAudioEngine = () => {
     } else if (advanceTarget.action === 'goto-index' && advanceTarget.targetIndex) {
       nextItem = findItemByIndex(advanceTarget.targetIndex);
     } else {
-      const nextIndex = [...item.index];
-      nextIndex[nextIndex.length - 1]++;
-      nextItem = findItemByIndex(nextIndex);
+      nextItem = nextInOrder(item);
     }
     stopCue(item.uuid);
     if (nextItem) {
@@ -363,13 +379,37 @@ export const useAudioEngine = () => {
     for (const item of currentProject.value.items) {
       if (item.type === 'group') walk(item as GroupItem);
     }
+    // A cart bound to a whole playlist tab is timed like a group (#61).
+    for (const cart of currentProject.value.cartItems ?? []) {
+      if (!isTabTarget(cart.itemUuid)) continue;
+      const view = tabGroupView(currentProject.value, tabIdOfTarget(cart.itemUuid));
+      if (view) walk(view);
+    }
     activeGroups.value = next;
   };
 
   // ---- autoNextItemUuid (derived) -----------------------------------
+  // What follows in running order. At the top level that's the item's tab's
+  // rule, the same one the server applies; inside a group it's the next child.
+  const nextInRunningOrder = (item: AudioItem) => {
+    if (item.index.length === 1) {
+      return nextRootItem(currentProject.value!.items, tabsOf(currentProject.value), item.uuid);
+    }
+    const nextIndex = [...item.index];
+    nextIndex[nextIndex.length - 1]++;
+    return findItemByIndex(nextIndex);
+  };
+
   const autoNextItemUuid = computed((): string | null => {
     if (!currentProject.value) return null;
-    for (const [uuid] of activeCues.value.entries()) {
+    // With several cues on air, the one fired first decides, or with
+    // goContinuesFrom "latest" the one fired last: the same rule the server's
+    // GO and summary.next use, so Space, Up Next and a control surface's GO
+    // agree (R2-08). The Map keeps first-seen order; "latest" reverses it.
+    const latest = (currentProject.value as any)?.settings?.goContinuesFrom === 'latest';
+    const onAir = Array.from(activeCues.value.entries());
+    if (latest) onAir.sort((a, b) => (b[1].startedSeq ?? 0) - (a[1].startedSeq ?? 0));
+    for (const [uuid] of onAir) {
       const item = findItemByUuid(uuid);
       if (!item || item.type !== 'audio') continue;
       const audioItem = item as AudioItem;
@@ -380,9 +420,7 @@ export const useAudioEngine = () => {
       if (!Array.isArray(audioItem.index) || findItemByIndex(audioItem.index)?.uuid !== uuid) continue;
       switch (audioItem.endBehavior.action) {
         case 'next': {
-          const nextIndex = [...audioItem.index];
-          nextIndex[nextIndex.length - 1]++;
-          const nextItem = findItemByIndex(nextIndex);
+          const nextItem = nextInRunningOrder(audioItem);
           if (nextItem) return nextItem.uuid;
           break;
         }
@@ -409,9 +447,7 @@ export const useAudioEngine = () => {
       // step through a pre-ordered playlist with a single button.
       if (audioItem.endBehavior.action === 'nothing' &&
           (currentProject.value as any)?.settings?.autoCueNextWithoutEndBehavior !== false) {
-        const nextIndex = [...audioItem.index];
-        nextIndex[nextIndex.length - 1]++;
-        const nextItem = findItemByIndex(nextIndex);
+        const nextItem = nextInRunningOrder(audioItem);
         if (nextItem) return nextItem.uuid;
       }
     }
@@ -508,12 +544,6 @@ export const useAudioEngine = () => {
         break;
       case 'master_gain_changed':
         if (typeof patch.db === 'number') masterGainDb.value = patch.db;
-        break;
-      case 'custom_action_http':
-        // The server's sequencer fired a custom http-request action.
-        // We execute it client-side because the server has no HTTP
-        // client of its own. Best-effort; failures are logged.
-        void executeHttpRequest(patch.action?.request);
         break;
     }
   });
@@ -675,33 +705,6 @@ export const useAudioEngine = () => {
     nextItemOverrideUuid.value = uuid;
     server.setNextItem(uuid);
   };
-
-  // ---- Custom action: http-request (client-side handler) ------------
-  // The server's sequencer schedules custom actions and executes the
-  // server-side ones directly (play-item / play-index / stop-all).
-  // For http-request it broadcasts a doc_patch which lands here.
-  async function executeHttpRequest(request: any) {
-    if (!request || typeof request !== 'object' || !request.url) return;
-    try {
-      const options: RequestInit = {
-        method: request.method || 'GET',
-        headers: {},
-      };
-      if (request.body) {
-        if (request.contentType === 'json') {
-          (options.headers as any)['Content-Type'] = 'application/json';
-          options.body = JSON.stringify(request.body);
-        } else {
-          (options.headers as any)['Content-Type'] =
-            'application/x-www-form-urlencoded';
-          options.body = new URLSearchParams(request.body).toString();
-        }
-      }
-      await fetch(request.url, options);
-    } catch (e) {
-      console.warn('[useAudioEngine] custom http-request failed:', e);
-    }
-  }
 
   return {
     activeCues,

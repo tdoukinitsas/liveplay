@@ -1,6 +1,6 @@
 {
   "name": "liveplay",
-  "version": "2.5.3",
+  "version": "2.6.0",
   "description": "Audio cue playback application for live events",
   "homepage": "https://github.com/tdoukinitsas/liveplay",
   "main": "electron/main.js",
@@ -79,6 +79,7 @@
         "ext": "liveplay",
         "name": "LivePlay Project",
         "description": "LivePlay Project File",
+        "mimeType": "application/x-liveplay",
         "role": "Editor",
         "icon": "assets/icons/4092w/liveplay-document@4092px.png"
       },
@@ -86,6 +87,7 @@
         "ext": "lpa",
         "name": "LivePlay Archive",
         "description": "LivePlay Project Archive",
+        "mimeType": "application/x-liveplay-archive",
         "role": "Editor",
         "icon": "assets/icons/4092w/liveplay-archive@4092.png"
       }
@@ -123,21 +125,10 @@
     "mac": {
       "identity": null,
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
+        "dmg",
+        "zip"
       ],
+      "minimumSystemVersion": "13.3",
       "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
       "category": "public.app-category.music",
       "extraResources": [
@@ -193,7 +184,7 @@
           ]
         }
       ],
-      "icon": "assets/icons/4092w/app_icon_darkmode@4092px.png",
+      "icon": "assets/icons/linux",
       "category": "AudioVideo",
       "extraResources": [
         {

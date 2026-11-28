@@ -433,7 +433,7 @@ watch(() => props.open, (o) => {
   &.home .name { font-weight: 600; }
   &.selected {
     background: var(--color-accent);
-    .name, .icon, .size { color: #fff; }
+    .name, .icon, .size { color: var(--color-on-accent, #fff); }
   }
 }
 .empty {
@@ -471,7 +471,7 @@ watch(() => props.open, (o) => {
     display: inline-flex; align-items: center; gap: 4px;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent, #fff); }
     &.small { padding: 4px 10px; font-size: 12px; }
   }
 }
@@ -492,7 +492,7 @@ watch(() => props.open, (o) => {
     border-radius: 4px; padding: 4px 10px; font-size: 12px; color: #ddd; cursor: pointer;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent, #fff); }
   }
 }
 </style>

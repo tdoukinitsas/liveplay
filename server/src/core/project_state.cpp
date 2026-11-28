@@ -7,7 +7,18 @@
 #include "liveplay/meta/metadata.hpp"
 #include "liveplay/util/unicode_path.hpp"
 
+#include "liveplay/core/show_tabs.hpp"
+#include "liveplay/core/secret_headers.hpp"
+#include "liveplay/core/secrets.hpp"
+
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <map>
+#include <mutex>
+#include <random>
+#include <set>
+#include <sstream>
 #include <cmath>
 #include <ctime>
 #include <fstream>
@@ -22,6 +33,313 @@
 namespace liveplay::core {
 
 namespace {
+// A string field, or "" when it is absent or not a string. The credential
+// helpers below run on every response and every save, so a malformed
+// event (a "plugin" of null, say) must not throw out of them.
+inline std::string str_of(const nlohmann::json& j, const char* key) {
+    if (!j.is_object()) return {};
+    const auto it = j.find(key);
+    return it != j.end() && it->is_string() ? it->get<std::string>() : std::string{};
+}
+
+// Every HTTP header text in a show (F-01, F-23): each connection's and its
+// presets', and every HTTP event's on items and cart-only items, at any depth.
+// `fn(text_field, connection_id)` gets the JSON string node, to read or write.
+void for_each_http_headers(json& doc,
+                           const std::function<void(json&, const std::string&)>& fn) {
+    if (!doc.is_object()) return;
+    if (auto conns = doc.find("eventConnections"); conns != doc.end() && conns->is_array()) {
+        for (auto& c : *conns) {
+            if (!c.is_object() || str_of(c, "plugin") != "http") continue;
+            const std::string id = str_of(c, "id");
+            if (auto cfg = c.find("config"); cfg != c.end() && cfg->is_object()) {
+                if (auto h = cfg->find("headers"); h != cfg->end() && h->is_string()) fn(*h, id);
+            }
+            if (auto ps = c.find("presets"); ps != c.end() && ps->is_array()) {
+                for (auto& p : *ps) {
+                    if (!p.is_object()) continue;
+                    if (auto o = p.find("options"); o != p.end() && o->is_object()) {
+                        if (auto h = o->find("headers"); h != o->end() && h->is_string()) fn(*h, id);
+                    }
+                }
+            }
+        }
+    }
+    std::function<void(json&)> items = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+                for (auto& ev : *evs) {
+                    if (!ev.is_object() || str_of(ev, "plugin") != "http") continue;
+                    const std::string id = ev.contains("connectionId") && ev["connectionId"].is_string()
+                                               ? ev["connectionId"].get<std::string>() : std::string{};
+                    if (auto o = ev.find("options"); o != ev.end() && o->is_object()) {
+                        if (auto h = o->find("headers"); h != o->end() && h->is_string()) fn(*h, id);
+                    }
+                }
+            }
+            if (auto ch = it.find("children"); ch != it.end()) items(*ch);
+        }
+    };
+    if (auto it = doc.find("items"); it != doc.end()) items(*it);
+    if (auto it = doc.find("cartOnlyItems"); it != doc.end()) items(*it);
+}
+
+// An HTTP connection's base URL, as compared for "still the same destination"
+// (secrets::normalise_base_url): "host:80", "http://host" and "HTTP://Host/"
+// are one destination, as the HTTP plugin sends them.
+std::string base_url_of(const json& c) {
+    if (!c.is_object()) return {};
+    const auto config = c.find("config");
+    if (config == c.end() || !config->is_object()) return {};
+    const auto b = config->find("baseUrl");
+    if (b == config->end() || !b->is_string()) return {};
+    return secrets::normalise_base_url(b->get<std::string>());
+}
+
+// Where each connection in `doc` goes: id → {plugin, normalised base URL}.
+std::unordered_map<std::string, std::pair<std::string, std::string>> destinations_of(const json& doc) {
+    std::unordered_map<std::string, std::pair<std::string, std::string>> out;
+    const auto conns = doc.is_object() ? doc.find("eventConnections") : doc.end();
+    if (!doc.is_object() || conns == doc.end() || !conns->is_array()) return out;
+    for (const auto& c : *conns) {
+        const std::string id = str_of(c, "id");
+        if (!id.empty()) out[id] = {str_of(c, "plugin"), base_url_of(c)};
+    }
+    return out;
+}
+
+// Every sealed value anywhere under `j` (a document, an item, a connection
+// list, an event) turned into the mask. A sealed value only ever comes from a
+// show file; one that arrives in a request body was copied out of one, and is
+// never opened (R2-02): as a mask it means "as stored", which the
+// destination-checked restore then decides.
+void neutralise_sealed(json& j) {
+    if (j.is_array()) { for (auto& x : j) neutralise_sealed(x); return; }
+    if (!j.is_object()) return;
+    for (auto it = j.begin(); it != j.end(); ++it) {
+        json& v = it.value();
+        if (it.key() == "headers" && v.is_string()) {
+            const std::string text = v.get<std::string>();
+            if (text.find(secrets::kSealedFamily) == std::string::npos) continue;
+            v = secrets::map_secret_values(text, [](const std::string& value) {
+                return secrets::is_sealed(value) ? std::string{secrets::kMask} : value;
+            });
+        } else if (v.is_structured()) {
+            neutralise_sealed(v);
+        }
+    }
+}
+
+// The stored secrets of every HTTP event bound to a connection whose
+// destination changed or that is gone, turned into masks (R2-01). An event's
+// own credential was given for that connection's address; when someone points
+// the connection elsewhere (or deletes it and makes another with the same id)
+// it must not follow. The event then asks for a sign-in, as on another machine.
+// Returns how many header texts changed.
+int mask_moved_event_secrets(json& doc, const json& before_connections, const json& after_connections) {
+    const auto before = destinations_of(json{{"eventConnections", before_connections}});
+    const auto after  = destinations_of(json{{"eventConnections", after_connections}});
+    std::unordered_set<std::string> moved;
+    for (const auto& [id, dest] : before) {
+        const auto now = after.find(id);
+        if (now == after.end() || now->second != dest) moved.insert(id);
+    }
+    if (moved.empty()) return 0;
+    int changed = 0;
+    std::function<void(json&)> items = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+                for (auto& ev : *evs) {
+                    if (!ev.is_object() || str_of(ev, "plugin") != "http" ||
+                        !moved.count(str_of(ev, "connectionId")))
+                        continue;
+                    auto o = ev.find("options");
+                    if (o == ev.end() || !o->is_object()) continue;
+                    auto h = o->find("headers");
+                    if (h == o->end() || !h->is_string()) continue;
+                    const std::string text = h->get<std::string>();
+                    const std::string masked = secrets::map_secret_values(text, [](const std::string&) {
+                        return std::string{secrets::kMask};
+                    });
+                    if (masked != text) { *h = masked; ++changed; }
+                }
+            }
+            if (auto ch = it.find("children"); ch != it.end()) items(*ch);
+        }
+    };
+    if (doc.contains("items")) items(doc["items"]);
+    if (doc.contains("cartOnlyItems")) items(doc["cartOnlyItems"]);
+    return changed;
+}
+
+// Masked event headers in `items` (an item list, or one item) put back from
+// what `stored_doc` holds, in this order:
+//   1. the same event, by id;
+//   2. the event it was copied from (`copiedFrom`, sent by paste and
+//      duplicate, and always removed here);
+//   3. its own value from a moment ago (`recent`: an event deleted and then
+//      put back by Undo, R2-19);
+//   4. another HTTP event or preset on the same connection, but only where
+//      they all agree on that header's value: two principals on one connection
+//      leave the mask (and a sign-in) rather than lend one the other's.
+// Only onto an event on the same connection, and only while that connection
+// goes where it went (`new_doc`'s connections against `stored_doc`'s): a
+// secret never follows an event to another destination.
+void restore_item_secrets(json& items, const json& stored_doc, const json& new_doc,
+                          const std::unordered_map<std::string, RecentEventSecret>* recent = nullptr) {
+    const bool has_mask = items.dump().find(secrets::kMask) != std::string::npos;
+    // copiedFrom is an instruction, never part of the show.
+    std::function<void(json&)> strip = [&](json& it) {
+        if (it.is_array()) { for (auto& x : it) strip(x); return; }
+        if (!it.is_object()) return;
+        if (auto evs = it.find("events"); evs != it.end() && evs->is_array())
+            for (auto& ev : *evs) if (ev.is_object()) ev.erase("copiedFrom");
+        if (auto ch = it.find("children"); ch != it.end()) strip(*ch);
+    };
+    if (!has_mask) { strip(items); return; }
+    const auto base_url_in = [](const json& doc, const std::string& id) {
+        const auto conns = doc.find("eventConnections");
+        if (conns == doc.end() || !conns->is_array()) return std::string{"\x1f"};
+        for (const auto& c : *conns)
+            if (str_of(c, "id") == id) return base_url_of(c);
+        return std::string{"\x1f"};   // no such connection: nothing matches
+    };
+    std::unordered_map<std::string, std::pair<std::string, std::string>> by_event;   // id → {connection, headers}
+    std::unordered_map<std::string, std::vector<std::string>> by_connection;
+    std::function<void(const json&)> index = [&](const json& arr) {
+        if (!arr.is_array()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+                for (const auto& ev : *evs) {
+                    if (!ev.is_object() || str_of(ev, "plugin") != "http") continue;
+                    const auto o = ev.find("options");
+                    if (o == ev.end() || !o->is_object()) continue;
+                    const auto hv = o->find("headers");
+                    if (hv == o->end() || !hv->is_string() || hv->get<std::string>().empty()) continue;
+                    const std::string h = hv->get<std::string>();
+                    by_event[str_of(ev, "id")] = {str_of(ev, "connectionId"), h};
+                    if (ev.contains("connectionId") && ev["connectionId"].is_string())
+                        by_connection[ev["connectionId"].get<std::string>()].push_back(h);
+                }
+            }
+            if (auto ch = it.find("children"); ch != it.end()) index(*ch);
+        }
+    };
+    if (auto it = stored_doc.find("items"); it != stored_doc.end()) index(*it);
+    if (auto it = stored_doc.find("cartOnlyItems"); it != stored_doc.end()) index(*it);
+    // A preset's headers too: an event detached from a preset carries what its
+    // client was shown of the preset's.
+    if (auto conns = stored_doc.find("eventConnections"); conns != stored_doc.end() && conns->is_array()) {
+        for (const auto& c : *conns) {
+            if (str_of(c, "plugin") != "http" || !c.contains("presets") || !c["presets"].is_array()) continue;
+            for (const auto& p : c["presets"]) {
+                const auto o = p.find("options");
+                if (o == p.end() || !o->is_object()) continue;
+                const std::string h = str_of(*o, "headers");
+                if (!h.empty()) by_connection[str_of(c, "id")].push_back(h);
+            }
+        }
+    }
+    std::function<void(json&)> visit = [&](json& it) {
+        if (it.is_array()) { for (auto& x : it) visit(x); return; }
+        if (!it.is_object()) return;
+        if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+            for (auto& ev : *evs) {
+                if (!ev.is_object()) continue;
+                const std::string copied_from = str_of(ev, "copiedFrom");
+                ev.erase("copiedFrom");
+                if (str_of(ev, "plugin") != "http") continue;
+                auto o = ev.find("options");
+                if (o == ev.end() || !o->is_object()) continue;
+                auto h = o->find("headers");
+                if (h == o->end() || !h->is_string()) continue;
+                std::string text = h->get<std::string>();
+                if (text.find(secrets::kMask) == std::string::npos) continue;
+                const std::string conn = str_of(ev, "connectionId");
+                const std::string dest = base_url_in(new_doc, conn);
+                // No such connection (on either side) is never "the same place".
+                if (conn.empty() || dest == "\x1f" || base_url_in(stored_doc, conn) != dest) continue;
+                for (const std::string& source : {str_of(ev, "id"), copied_from}) {
+                    if (source.empty() || text.find(secrets::kMask) == std::string::npos) continue;
+                    if (auto s = by_event.find(source); s != by_event.end() && s->second.first == conn)
+                        text = secrets::restore_headers(text, s->second.second);
+                }
+                if (recent && text.find(secrets::kMask) != std::string::npos) {
+                    for (const std::string& source : {str_of(ev, "id"), copied_from}) {
+                        if (source.empty()) continue;
+                        const auto r = recent->find(source);
+                        if (r != recent->end() && r->second.connection == conn && r->second.base_url == dest)
+                            text = secrets::restore_headers(text, r->second.headers);
+                    }
+                }
+                if (text.find(secrets::kMask) != std::string::npos) {
+                    if (auto c = by_connection.find(conn); c != by_connection.end())
+                        text = secrets::restore_headers_unique(text, c->second);
+                }
+                *h = text;
+            }
+        }
+        if (auto ch = it.find("children"); ch != it.end()) visit(*ch);
+    };
+    visit(items);
+}
+
+// What each HTTP event in `doc` holds now, for restore_item_secrets' step 3:
+// remembered for a few minutes after every change, so an event deleted and
+// put back (Undo) gets its own credential back rather than a neighbour's.
+void remember_event_secrets(const json& doc,
+                            std::unordered_map<std::string, RecentEventSecret>& recent) {
+    const auto now  = std::chrono::steady_clock::now();
+    const auto keep = std::chrono::minutes{5};
+    for (auto it = recent.begin(); it != recent.end();)
+        it = now - it->second.at > keep ? recent.erase(it) : std::next(it);
+    const auto dests = destinations_of(doc);
+    std::function<void(const json&)> index = [&](const json& arr) {
+        if (!arr.is_array()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+                for (const auto& ev : *evs) {
+                    if (!ev.is_object() || str_of(ev, "plugin") != "http") continue;
+                    const std::string id = str_of(ev, "id"), conn = str_of(ev, "connectionId");
+                    const auto o = ev.find("options");
+                    if (id.empty() || conn.empty() || o == ev.end() || !o->is_object()) continue;
+                    const std::string h = str_of(*o, "headers");
+                    if (h.empty() || h.find(secrets::kMask) != std::string::npos) continue;
+                    const auto d = dests.find(conn);
+                    recent[id] = RecentEventSecret{conn, d == dests.end() ? std::string{"\x1f"} : d->second.second,
+                                                   h, now};
+                }
+            }
+            if (auto ch = it.find("children"); ch != it.end()) index(*ch);
+        }
+    };
+    if (doc.is_object()) {
+        if (auto it = doc.find("items"); it != doc.end()) index(*it);
+        if (auto it = doc.find("cartOnlyItems"); it != doc.end()) index(*it);
+    }
+    while (recent.size() > 2000) recent.erase(recent.begin());
+}
+
+// The tab run a trigger_item() call on this thread belongs to (see
+// SequencedItem::run_tab). Set for the length of the call that starts a tab's
+// cue, or advances from a cue of a run, so play_item() can stamp the cue it
+// starts. A thread_local because those calls nest (group → child → play_item)
+// on the calling thread and never hop threads.
+thread_local std::string t_run_tab;
+struct RunTabScope {
+    std::string saved;
+    explicit RunTabScope(std::string tab) : saved(std::move(t_run_tab)) { t_run_tab = std::move(tab); }
+    ~RunTabScope() { t_run_tab = std::move(saved); }
+    RunTabScope(const RunTabScope&) = delete;
+    RunTabScope& operator=(const RunTabScope&) = delete;
+};
+
 inline std::string id_to_string(const audio::CueId& id)          { return id.value; }
 inline std::string id_to_string(const audio::MixerChannelId& id) { return id.value; }
 inline std::string id_to_string(const audio::DeviceId& id)       { return id.value; }
@@ -59,6 +377,49 @@ void apply_item_fade_outs(audio::PlaybackItem& cue, const nlohmann::json& item) 
     cue.set_fade_out(to_ms(end_fade));
     if (auto it = item.find("manualStopFade"); it != item.end() && it->is_number())
         cue.set_stop_fade(to_ms(std::max(0.0, it->get<double>())));
+}
+
+// An item's volume automation, from its document field:
+//   volumeAutomation: { enabled: bool, points: [{ t: seconds, db: number }] }
+// `t` is source-file time; `db` at or below -60 is silence (the rules live in
+// audio/gain_envelope.hpp). Absent, disabled or empty = no automation, so a
+// show saved before 2.6 plays exactly as it did. Bypassing keeps the points in
+// the document; only the engine stops hearing them.
+std::unique_ptr<audio::GainEnvelope> envelope_from_item(const nlohmann::json& item,
+                                                         audio::SampleRate rate) {
+    auto va = item.find("volumeAutomation");
+    if (va == item.end() || !va->is_object()) return nullptr;
+    if (!json_get_or(*va, "enabled", false)) return nullptr;
+    auto pts = va->find("points");
+    if (pts == va->end() || !pts->is_array() || pts->empty()) return nullptr;
+    auto env = std::make_unique<audio::GainEnvelope>();
+    env->points.reserve(pts->size());
+    for (const auto& p : *pts) {
+        if (!p.is_object()) continue;
+        const auto t  = p.find("t");
+        const auto db = p.find("db");
+        if (t == p.end() || !t->is_number() || db == p.end() || !db->is_number()) continue;
+        const double sec = std::max(0.0, t->get<double>());
+        env->points.push_back({static_cast<std::uint64_t>(sec * static_cast<double>(rate)),
+                               static_cast<float>(db->get<double>())});
+    }
+    if (env->points.empty()) return nullptr;
+    return env;
+}
+
+void apply_item_envelope(audio::PlaybackItem& cue, const nlohmann::json& item) {
+    cue.set_envelope(envelope_from_item(item, cue.desc().mix_sample_rate));
+}
+
+// A duck's attack / release (#78), from duckingBehavior.duckFadeIn / duckFadeOut
+// in seconds. Absent = the 50 ms every level change took before 2.6.
+std::chrono::milliseconds duck_ramp(const nlohmann::json& ducking, const char* key) {
+    if (!ducking.is_object()) return audio::PlaybackItem::kDefaultGainRamp;
+    auto it = ducking.find(key);
+    if (it == ducking.end() || !it->is_number()) return audio::PlaybackItem::kDefaultGainRamp;
+    // 60 s matches the longest Stop All fade: long, but never unstoppable.
+    const double sec = std::clamp(it->get<double>(), 0.0, 60.0);
+    return std::chrono::milliseconds{static_cast<long long>(sec * 1000.0)};
 }
 
 // Convert a Unix timestamp (seconds since epoch) to an ISO 8601 UTC string.
@@ -115,8 +476,12 @@ inline std::string read_last_modified(const json& doc) {
 // form is absent or missing. That makes moved projects — and legacy v1 projects
 // (relative mediaPath, but a folderPath baked to the old location) — resolve
 // correctly, while still honouring genuine out-of-folder references.
+// `found`, when given, says whether the returned path exists (the stat has
+// been made; a caller need not make it again on a dead share).
 inline std::filesystem::path resolve_media_path(const json& item,
-                                                const std::string& folder) {
+                                                const std::string& folder,
+                                                bool* found = nullptr) {
+    if (found) *found = false;
     std::string relative;
     if (item.contains("mediaPath") && item["mediaPath"].is_string()) {
         const std::string media_path = item["mediaPath"].get<std::string>();
@@ -136,11 +501,11 @@ inline std::filesystem::path resolve_media_path(const json& item,
     std::error_code ec;
     if (!relative.empty()) {
         const auto rel_path = util::utf8_to_path(relative);
-        if (std::filesystem::exists(rel_path, ec)) return rel_path;
+        if (std::filesystem::exists(rel_path, ec)) { if (found) *found = true; return rel_path; }
     }
     if (!server.empty()) {
         const auto srv_path = util::utf8_to_path(server);
-        if (std::filesystem::exists(srv_path, ec)) return srv_path;
+        if (std::filesystem::exists(srv_path, ec)) { if (found) *found = true; return srv_path; }
     }
     // Neither file exists. Return the portable relative form when we have one
     // (so the item still carries a sensible path to relocate later); otherwise
@@ -184,13 +549,19 @@ inline void relativize_media_paths(json& doc) {
     const std::function<void(json&)> visit = [&](json& item) {
         if (!item.is_object()) return;
         if (item.value("type", std::string{}) == "audio") {
-            const auto resolved = resolve_media_path(item, folder);
+            bool found = false;
+            const auto resolved = resolve_media_path(item, folder, &found);
             if (!resolved.empty()) {
+                // A file that isn't there has no links to resolve, so it is
+                // compared as written: canonicalising it would ask a dead
+                // share again (~21 s each on Windows).
                 std::error_code ec2;
-                const auto resolved_canon = std::filesystem::weakly_canonical(resolved, ec2);
+                const auto resolved_canon = found ? std::filesystem::weakly_canonical(resolved, ec2)
+                                                  : resolved;
                 const auto abs = ec2 ? resolved : resolved_canon;
                 std::error_code ec3;
-                const auto rel = std::filesystem::relative(abs, base, ec3);
+                const auto rel = found ? std::filesystem::relative(abs, base, ec3)
+                                       : abs.lexically_relative(base);
                 // Inside the project folder iff the relative path exists and its
                 // first component isn't ".." (i.e. it doesn't climb back out).
                 if (!ec3 && !rel.empty() && *rel.begin() != std::filesystem::path("..")) {
@@ -264,8 +635,513 @@ int remove_duplicate_items(json& items, std::unordered_set<std::string>& seen) {
 
 // Inspect `doc` for known corruption patterns. Repairs in place and returns
 // a RepairInfo describing what was fixed (empty if nothing needed repair).
+// Pre-2.6 items could carry hidden "customActions" (no UI ever created them,
+// but the API did): { timePoint, action: { type: play-item | play-index |
+// stop-all | http-request } }. They become "time" events (#84); an HTTP target
+// becomes a project connection per origin. Pure document transformation.
+std::string random_event_id() {
+    static std::mutex m;
+    static std::mt19937_64 rng{std::random_device{}()};
+    std::lock_guard lock{m};
+    const auto a = rng(), b = rng();
+    char buf[40];
+    std::snprintf(buf, sizeof buf, "%08x-%04x-4%03x-%04x-%012llx",
+                  static_cast<unsigned>(a >> 32),
+                  static_cast<unsigned>((a >> 16) & 0xffff),
+                  static_cast<unsigned>(a & 0x0fff),
+                  static_cast<unsigned>(0x8000 | ((b >> 48) & 0x3fff)),
+                  static_cast<unsigned long long>(b & 0xffffffffffffULL));
+    return buf;
+}
+
+// The show's event connections, well-formed: string id and plugin (or the
+// entry is dropped), a string name ("" when absent or not one), a boolean
+// enabled (only absent, null or true enable it, as for events), an object
+// config. Every way a connection list arrives goes through this, so the
+// clients and the migration below can trust its shape.
+// An HTTP connection's "Name: value" header lines with every value hidden:
+// what an API token may see of them (an "Authorization: Bearer …" line is a
+// password). The names stay, so whoever reads it knows what is set.
+// Every header value hidden: what an API token sees (#19).
+std::string hide_header_values(const std::string& lines) {
+    return secrets::mask_headers(lines, /*all_values=*/true);
+}
+
+std::string http_headers_of(const json& c) {
+    if (!c.is_object() || c.value("plugin", std::string{}) != "http") return {};
+    const auto config = c.find("config");
+    if (config == c.end() || !config->is_object()) return {};
+    const auto h = config->find("headers");
+    return h != config->end() && h->is_string() ? h->get<std::string>() : std::string{};
+}
+
+// A preset's own header lines. An HTTP action can carry a password there just
+// as its connection can, so a token sees and round-trips them the same way.
+std::string preset_headers_of(const json& preset) {
+    if (!preset.is_object()) return {};
+    const auto options = preset.find("options");
+    if (options == preset.end() || !options->is_object()) return {};
+    const auto h = options->find("headers");
+    return h != options->end() && h->is_string() ? h->get<std::string>() : std::string{};
+}
+
+// The show's event connections, well-formed: string id and plugin (or the
+// entry is dropped), a string name ("" when absent or not one), a boolean
+// enabled (only absent, null or true enable it, as for events), an object
+// config. Every way a connection list arrives goes through this, so the
+// clients and the migration below can trust its shape. `previous` is what was
+// stored before: an HTTP connection's headers that come back exactly as
+// redact_event_connections hid them are the stored ones, not new values — a
+// token's client saving what it was shown must not wipe the real secret.
+json clean_event_connections(const json& connections, const json& previous = json::array()) {
+    json clean = json::array();
+    if (!connections.is_array()) return clean;
+    const auto str = [](const json& c, const char* key) {
+        const auto it = c.find(key);
+        return it != c.end() && it->is_string() ? it->get<std::string>() : std::string{};
+    };
+    for (const auto& c : connections) {
+        if (!c.is_object()) continue;
+        const std::string id = str(c, "id"), plugin = str(c, "plugin");
+        if (id.empty() || plugin.empty()) continue;
+        const auto enabled = c.find("enabled");
+        json entry{
+            {"id", id}, {"plugin", plugin}, {"name", str(c, "name")},
+            {"enabled", enabled == c.end() || enabled->is_null() ||
+                        (enabled->is_boolean() && enabled->get<bool>())},
+            {"config", c.contains("config") && c["config"].is_object() ? c["config"] : json::object()},
+        };
+        // Reusable action + options (#84). Absent rather than empty when there
+        // are none, so a show that doesn't use them keeps its shape.
+        if (c.contains("presets") && c["presets"].is_array()) {
+            json presets = json::array();
+            std::set<std::string> seen;
+            for (const auto& p : c["presets"]) {
+                if (!p.is_object()) continue;
+                const std::string preset_id = str(p, "id"), action = str(p, "action");
+                if (preset_id.empty() || action.empty() || !seen.insert(preset_id).second) continue;
+                presets.push_back(json{
+                    {"id", preset_id}, {"name", str(p, "name")}, {"action", action},
+                    {"options", p.contains("options") && p["options"].is_object()
+                                    ? p["options"] : json::object()},
+                });
+            }
+            if (!presets.empty()) entry["presets"] = std::move(presets);
+        }
+        // Every masked value a client sends back is the stored one, line by
+        // line: no client is ever sent a secret, so saving what you were shown
+        // must not wipe it (F-23). Only while the connection still goes where
+        // it went: a mask under a new base URL stays a mask (and asks for a
+        // sign-in), or anyone who could edit the address could have the
+        // server send the stored credential to a host of their choosing.
+        if (plugin == "http" && previous.is_array()) {
+            for (const auto& p : previous) {
+                if (!p.is_object() || p.value("id", std::string{}) != id) continue;
+                if (base_url_of(p) != base_url_of(entry)) break;
+                const std::string mine = http_headers_of(entry);
+                if (!mine.empty())
+                    entry["config"]["headers"] = secrets::restore_headers(mine, http_headers_of(p));
+                if (entry.contains("presets") && p.contains("presets") && p["presets"].is_array()) {
+                    for (auto& preset : entry["presets"]) {
+                        for (const auto& old : p["presets"]) {
+                            if (!old.is_object() ||
+                                old.value("id", std::string{}) != preset.value("id", std::string{}))
+                                continue;
+                            const std::string own = preset_headers_of(preset);
+                            if (!own.empty())
+                                preset["options"]["headers"] =
+                                    secrets::restore_headers(own, preset_headers_of(old));
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+        clean.push_back(std::move(entry));
+    }
+    return clean;
+}
+
+// A key binding as clients store it: a non-empty `key` and three modifier
+// flags. Null when it isn't one.
+json clean_key_binding(const json& b) {
+    if (!b.is_object()) return nullptr;
+    const auto key = b.find("key");
+    if (key == b.end() || !key->is_string()) return nullptr;
+    const std::string k = key->get<std::string>();
+    if (k.empty() || k.size() > 32) return nullptr;
+    const auto flag = [&](const char* name) {
+        const auto it = b.find(name);
+        return it != b.end() && it->is_boolean() && it->get<bool>();
+    };
+    return json{{"key", k}, {"ctrlKey", flag("ctrlKey")},
+                {"shiftKey", flag("shiftKey")}, {"altKey", flag("altKey")}};
+}
+
+std::string binding_combo(const json& b) {
+    std::string k = b.value("key", std::string{});
+    std::transform(k.begin(), k.end(), k.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return k + (b.value("ctrlKey", false) ? "+c" : "") + (b.value("shiftKey", false) ? "+s" : "") +
+           (b.value("altKey", false) ? "+a" : "");
+}
+
+// The position keys (cartSlotKeys): position on a page → binding. Positions
+// outside a page and malformed bindings are dropped (F-25).
+json clean_slot_keys(const json& keys) {
+    json out = json::object();
+    if (!keys.is_object()) return out;
+    for (const auto& [pos, b] : keys.items()) {
+        int p = -1;
+        if (std::sscanf(pos.c_str(), "%d", &p) != 1 || p < 0 || p >= tabs::kMaxCartsPerPage ||
+            std::to_string(p) != pos)
+            continue;
+        json clean = clean_key_binding(b);
+        if (!clean.is_null()) out[pos] = std::move(clean);
+    }
+    return out;
+}
+
+// Keys pinned to one cart (cartPinnedKeys, #74): raw slot → binding. A pin
+// belongs to the cart, not to what it plays, so two carts on the same cue
+// keep a key each, and a cart that is cleared takes its pin with it (F-13).
+// Bindings are checked so a malformed entry can't break every client's key
+// handler (F-25), and a key pinned twice keeps its first cart. An RC show
+// keyed its pins by item uuid; those move to the slot that holds the item.
+json clean_pinned_keys(const json& pins, const json& cart_items) {
+    json out = json::object();
+    if (!pins.is_object()) return out;
+    std::map<int, std::string> bound;   // slot → target
+    if (cart_items.is_array()) {
+        for (const auto& c : cart_items) {
+            if (!c.is_object()) continue;
+            const int slot = json_get_or(c, "slot", -1);
+            const std::string target = json_get_or(c, "itemUuid", std::string{});
+            if (slot >= 0 && !target.empty()) bound.emplace(slot, target);
+        }
+    }
+    std::map<int, json> by_slot;
+    for (const auto& [name, b] : pins.items()) {
+        json clean = clean_key_binding(b);
+        if (clean.is_null()) continue;
+        int slot = -1;
+        if (std::sscanf(name.c_str(), "%d", &slot) != 1 || std::to_string(slot) != name) {
+            slot = -1;
+            for (const auto& [s, target] : bound) {
+                if (target == name && !by_slot.count(s)) { slot = s; break; }
+            }
+        }
+        if (slot < 0 || slot >= tabs::kCartSlotCount || !bound.count(slot)) continue;
+        by_slot.emplace(slot, std::move(clean));
+    }
+    std::set<std::string> combos;
+    for (auto& [slot, b] : by_slot) {
+        if (!combos.insert(binding_combo(b)).second) continue;
+        out[std::to_string(slot)] = std::move(b);
+    }
+    return out;
+}
+
+// application/x-www-form-urlencoded, as the browser's URLSearchParams wrote
+// it for 2.5's desktop-side requests: unreserved characters as they are,
+// space as '+', everything else %XX.
+std::string form_encode(const std::string& s) {
+    static const char* hex = "0123456789ABCDEF";
+    std::string out;
+    for (const unsigned char c : s) {
+        if (std::isalnum(c) || c == '*' || c == '-' || c == '.' || c == '_') out += static_cast<char>(c);
+        else if (c == ' ') out += '+';
+        else { out += '%'; out += hex[c >> 4]; out += hex[c & 15]; }
+    }
+    return out;
+}
+
+// What a pre-2.6 show's customActions become (2.6 moved them to the event
+// system). `notes` collects what the operator should hear about: a request
+// the new HTTP sender can't make the way the desktop used to.
+void migrate_custom_actions(json& doc, std::vector<std::string>* notes = nullptr) {
+    const auto uuid_at_index = [&](const json& index) -> std::string {
+        if (!index.is_array() || !doc.contains("items")) return {};
+        const json* arr = &doc["items"];
+        const json* cur = nullptr;
+        for (std::size_t d = 0; d < index.size(); ++d) {
+            if (!arr->is_array() || !index[d].is_number_integer()) return {};
+            const int i = index[d].get<int>();
+            if (i < 0 || i >= static_cast<int>(arr->size())) return {};
+            cur = &(*arr)[i];
+            if (d + 1 < index.size()) {
+                if (!cur->contains("children")) return {};
+                arr = &(*cur)["children"];
+            }
+        }
+        return cur ? json_get_or(*cur, "uuid", std::string{}) : std::string{};
+    };
+    const auto http_connection = [&](const std::string& base) -> std::string {
+        if (!doc.contains("eventConnections") || !doc["eventConnections"].is_array())
+            doc["eventConnections"] = json::array();
+        for (const auto& c : doc["eventConnections"])
+            if (json_get_or(c, "plugin", std::string{}) == "http" && c.contains("config") &&
+                json_get_or(c["config"], "baseUrl", std::string{}) == base)
+                return json_get_or(c, "id", std::string{});
+        const std::string id = random_event_id();
+        doc["eventConnections"].push_back(json{
+            {"id", id}, {"name", base}, {"plugin", "http"}, {"enabled", true},
+            {"config", {{"baseUrl", base}, {"headers", ""}, {"timeoutMs", 2000}}}});
+        return id;
+    };
+    std::set<std::string> noted_https, noted_local;
+    // One customAction → one event, or null when it can't be expressed.
+    const auto convert = [&](const json& ca, const json& item) -> json {
+        if (!ca.is_object() || !ca.contains("action") || !ca["action"].is_object()) return {};
+        const json& a = ca["action"];
+        const std::string type = json_get_or(a, "type", std::string{});
+        const double time_point = json_get_or(ca, "timePoint", 0.0);
+        json ev{{"id", random_event_id()}, {"name", ""}, {"enabled", true},
+                {"trigger", "time"}, {"time", time_point},
+                {"plugin", "liveplay"}, {"connectionId", nullptr}};
+        // 2.5 fired an action at or before the cue's in-point on the first
+        // pass; a time marker behind the in-point never does (F-29). Those
+        // are start events now. The rest fire once per play, as 2.5's did,
+        // not again on every loop.
+        if (time_point <= json_get_or(item, "inPoint", 0.0)) {
+            ev["trigger"] = "start";
+            ev.erase("time");
+        } else {
+            ev["once"] = true;
+        }
+        if (type == "play-item" || type == "play-index") {
+            const std::string target = type == "play-item"
+                ? json_get_or(a, "uuid", std::string{})
+                : uuid_at_index(a.contains("index") ? a["index"] : json{});
+            if (target.empty()) return {};
+            ev["action"]  = "play-item";
+            ev["options"] = {{"item", target}};
+            return ev;
+        }
+        if (type == "stop-all") {
+            // 2.5's stopped each cue over its own Stop fade (or at once), not
+            // over the Stop All fade.
+            ev["action"]  = "stop-all";
+            ev["options"] = {{"stopFade", "cue"}};
+            return ev;
+        }
+        if (type != "http-request" || !a.contains("request") || !a["request"].is_object())
+            return {};
+        const json& r = a["request"];
+        const std::string url = json_get_or(r, "url", std::string{});
+        // origin = scheme://host[:port]; the rest is the path.
+        const auto scheme_end = url.find("://");
+        const auto path_start = url.find('/', scheme_end == std::string::npos ? 0 : scheme_end + 3);
+        const std::string base = url.substr(0, path_start);
+        const std::string path = path_start == std::string::npos ? std::string{"/"}
+                                                                 : url.substr(path_start);
+        if (base.empty()) return {};
+        // F-28: 2.5 sent JSON only when it said "json"; anything else, or
+        // nothing, was a form, URL-encoded.
+        const bool json_body = json_get_or(r, "contentType", std::string{}) == "json";
+        std::string body;
+        if (r.contains("body") && r["body"].is_object() && !r["body"].empty()) {
+            if (json_body) {
+                body = r["body"].dump();
+            } else {
+                for (const auto& [k, v] : r["body"].items()) {
+                    if (!body.empty()) body += '&';
+                    body += form_encode(k) + "=" +
+                            form_encode(v.is_string() ? v.get<std::string>() : v.dump());
+                }
+            }
+        }
+        if (notes) {
+            std::string lower = base;
+            std::transform(lower.begin(), lower.end(), lower.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (lower.rfind("https://", 0) == 0 && noted_https.insert(base).second) {
+                notes->push_back("An HTTP action to " + base + " became an event, but LivePlay "
+                                 "can't send HTTPS requests yet, so it will fail until that "
+                                 "address takes http://.");
+            }
+            const auto host_start = lower.find("://");
+            const std::string host = lower.substr(host_start == std::string::npos ? 0 : host_start + 3);
+            if ((host.rfind("localhost", 0) == 0 || host.rfind("127.", 0) == 0) &&
+                noted_local.insert(base).second) {
+                notes->push_back("An HTTP action to " + base + " became an event. Events are "
+                                 "sent by the LivePlay server, so on a remote server that "
+                                 "address means the server's machine, not this one.");
+            }
+        }
+        ev["plugin"]       = "http";
+        ev["action"]       = "request";
+        ev["connectionId"] = http_connection(base);
+        ev["options"] = {
+            {"method", json_get_or(r, "method", std::string{"GET"})},
+            {"path", path}, {"headers", ""},
+            {"contentType", body.empty() ? "none"
+                            : json_body  ? "application/json"
+                                         : "application/x-www-form-urlencoded"},
+            {"body", body}};
+        return ev;
+    };
+
+    const std::function<void(json&)> visit = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& item : arr) {
+            if (!item.is_object()) continue;
+            if (item.contains("children")) visit(item["children"]);
+            if (!item.contains("customActions")) continue;
+            json evs = item.contains("events") && item["events"].is_array()
+                           ? item["events"] : json::array();
+            if (item["customActions"].is_array())
+                for (const auto& ca : item["customActions"]) {
+                    json ev = convert(ca, item);
+                    if (ev.is_object()) evs.push_back(std::move(ev));
+                }
+            if (!evs.empty()) item["events"] = std::move(evs);
+            item.erase("customActions");
+        }
+    };
+    if (doc.contains("items")) visit(doc["items"]);
+    if (doc.contains("cartOnlyItems")) visit(doc["cartOnlyItems"]);
+}
+
+// "major.minor" of a document's `version`, or 0.0 when it has none.
+std::pair<int, int> document_version_of(const json& doc) {
+    const std::string v = json_get_or(doc, "version", std::string{});
+    int major = 0, minor = 0;
+    if (std::sscanf(v.c_str(), "%d.%d", &major, &minor) < 1) return {0, 0};
+    return {major, minor};
+}
+
+// True when `doc` already uses something only 2.6 writes: tabs, pages,
+// connections, pinned cart keys, or a cue's events, automation or tab. A 2.6
+// pre-release (RC1 and earlier dev builds) still stamped "2.0.0", and its
+// shows must not be treated as 2.5 (R2-11).
+bool document_uses_2_6(const json& doc) {
+    if (!doc.is_object()) return false;
+    // Something, not an empty placeholder: a script may send "events": [].
+    const auto has = [](const json& o, const char* key) {
+        const auto it = o.find(key);
+        if (it == o.end() || it->is_null()) return false;
+        if (it->is_array() || it->is_object()) return !it->empty();
+        if (it->is_string()) return !it->get<std::string>().empty();
+        return true;
+    };
+    for (const char* key : {"playlistTabs", "cartPages", "eventConnections", "cartPinnedKeys", "showId"})
+        if (has(doc, key)) return true;
+    bool found = false;
+    std::function<void(const json&)> visit = [&](const json& arr) {
+        if (!arr.is_array() || found) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (has(it, "events") || has(it, "volumeAutomation") || has(it, "tabId")) {
+                found = true;
+                return;
+            }
+            if (it.contains("children")) visit(it["children"]);
+        }
+    };
+    if (doc.contains("items")) visit(doc["items"]);
+    if (!found && doc.contains("cartOnlyItems")) visit(doc["cartOnlyItems"]);
+    return found;
+}
+
+// A show saved by LivePlay before 2.6 says so: every one of them carries a
+// "version" ("2.0.0"). A document with none was made by hand or by a script
+// against the API, and gets today's behaviour; so does one that already uses
+// 2.6 features whatever its version says.
+bool document_predates_2_6(const json& doc) {
+    if (json_get_or(doc, "version", std::string{}).empty()) return false;
+    if (document_uses_2_6(doc)) return false;
+    return document_version_of(doc) < std::make_pair(2, 6);
+}
+
+// 2.5 and earlier stored duckFadeIn / duckFadeOut (new cues got 0.25 s and
+// 1 s) but never used them: every duck and its release took 50 ms. 2.6 honours
+// them (#78), which would have slowed every existing duck. A show from before
+// 2.6 keeps the timing it had (F-07); a show made in 2.6 gets the new one.
+// Cues whose stored times this changes are reported to the operator.
+void migrate_legacy_duck_times(json& doc, std::vector<std::string>* notes = nullptr) {
+    if (!document_predates_2_6(doc)) return;
+    const double legacy = static_cast<double>(audio::PlaybackItem::kDefaultGainRamp.count()) / 1000.0;
+    int changed = 0;
+    const std::function<void(json&)> visit = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& item : arr) {
+            if (!item.is_object()) continue;
+            if (item.contains("children")) visit(item["children"]);
+            auto dk = item.find("duckingBehavior");
+            if (dk == item.end() || !dk->is_object()) continue;
+            const bool ducks = json_get_or(*dk, "mode", std::string{}) == "duck-others";
+            const auto differs = [&](const char* key) {
+                const auto v = dk->find(key);
+                return v != dk->end() && v->is_number() && std::abs(v->get<double>() - legacy) > 1e-9;
+            };
+            if (ducks && (differs("duckFadeIn") || differs("duckFadeOut"))) ++changed;
+            (*dk)["duckFadeIn"]  = legacy;
+            (*dk)["duckFadeOut"] = legacy;
+        }
+    };
+    if (doc.contains("items")) visit(doc["items"]);
+    if (doc.contains("cartOnlyItems")) visit(doc["cartOnlyItems"]);
+    if (changed && notes)
+        notes->push_back(std::to_string(changed) + " ducking cue(s) keep the 50 ms dip and return "
+                         "they always had; set their times in the cue's Ducking settings to change it");
+}
+
+// A show from before 2.6 with no pages has the one implicit page of 16 carts.
+// 2.5 let the API bind slots up to 63, and those fired; a page of 16 would
+// hide them (R2-10). Such a show gets a first page big enough to show every
+// binding it has, so its control-surface buttons keep working.
+void migrate_legacy_cart_page(json& doc) {
+    if (!doc.is_object() || doc.contains("cartPages") || !document_predates_2_6(doc)) return;
+    int max_slot = -1;
+    if (doc.contains("cartItems") && doc["cartItems"].is_array())
+        for (const auto& c : doc["cartItems"])
+            if (c.is_object() && c.contains("slot") && c["slot"].is_number_integer())
+                max_slot = std::max(max_slot, c["slot"].get<int>());
+    if (max_slot < tabs::kDefaultCartsPerPage || max_slot >= tabs::kCartSlotsPerPage) return;
+    const int size = std::clamp(((max_slot + 1 + 3) / 4) * 4, tabs::kDefaultCartsPerPage,
+                                tabs::kMaxCartsPerPage);
+    doc["cartPages"] = json::array({json{{"id", "default"}, {"name", ""},
+                                         {"size", size}, {"slotBase", 0}}});
+}
+
+// Every format upgrade a document gets on its way in, then the version that
+// says it has had them, so a show is upgraded once (F-08). The version is
+// what tells a later LivePlay that this show uses 2.6's tabs, pages and
+// events. Returns notes for the operator.
+std::vector<std::string> upgrade_document(json& doc) {
+    std::vector<std::string> notes;
+    // Pages first: tabs::normalise would otherwise see none and keep none.
+    migrate_legacy_cart_page(doc);
+    tabs::normalise(doc);
+    migrate_legacy_duck_times(doc, &notes);
+    // Last of the "is this from before 2.6?" questions: the actions migration
+    // adds events and connections, which say "2.6".
+    migrate_custom_actions(doc, &notes);
+    // Every show is known by an id of its own (R2-12), not by where it is.
+    if (doc.is_object() && json_get_or(doc, "showId", std::string{}).empty())
+        doc["showId"] = random_event_id();
+    if (doc.contains("cartSlotKeys")) doc["cartSlotKeys"] = clean_slot_keys(doc["cartSlotKeys"]);
+    if (doc.contains("cartPinnedKeys"))
+        doc["cartPinnedKeys"] = clean_pinned_keys(doc["cartPinnedKeys"],
+                                                  doc.value("cartItems", json::array()));
+    if (doc.is_object() && document_version_of(doc) < std::make_pair(2, 6))
+        doc["version"] = kDocumentVersion;
+    return notes;
+}
+
 RepairInfo detect_and_repair(json& doc) {
     RepairInfo info;
+
+    // Not repairs, so not reported as such: tidying, and a format upgrade.
+    // What the upgrade couldn't carry over exactly is reported.
+    if (doc.contains("eventConnections"))
+        doc["eventConnections"] = clean_event_connections(doc["eventConnections"]);
+    for (auto& note : upgrade_document(doc)) {
+        info.repaired = true;
+        info.issues.push_back(std::move(note));
+    }
 
     // ---- 1. lastModified stored as Unix integer instead of ISO string ----
     if (doc.contains("lastModified") && !doc["lastModified"].is_string()) {
@@ -451,6 +1327,11 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         // --- Playback ----------------------------------------------------
         {"defaultTransitionMode",         {SettingKind::Enum, 0, 0,
                                            {"crossfade", "start-next"}}},
+        // With two or more cues on air and no Up Next armed, which one GO
+        // and Up Next continue from: the one fired first (absent; 2.5 and
+        // the desktop always did) or the one fired last (R2-08).
+        {"goContinuesFrom",               {SettingKind::Enum, 0, 0,
+                                           {"earliest", "latest"}}},
         {"autoCueNextWithoutEndBehavior", {SettingKind::Bool}},
         // 60 s is well past any musical fade and still finite, so a typo'd
         // value cannot wedge Stop-All into an unstoppable ramp.
@@ -459,6 +1340,13 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         // audition too. False lets an operator keep pre-listening through a
         // stop-all (#60).
         {"stopAllStopsPreview",           {SettingKind::Bool}},
+        // Absent = false: the cues Stop All stops fire no end events. True
+        // fires them (they still can't start a cue). A panic never does.
+        {"stopAllFiresEvents",            {SettingKind::Bool}},
+        // Absent = false: Stop All (and a cue in "stop all others" ducking
+        // mode) fades every cue over one time. True: each cue over its own
+        // Stop button fade (#85). A panic is always a cut.
+        {"stopAllUsesItemFade",           {SettingKind::Bool}},
         {"disableAutoVolumeAndTrim",      {SettingKind::Bool}},
         {"disableSilenceWarning",         {SettingKind::Bool}},
 
@@ -678,6 +1566,88 @@ std::chrono::nanoseconds parse_smpte_timecode_to_ns(const std::string& tc,
 
 // ---------------------------------------------------------------------------
 
+namespace {
+// events::Host for the built-in plugins: the operator's verbs, nothing more.
+class EventHost final : public events::Host {
+public:
+    explicit EventHost(ProjectState& state) : state_(state) {}
+    bool play_item(const std::string& uuid) override { return state_.trigger_item(uuid); }
+    bool stop_item(const std::string& uuid) override { return state_.stop_item(uuid); }
+    void stop_all(bool cue_fades) override {
+        if (cue_fades) state_.stop_all_cues(std::nullopt, false, /*own_fades=*/true);
+        else           state_.stop_all_cues();
+    }
+    bool pause_item(const std::string& uuid) override { return state_.pause_item(uuid); }
+    bool resume_item(const std::string& uuid) override { return state_.resume_item(uuid); }
+    bool arm_next(const std::string& uuid) override {
+        state_.set_next_item_override(uuid, /*manual=*/true);
+        return true;
+    }
+    std::optional<double> cue_offset_db(const std::string& uuid) override {
+        return state_.cue_level_offset_db(uuid);
+    }
+    bool set_cue_offset_db(const std::string& uuid, double db) override {
+        return state_.set_cue_level_offset_db(uuid, db);
+    }
+    json buses() override { return state_.buses_document(); }
+    std::vector<std::string> outputs() override { return state_.output_names(); }
+    bool set_bus_live(const std::string& id, const json& patch) override {
+        bool ok = true;
+        if (patch.contains("gainDb")) ok &= state_.set_bus_gain_live(id, patch.value("gainDb", 0.0f));
+        if (patch.contains("pan"))    ok &= state_.set_bus_pan_live(id, patch.value("pan", 0.0f));
+        if (patch.contains("dsp"))    ok &= state_.set_bus_dsp_live(id, patch["dsp"]);
+        if (patch.contains("send") && patch["send"].is_object())
+            ok &= state_.set_bus_send_live(id, patch["send"].value("id", std::string{}),
+                                           patch["send"].value("levelDb", 0.0f));
+        return ok;
+    }
+    std::string patch_bus(const std::string& id, const json& patch) override {
+        using PR = ProjectState::PatchBusResult;
+        const PR r = state_.patch_bus_from_event(id, patch);
+        if (r == PR::Ok) {
+            state_.notify_clients(json{{"type", "doc_patch"}, {"op", "buses_patched"},
+                                       {"buses", state_.buses_document()}});
+            return {};
+        }
+        switch (r) {
+            case PR::NotFound:      return "no such bus";
+            case PR::Cycle:
+            case PR::SendCycle:     return "that would route the bus into itself";
+            case PR::UnknownTarget:
+            case PR::SendUnknownTarget: return "no such destination";
+            case PR::IllegalTarget:
+            case PR::SendIllegalTarget: return "nothing may feed the preview bus";
+            case PR::RefusedMasterToBus: return "the master bus goes to an output, not another bus";
+            case PR::RefusedPreviewToBus:
+            case PR::RefusedPreviewSend: return "the preview bus may only go to an output";
+            default:                return "the mixer refused the change";
+        }
+    }
+    bool stops_use_item_fade() override {
+        const json doc = state_.full_document();
+        const auto st = doc.find("settings");
+        return st != doc.end() && st->is_object() &&
+               json_get_or(*st, "stopAllUsesItemFade", false);
+    }
+    void set_stops_use_item_fade(bool on) override {
+        // Live, not saved: the show keeps the operator's setting (F-22).
+        state_.patch_settings(json{{"stopAllUsesItemFade", on}}, nullptr, /*from_event=*/true);
+        // Every client's Settings > Playback follows, as for a PATCH.
+        json frame = json::object();
+        frame["type"]     = "doc_patch";
+        frame["op"]       = "settings_patched";
+        frame["settings"] = state_.full_document()["settings"];
+        state_.notify_clients(frame);
+    }
+    double master_gain_db() override { return state_.master_gain_db(); }
+    void set_master_gain_db(double db, bool final) override {
+        state_.set_master_gain_db(static_cast<float>(db), final);
+    }
+private:
+    ProjectState& state_;
+};
+} // namespace
+
 ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
     : engine_(engine), outputs_(outputs) {
     {
@@ -691,13 +1661,58 @@ ProjectState::ProjectState(audio::AudioEngine& engine, OutputMap& outputs)
         pending_bus_migration_ = {};
     }
     materialise_buses();
+
+    // Event system (#84): built before the sequencer, which feeds it.
+    event_host_ = std::make_unique<EventHost>(*this);
+    events_ = std::make_unique<events::Dispatcher>();
+    for (const auto make : events::builtin_plugins())
+        events_->add_plugin(make(*event_host_));
+    events_->set_result_callback([this](const events::Job& job, const events::Result& r) {
+        std::function<void(const json&)> cb, conns_cb;
+        json conns;
+        {
+            std::lock_guard lock{mutex_};
+            cb = event_fired_broadcaster_;
+            // A device that refuses the credentials asks for a sign-in; one
+            // that takes them again clears it (F-23).
+            if (!job.connection_id.empty()) {
+                const auto it = connection_auth_.find(job.connection_id);
+                bool changed = false;
+                if (!r.ok && !r.auth.empty() &&
+                    (it == connection_auth_.end() || it->second != r.auth)) {
+                    connection_auth_[job.connection_id] = r.auth;
+                    changed = true;
+                } else if (r.ok && it != connection_auth_.end() && it->second == "rejected") {
+                    connection_auth_.erase(it);
+                    changed = true;
+                }
+                if (changed) {
+                    conns_cb = connections_broadcaster_;
+                    conns    = connections_with_auth_locked();
+                }
+            }
+        }
+        if (conns_cb) conns_cb(conns);
+        if (!cb) return;
+        json msg{{"itemUuid", job.ctx.item_uuid}, {"eventId", job.ctx.event_id},
+                 {"trigger", job.ctx.trigger}, {"plugin", job.plugin},
+                 {"action", job.action}, {"ok", r.ok}};
+        if (!r.ok) msg["error"] = r.error;
+        if (!r.auth.empty()) msg["auth"] = r.auth;
+        if (!job.connection_id.empty()) msg["connectionId"] = job.connection_id;
+        cb(msg);
+    });
+
     start_sequencer();
     // Background decoder for single-item adds/media swaps (#43).
     loader_thread_ = std::thread([this] { loader_loop(); });
 }
 
-ProjectState::~ProjectState() {
+void ProjectState::stop_background_work() {
     stop_sequencer();
+    // After the sequencer (its only scheduler), before anything an event's
+    // plugin could call into (the LivePlay plugin plays and stops cues).
+    if (events_) events_->stop();
     stop_loaders();
     // Make sure any in-flight async mirror finishes before the engine is
     // torn down — otherwise the worker would dereference dangling state.
@@ -705,6 +1720,26 @@ ProjectState::~ProjectState() {
         std::lock_guard lock{mirror_mutex_};
         if (load_thread_.joinable()) load_thread_.join();
     }
+    // Every thread that could call these has been joined, and what they
+    // capture is about to be destroyed.
+    std::lock_guard lock{mutex_};
+    preview_stopped_broadcaster_ = nullptr;
+    event_fired_broadcaster_     = nullptr;
+    next_item_broadcaster_       = nullptr;
+    ui_state_broadcaster_        = nullptr;
+}
+
+void ProjectState::forget_sequenced_items() {
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        sequenced_items_.clear();
+        sequencer_epoch_.fetch_add(1, std::memory_order_acq_rel);
+    }
+    cancel_delayed_advances();
+}
+
+ProjectState::~ProjectState() {
+    stop_background_work();
 
     // Tear down preview infrastructure on shutdown so the audio device gets
     // released cleanly.
@@ -729,29 +1764,32 @@ ProjectState::~ProjectState() {
 // decode. The loader thread decodes with no ProjectState lock held and takes
 // mutex_ again only for the cheap publish step.
 // ---------------------------------------------------------------------------
-audio::CueId ProjectState::begin_item_load_locked(const std::string& uuid,
-                                                  const std::filesystem::path& path,
-                                                  const json& item) {
-    if (uuid.empty() || path.empty()) return {};
+audio::CueId ProjectState::begin_item_load_locked(const std::string& uuid, const json& item) {
+    // What the item names, not where the file is: finding it stats the
+    // filesystem, which the loader does with no lock held (#21).
+    const std::string media_path  = json_get_or(item, "mediaPath", std::string{});
+    const std::string server_path = json_get_or(item, "mediaServerPath", std::string{});
+    if (uuid.empty() || (media_path.empty() && server_path.empty())) return {};
 
     const audio::CueId cue_id{engine_.new_cue_id()};
 
-    // Placeholder metadata: the real artist/title/duration arrive with the
-    // decode. Seed the duration from the document so the sequencer has
-    // something sane if the item is fired before the load lands.
+    // Placeholder metadata: the real artist/title/duration (and file_path)
+    // arrive with the load. Seed the duration from the document so the
+    // sequencer has something sane if the item is fired before the load lands.
     CueMeta meta;
     meta.id        = cue_id;
-    meta.file_path = path;
-    meta.display_name = item.value("displayName", std::string{});
+    meta.display_name = json_get_or(item, "displayName", std::string{});
     if (meta.display_name.empty())
-        meta.display_name = util::path_to_utf8(path.filename());
+        meta.display_name = util::path_to_utf8(
+            util::utf8_to_path(media_path.empty() ? server_path : media_path).filename());
     meta.duration_seconds = json_get_or(item, "duration", 0.0);
     cues_.emplace(cue_id.value, std::move(meta));
     item_uuid_to_cue_[uuid] = cue_id;
 
     {
         std::lock_guard qlock{loader_mutex_};
-        load_queue_.push_back(LoadRequest{uuid, cue_id, path});
+        load_queue_.push_back(LoadRequest{uuid, cue_id, {}, media_path, server_path,
+                                          json_get_or(document_, "folderPath", std::string{})});
         pending_load_uuids_.insert(uuid);
     }
     loader_cv_.notify_one();
@@ -777,7 +1815,12 @@ void ProjectState::loader_loop() {
         // process, and a decode touches the filesystem (network shares, removable
         // media) where anything can go wrong.
         try {
-            // The expensive part: decoder init + metadata read, NO lock held.
+            // The expensive part, NO lock held: finding the file (it stats,
+            // which a dead share makes ~21 s), decoder init, metadata read.
+            if (req.path.empty()) {
+                const json ref{{"mediaPath", req.media_path}, {"mediaServerPath", req.server_path}};
+                req.path = resolve_media_path(ref, req.folder);
+            }
             const auto loaded_id = engine_.load_cue_no_route(req.path, req.cue_id);
             const auto md        = meta::read_metadata(req.path);
 
@@ -809,6 +1852,7 @@ void ProjectState::loader_loop() {
                     auto cm_it = cues_.find(req.cue_id.value);
                     if (cm_it != cues_.end()) {
                         auto& meta = cm_it->second;
+                        meta.file_path = req.path;
                         if (!md.title.empty()) meta.display_name = md.title;
                         meta.artist = md.artist;
                         meta.title  = md.title;
@@ -909,7 +1953,11 @@ void ProjectState::start_async_mirror() {
         // their bus says they belong — see the reroute at the bottom.
         std::vector<std::string> newly_loaded;
         try {
-            // Phase 1: snapshot what we need to load under a brief lock.
+            // Phase 1: what to load. Finding the files stats the filesystem,
+            // which a dead share makes ~21 s per server on Windows (forever on
+            // an NFS hard mount), so it happens between two brief locks rather
+            // than under one (#21): 1a copies what each item names, 1b finds
+            // the files with no lock held, 1c reconciles with the engine.
             std::unordered_map<std::string, std::filesystem::path> wanted;
             std::unordered_set<std::string> cart_uuids;
             // LTC: per-item settings snapshotted here, the output resolved and
@@ -918,18 +1966,24 @@ void ProjectState::start_async_mirror() {
             std::unordered_map<std::string, LtcItemSnap> ltc_snaps;
             std::string ltc_output_name;
             std::unordered_map<std::string, std::filesystem::path> actually_wanted;
+            // uuid -> (mediaPath, mediaServerPath) of every audio item naming media.
+            using MediaRefs = std::pair<std::string, std::string>;
+            const auto media_refs_of = [](const json& item) {
+                return MediaRefs{json_get_or(item, "mediaPath", std::string{}),
+                                 json_get_or(item, "mediaServerPath", std::string{})};
+            };
+            std::unordered_map<std::string, MediaRefs> refs;
+            std::string folder;
             {
                 std::lock_guard lock{mutex_};
                 json& doc = document_;
+                folder = json_get_or(doc, "folderPath", std::string{});
                 for_each_item(doc, [&](json& item, const std::string&) {
                     if (item.value("type", std::string{}) != "audio") return;
                     const std::string uuid = item.value("uuid", std::string{});
                     if (uuid.empty()) return;
-                    auto path = resolve_media_path(
-                        item, doc.value("folderPath", std::string{}));
-                    if (!path.empty()) {
-                        wanted.emplace(uuid, std::move(path));
-                    }
+                    const auto r = media_refs_of(item);
+                    if (!r.first.empty() || !r.second.empty()) refs.emplace(uuid, r);
                     // Snapshot LTC settings for this item.
                     ltc_snaps[uuid] = LtcItemSnap{
                         item.value("ltcEnabled",        false),
@@ -952,24 +2006,59 @@ void ProjectState::start_async_mirror() {
                     if (s.contains("ltcOutput") && s["ltcOutput"].is_string())
                         ltc_output_name = s["ltcOutput"].get<std::string>();
                 }
+            }
 
-                // Unload missing cues
-                for (auto it = item_uuid_to_cue_.begin(); it != item_uuid_to_cue_.end();) {
-                    if (wanted.find(it->first) == wanted.end()) {
-                        engine_.unload_cue(it->second);
-                        cues_.erase(it->second.value);
-                        forget_primed_cue_locked(it->second);
-                        it = item_uuid_to_cue_.erase(it);
-                    } else {
-                        ++it;
-                    }
+            // 1b: no lock.
+            for (const auto& [uuid, r] : refs) {
+                const json ref{{"mediaPath", r.first}, {"mediaServerPath", r.second}};
+                auto path = resolve_media_path(ref, folder);
+                if (!path.empty()) wanted.emplace(uuid, std::move(path));
+            }
+
+            // 1c: the document may have moved on while 1b ran. An item removed
+            // or relinked since is not this pass's to load (update_item queues
+            // its own), and only what is gone NOW is unloaded.
+            {
+                std::lock_guard lock{mutex_};
+                std::unordered_map<std::string, MediaRefs> now;
+                for_each_item(document_, [&](json& item, const std::string&) {
+                    if (item.value("type", std::string{}) != "audio") return;
+                    const std::string uuid = item.value("uuid", std::string{});
+                    if (uuid.empty()) return;
+                    const auto r = media_refs_of(item);
+                    if (!r.first.empty() || !r.second.empty()) now.emplace(uuid, r);
+                });
+                for (auto it = wanted.begin(); it != wanted.end();) {
+                    const auto n = now.find(it->first);
+                    if (n == now.end() || n->second != refs[it->first]) it = wanted.erase(it);
+                    else ++it;
                 }
 
-                // Filter to only new items that haven't been loaded yet
+                const auto unload = [&](decltype(item_uuid_to_cue_)::iterator it) {
+                    engine_.unload_cue(it->second);
+                    cues_.erase(it->second.value);
+                    forget_primed_cue_locked(it->second);
+                    return item_uuid_to_cue_.erase(it);
+                };
+                // Unload missing cues
+                for (auto it = item_uuid_to_cue_.begin(); it != item_uuid_to_cue_.end();)
+                    it = now.count(it->first) ? std::next(it) : unload(it);
+
+                // Load what isn't loaded yet, and reload a cue whose item now
+                // names a different file: a replaced document keeps its uuids,
+                // so the uuid alone kept the OLD audio playing (#22). A cue
+                // still loading (no file_path yet) is left to its own load.
                 for (auto& [u, p] : wanted) {
-                    if (item_uuid_to_cue_.find(u) == item_uuid_to_cue_.end()) {
-                        actually_wanted.emplace(u, p);
+                    if (auto it = item_uuid_to_cue_.find(u); it != item_uuid_to_cue_.end()) {
+                        const auto cm = cues_.find(it->second.value);
+                        if (cm == cues_.end() || cm->second.file_path.empty() ||
+                            cm->second.file_path == p)
+                            continue;
+                        Logger::info("ProjectState: '{}' now names '{}'; reloading", u,
+                                     util::path_to_utf8(p));
+                        unload(it);
                     }
+                    actually_wanted.emplace(u, p);
                 }
             }
 
@@ -1067,6 +2156,7 @@ void ProjectState::start_async_mirror() {
                                 static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                         }
                         apply_item_fade_outs(*cue, it);
+                        apply_item_envelope(*cue, it);
                         if (it.contains("outPoint") && it["outPoint"].is_number()) {
                             cue->set_out_point_seconds(it["outPoint"].get<double>());
                         }
@@ -1159,7 +2249,10 @@ void ProjectState::start_async_mirror() {
         // patch_settings() applies these live when the operator changes them
         // and keeps applied_engine_settings_ in step, so the save that follows
         // a settings edit does not apply the same value a second time.
-        {
+        //
+        // In its own try: this is a bare worker thread, so one mistyped value
+        // in a show file would otherwise end the process on open.
+        try {
             json settings_snap;
             {
                 std::lock_guard lock{mutex_};
@@ -1168,7 +2261,10 @@ void ProjectState::start_async_mirror() {
             const auto levels = compute_output_target_levels(settings_snap);
             AppliedEngineSettings next;
             next.ceiling_db      = levels.value("limiterCeilingDb", -0.3f);
-            next.limiter_enabled = !settings_snap.value("disableLimiter", false);
+            const auto disable_limiter = settings_snap.find("disableLimiter");
+            next.limiter_enabled = !(disable_limiter != settings_snap.end() &&
+                                     disable_limiter->is_boolean() &&
+                                     disable_limiter->get<bool>());
             next.ballistics      = meter_ballistics_from_settings(settings_snap);
             // Computed rather than applied here: this block already owns the
             // diffing against applied_engine_settings_, so it asks the gate
@@ -1191,13 +2287,19 @@ void ProjectState::start_async_mirror() {
             if (!prev || prev->loudness != next.loudness)
                 engine_.set_loudness_metering(next.loudness);
             applied_engine_settings_ = next;
+        } catch (const std::exception& e) {
+            Logger::error("async mirror: applying engine settings failed: {}", e.what());
         }
         // Honour the project's default output device: re-pin every non-override
         // cue from Main (the OS default device, where ensure_default_routing()
         // above parked them) to the selected device. Previously this ran only
         // when the user changed the setting, so on load the project's chosen
         // device was ignored until re-selected. (#30)
-        apply_default_device_routing();
+        try {
+            apply_default_device_routing();
+        } catch (const std::exception& e) {
+            Logger::error("async mirror: default device routing failed: {}", e.what());
+        }
 
         // Bus assignment is the last word on where an item goes, so it is
         // applied last — after ensure_default_routing() and the legacy
@@ -1259,14 +2361,18 @@ void ProjectState::reset() {
     // Drop the sequencer's tracking list so its 50 ms loop stops dereferencing
     // cues we're about to unload (auto-advance / crossfade against a project
     // we've just closed).
-    {
-        std::lock_guard slock{sequencer_mutex_};
-        sequenced_items_.clear();
+    forget_sequenced_items();
+    // Nor may a marker scheduled for the old project fire into the new one,
+    // or a fade it started keep moving the new one's bus.
+    if (events_) {
+        events_->cancel_all();
+        events_->reset_plugins();
     }
-    cancel_delayed_advances();
-    next_item_override_.clear(); next_item_override_manual_ = false;
 
     std::unique_lock lock{mutex_};
+    next_item_override_.clear(); next_item_override_manual_ = false;
+    event_bus_overrides_.clear();   // they were the old show's
+    event_settings_overrides_.clear();
 
     // Stop and unload every engine cue. Clearing the bookkeeping maps alone is
     // not enough — the PlaybackItems live in the engine and keep playing until
@@ -1332,13 +2438,14 @@ json ProjectState::default_empty_document() {
     // on the client side. Field names are camelCase to match the client.
     return json{
         {"name",          "Untitled"},
-        {"version",       "2.0.0"},
+        {"version",       kDocumentVersion},
         {"folderPath",    ""},
         {"items",         json::array()},
         {"cartItems",     json::array()},
         {"cartSlotKeys",  json::object()},
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
+        {"showId",        random_event_id()},
         // No "theme" (U4): a colour scheme belongs to whoever is looking at
         // the screen, so a blank document has nothing to say about one.
         // No device names at all: where audio goes is the master bus's
@@ -1412,159 +2519,23 @@ void ProjectState::for_each_item(json& doc,
 }
 
 // ---------------------------------------------------------------------------
-// Mirror every audio item in document_ onto the engine + cue tables. Called
-// after load and after a full-document replace. Existing engine cues that
-// no longer have a matching item are unloaded.
+// Unload the engine cues whose audio item has left the document. By uuid
+// alone: no file is looked at, since the caller holds mutex_ (#21).
 // ---------------------------------------------------------------------------
-void ProjectState::mirror_items_to_engine_locked() {
-    // Collect uuid → file_path for current document.
-    std::unordered_map<std::string, std::filesystem::path> wanted;
-    for_each_item(document_,
-        [&](json& item, const std::string& /*parent*/) {
-            if (item.value("type", std::string{}) != "audio") return;
-            const std::string uuid = item.value("uuid", std::string{});
-            if (uuid.empty()) return;
-
-            // Resolve file path: prefer relative folderPath/mediaPath (portable),
-            // fall back to the absolute mediaServerPath. See resolve_media_path().
-            auto path = resolve_media_path(
-                item, document_.value("folderPath", std::string{}));
-            if (path.empty()) return;
-            wanted.emplace(uuid, std::move(path));
-        });
-
-    // Unload any engine cues whose item is gone.
+void ProjectState::unload_gone_cues_locked() {
+    std::unordered_set<std::string> present;
+    for_each_item(document_, [&](json& item, const std::string&) {
+        if (item.value("type", std::string{}) != "audio") return;
+        const std::string uuid = item.value("uuid", std::string{});
+        if (!uuid.empty()) present.insert(uuid);
+    });
     for (auto it = item_uuid_to_cue_.begin(); it != item_uuid_to_cue_.end();) {
-        if (wanted.find(it->first) == wanted.end()) {
-            engine_.unload_cue(it->second);
-            cues_.erase(it->second.value);
-            forget_primed_cue_locked(it->second);
-            it = item_uuid_to_cue_.erase(it);
-        } else {
-            ++it;
-        }
+        if (present.count(it->first)) { ++it; continue; }
+        engine_.unload_cue(it->second);
+        cues_.erase(it->second.value);
+        forget_primed_cue_locked(it->second);
+        it = item_uuid_to_cue_.erase(it);
     }
-
-    // Gather the set of cart slot bindings so we can prioritise priming
-    // those items (cart cues need to be hot — they can be triggered at any
-    // moment by a hotkey or MIDI).
-    std::unordered_set<std::string> cart_uuids;
-    if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
-        for (const auto& c : document_["cartItems"]) {
-            if (c.is_object()) {
-                const std::string u = c.value("itemUuid", std::string{});
-                if (!u.empty()) cart_uuids.insert(u);
-            }
-        }
-    }
-
-    // Build the list of new items to load (skip already-loaded). We do
-    // metadata + decoder init in parallel because both are I/O bound.
-    struct LoadJob {
-        std::string uuid;
-        std::filesystem::path path;
-    };
-    std::vector<LoadJob> jobs;
-    for (auto& [uuid, path] : wanted) {
-        if (item_uuid_to_cue_.find(uuid) == item_uuid_to_cue_.end()) {
-            jobs.push_back({uuid, path});
-        }
-    }
-
-    if (!jobs.empty()) {
-        load_progress_total_.store(jobs.size(), std::memory_order_release);
-        load_progress_loaded_.store(0, std::memory_order_release);
-        // Use every CPU thread except one (leave one core for the OS/UI). On
-        // single-core machines stay at 1; on hardware_concurrency() returning
-        // 0 (rare) fall back to 1 as well.
-        const unsigned hw = std::thread::hardware_concurrency();
-        const std::size_t concurrency = (hw <= 1) ? 1u : static_cast<std::size_t>(hw - 1);
-        Logger::info("ProjectState: bulk-loading {} audio items ({} parallel workers).",
-                     jobs.size(), concurrency);
-        std::vector<std::future<std::pair<std::string, audio::CueId>>> futures;
-        futures.reserve(jobs.size());
-
-        // Issue all jobs but cap in-flight concurrency by waiting once we
-        // hit the limit. This keeps memory pressure / fd usage bounded for
-        // very large projects.
-        std::vector<std::pair<std::string, audio::CueId>> done;
-        done.reserve(jobs.size());
-
-        auto drain_one = [&]() {
-            if (futures.empty()) return;
-            done.push_back(futures.front().get());
-            futures.erase(futures.begin());
-            load_progress_loaded_.fetch_add(1, std::memory_order_release);
-        };
-
-        for (const auto& job : jobs) {
-            if (futures.size() >= concurrency) drain_one();
-            futures.push_back(std::async(std::launch::async,
-                [this, job]() -> std::pair<std::string, audio::CueId> {
-                    const auto cue_id = engine_.load_cue_no_route(job.path);
-                    return {job.uuid, cue_id};
-                }));
-        }
-        while (!futures.empty()) drain_one();
-
-        // Register results sequentially (cues_ access is single-threaded under
-        // the lock the caller holds).
-        for (auto& [uuid, cue_id] : done) {
-            if (cue_id.empty()) {
-                Logger::warn("ProjectState: failed to load item uuid='{}'", uuid);
-                continue;
-            }
-            item_uuid_to_cue_.emplace(uuid, cue_id);
-
-            const auto file_path = wanted[uuid];
-            CueMeta meta;
-            meta.id           = cue_id;
-            meta.file_path    = file_path;
-            const auto md     = meta::read_metadata(file_path);
-            meta.display_name = md.title.empty()
-                                  ? util::path_to_utf8(file_path.filename())
-                                  : md.title;
-            meta.artist       = md.artist;
-            meta.title        = md.title;
-            meta.duration_seconds =
-                static_cast<double>(md.duration.count()) / 1000.0;
-            cues_.emplace(cue_id.value, std::move(meta));
-        }
-
-        // Prime cart cues in parallel so their first hit is glitch-free.
-        // Non-cart items are primed on-demand at play time.
-        std::vector<std::future<void>> prime_futures;
-        for (const auto& uuid : cart_uuids) {
-            auto it = item_uuid_to_cue_.find(uuid);
-            if (it == item_uuid_to_cue_.end()) continue;
-            auto* pi = engine_.find_cue(it->second);
-            if (!pi) continue;
-            prime_futures.push_back(std::async(std::launch::async,
-                [pi]() { pi->prime(); }));
-        }
-        for (auto& f : prime_futures) f.get();
-        if (!cart_uuids.empty()) {
-            Logger::info("ProjectState: primed {} cart cue(s).",
-                         cart_uuids.size());
-        }
-    }
-
-    // Apply per-item audio properties (gain/fade/in-out/LTC/etc.) to the engine.
-    // NOTE: LTC *output routing* is handled separately in apply_ltc_output_routing()
-    // which is called by callers after they release mutex_ (because
-    // ensure_ltc_routing() also needs to acquire mutex_).
-    for_each_item(document_,
-        [&](json& item, const std::string& /*parent*/) {
-            if (item.value("type", std::string{}) != "audio") return;
-            const std::string uuid = item.value("uuid", std::string{});
-            auto it = item_uuid_to_cue_.find(uuid);
-            if (it == item_uuid_to_cue_.end()) return;
-            apply_item_properties_locked(item, it->second);
-        });
-
-    // Now that every cue is in items_ and properties like ltc_enabled are
-    // configured, establish default routing ONCE.
-    engine_.ensure_default_routing();
 }
 
 // ---------------------------------------------------------------------------
@@ -1590,6 +2561,7 @@ void ProjectState::apply_item_properties_locked(const json& item,
             static_cast<long long>(item["playFade"].get<double>() * 1000.0)});
     }
     apply_item_fade_outs(*cue, item);
+    apply_item_envelope(*cue, item);
     // outPoint: when set (> 0), engine fades out as the playhead reaches
     // that time instead of running to the file end.
     if (item.contains("outPoint") && item["outPoint"].is_number()) {
@@ -1637,11 +2609,17 @@ audio::CueId ProjectState::add_cue_from_file(const std::filesystem::path& file,
         std::error_code ec;
         const auto canonical = std::filesystem::weakly_canonical(file, ec);
         const auto& want = ec ? file : canonical;
-        std::lock_guard lock{mutex_};
-        for (auto& [id, c] : cues_) {
+        // Canonicalising stats each path, so not under the lock (#21).
+        std::vector<std::pair<std::string, std::filesystem::path>> loaded;
+        {
+            std::lock_guard lock{mutex_};
+            for (const auto& [id, c] : cues_) loaded.emplace_back(id, c.file_path);
+        }
+        for (const auto& [id, path] : loaded) {
+            if (path.empty()) continue;   // still loading: nothing to compare
             std::error_code ec2;
-            const auto have = std::filesystem::weakly_canonical(c.file_path, ec2);
-            const auto& cmp = ec2 ? c.file_path : have;
+            const auto have = std::filesystem::weakly_canonical(path, ec2);
+            const auto& cmp = ec2 ? path : have;
             if (cmp == want) return audio::CueId{id};
         }
     }
@@ -2046,7 +3024,38 @@ bool ProjectState::save(const std::filesystem::path& path) const {
             std::lock_guard lock{mutex_};
             doc = document_;
             doc["lastModified"] = now_iso();
+            // Events moved the show's state, not the show: what they changed
+            // is saved as the operator left it (see patch_bus_from_event).
+            if (!event_bus_overrides_.empty() && doc.contains("buses") && doc["buses"].is_array()) {
+                for (auto& b : doc["buses"]) {
+                    if (!b.is_object()) continue;
+                    const auto it = event_bus_overrides_.find(b.value("id", std::string{}));
+                    if (it == event_bus_overrides_.end()) continue;
+                    for (const auto& [at, value] : it->second) {
+                        const json::json_pointer ptr{at};
+                        if (value) b[ptr] = *value;
+                        else if (b.contains(ptr)) b[ptr.parent_pointer()].erase(ptr.back());
+                    }
+                }
+            }
+            // Settings an event changed are saved as the operator left them
+            // (F-22), as bus changes are.
+            if (!event_settings_overrides_.empty() && doc.contains("settings") &&
+                doc["settings"].is_object()) {
+                for (const auto& [key, value] : event_settings_overrides_) {
+                    if (value) doc["settings"][key] = *value;
+                    else doc["settings"].erase(key);
+                }
+            }
         }
+        // Credentials go to disk sealed with this machine's key (F-23), on
+        // the copy and outside mutex_: reading a key file a scanner holds
+        // must never hold up GO (R2-03). Without a key they are left out.
+        secrets::ensure_key(/*create=*/false);   // seal() makes one only if a secret needs it
+        if (const int n = seal_secrets(doc))
+            Logger::error("Save: {} credential(s) could not be sealed (no usable key file) and were "
+                          "left out of the show file; the connections will ask for them when it "
+                          "is next opened", n);
         // The folder we are saving INTO is the project folder, whatever the
         // in-memory document says — the same rule load() applies in reverse.
         // relativize_media_paths() measures against this, so on a Save As the
@@ -2167,6 +3176,7 @@ void annotate_items_with_cue_ids(
 json ProjectState::full_document() const {
     std::lock_guard lock{mutex_};
     json out = document_;
+    if (out.contains("eventConnections")) out["eventConnections"] = connections_with_auth_locked();
     if (out.contains("items"))         annotate_items_with_cue_ids(out["items"],         item_uuid_to_cue_);
     if (out.contains("cartOnlyItems")) annotate_items_with_cue_ids(out["cartOnlyItems"], item_uuid_to_cue_);
     // Inject computed output-target levels so the client never needs to
@@ -2207,6 +3217,7 @@ json ProjectState::header_document() const {
     return json{
         {"name",         document_.value("name", "")},
         {"version",      document_.value("version", "")},
+        {"showId",       document_.value("showId", "")},
         {"folderPath",   document_.value("folderPath", "")},
         {"createdAt",    document_.value("createdAt", "")},
         {"lastModified", read_last_modified(document_)},
@@ -2216,6 +3227,11 @@ json ProjectState::header_document() const {
         {"cartSlotKeys", document_.value("cartSlotKeys",  json::object())},
         {"playbackKeys", document_.value("playbackKeys",  json::object())},
         {"cartOnlyItems", std::move(cart_only)},
+        {"eventConnections", connections_with_auth_locked()},
+        {"playlistTabs", document_.value("playlistTabs", json::array())},
+        {"cartPages",    document_.value("cartPages",    json::array())},
+        {"cartPinnedKeys", document_.value("cartPinnedKeys", json::object())},
+        {"tabLimits",    tabs::limits()},
         {"itemCount",    item_count},
         // The bus-schema version the loaded document is at. The client mirrors
         // it and hands it back on every whole-document save, which is how
@@ -2271,9 +3287,93 @@ int bus_schema_of(const json& doc) {
 
 }  // namespace
 
-bool ProjectState::replace_full_document(const json& doc) {
-    if (!doc.is_object()) return false;
+namespace {
+
+// Whether `doc` is the show `current` is (R2-12). Every 2.6 show carries a
+// showId; a document from a client that predates it (2.5) is the same show
+// only with the same saved folder AND the same name. An unsaved show (no
+// folder) is never "the same" as another unsaved one.
+bool same_show_docs(const json& doc, const json& current) {
+    const std::string a = json_get_or(doc, "showId", std::string{});
+    const std::string b = json_get_or(current, "showId", std::string{});
+    if (!a.empty() && !b.empty()) return a == b;
+    if (bus_schema_of(doc) < 1) return false;
+    const std::string fa = json_get_or(doc, "folderPath", std::string{});
+    if (fa.empty() || fa != json_get_or(current, "folderPath", std::string{})) return false;
+    return json_get_or(doc, "name", std::string{}) == json_get_or(current, "name", std::string{});
+}
+
+// Every cue's events as `stored` has them, by uuid: a principal that may not
+// change what the show's cues send (an API token, R2-09) keeps them whatever
+// its document says, and a cue it adds brings none.
+void keep_stored_events(json& doc, const json& stored) {
+    std::unordered_map<std::string, json> events;
+    std::function<void(const json&)> index = [&](const json& arr) {
+        if (!arr.is_array()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            const std::string uuid = json_get_or(it, "uuid", std::string{});
+            if (!uuid.empty() && it.contains("events")) events[uuid] = it["events"];
+            if (it.contains("children")) index(it["children"]);
+        }
+    };
+    std::function<void(json&)> apply = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& it : arr) {
+            if (!it.is_object()) continue;
+            const auto e = events.find(json_get_or(it, "uuid", std::string{}));
+            if (e != events.end()) it["events"] = e->second;
+            else it.erase("events");
+            if (it.contains("children")) apply(it["children"]);
+        }
+    };
+    for (const char* key : {"items", "cartOnlyItems"}) {
+        if (stored.contains(key)) index(stored[key]);
+    }
+    for (const char* key : {"items", "cartOnlyItems"}) {
+        if (doc.contains(key)) apply(doc[key]);
+    }
+}
+
+}  // namespace
+
+bool ProjectState::is_same_show(const json& doc) const {
+    std::lock_guard lock{mutex_};
+    return same_show_docs(doc, document_);
+}
+
+json ProjectState::item_events_for_token(const std::string& uuid) const {
+    std::lock_guard lock{mutex_};
+    json found;
+    std::function<void(const json&)> walk = [&](const json& arr) {
+        if (!arr.is_array() || !found.is_null()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (json_get_or(it, "uuid", std::string{}) == uuid) {
+                found = it.contains("events") ? it["events"] : json::array();
+                return;
+            }
+            if (it.contains("children")) walk(it["children"]);
+        }
+    };
+    for (const char* key : {"items", "cartOnlyItems"})
+        if (document_.contains(key)) walk(document_[key]);
+    if (!found.is_null()) {
+        json wrapped = json{{"events", found}};
+        mask_secrets(wrapped, /*all_values=*/true);
+        found = wrapped["events"];
+    }
+    return found;
+}
+
+bool ProjectState::replace_full_document(const json& doc_in, bool keep_live_parts,
+                                         bool may_edit_connections) {
+    if (!doc_in.is_object()) return false;
+    // A sealed value in a request body is never opened (R2-02).
+    json doc = doc_in;
+    neutralise_sealed(doc);
     bool buses_unchanged = false;
+    std::vector<std::string> upgrade_notes;
     {
         std::lock_guard lock{mutex_};
         // What the buses looked like before this document landed, so an
@@ -2299,8 +3399,75 @@ bool ProjectState::replace_full_document(const json& doc) {
             bus_schema_of(doc) >= 1) {
             carried_buses = document_["buses"];
         }
-        document_ = doc;
+        std::vector<std::pair<std::string, json>> carried;
+        // Parts of the show that have their own endpoints: tabs and pages
+        // (PUT /api/project/tabs), connections (PUT /api/events/connections),
+        // cart keys (PUT /api/project/cart-keys). They are carried over from
+        // the show already here, never from another one:
+        //
+        //   * when this same show comes back without them (a client that
+        //     predates them must not wipe them on save; a client that knows
+        //     them always sends them, [] when there are none), and
+        //   * on an ordinary save (`keep_live_parts`), whatever the snapshot
+        //     says: it is the saving client's copy, which can be older than
+        //     what another client has set through those endpoints since
+        //     (F-03, F-24). A wholesale replace (a new show, a client putting
+        //     back a show the server forgot) takes the document's.
+        //
+        // "This same show" is the same showId; for a client that predates
+        // showIds, the same saved folder and name (same_show_docs, R2-12).
+        // Connections used to be carried into ANY document that left them
+        // out, so a 2.5 client pushing another show inherited this one's
+        // connections, credentials included (audit Q8).
+        const bool same_show = same_show_docs(doc, document_);
+        const json previous_connections = document_.value("eventConnections", json::array());
+        if (same_show && !doc.contains("showId") && document_.contains("showId"))
+            carried.emplace_back("showId", document_["showId"]);
+        remember_event_secrets(document_, recent_event_secrets_);
+        if (same_show) {
+            for (const char* key : {"eventConnections", "playlistTabs", "cartPages",
+                                    "cartPinnedKeys", "cartSlotKeys"}) {
+                if (!document_.contains(key)) continue;
+                const bool keep = keep_live_parts || !doc.contains(key) ||
+                                  (!may_edit_connections && std::string_view{key} == "eventConnections");
+                if (keep) carried.emplace_back(key, document_[key]);
+            }
+        }
+        const json previous_doc = std::move(document_);
+        document_ = std::move(doc);
+        // A principal that may not change connections (an API token, F-30)
+        // doesn't bring any into another show either, and doesn't change what
+        // the show's cues send (R2-09).
+        if (!may_edit_connections && !same_show) document_.erase("eventConnections");
+        if (!may_edit_connections) keep_stored_events(document_, previous_doc);
         if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
+        for (auto& [key, value] : carried) document_[key] = std::move(value);
+        if (document_.contains("eventConnections"))
+            document_["eventConnections"] = clean_event_connections(document_["eventConnections"],
+                                                                    previous_connections);
+        // What a client sends back is what it was shown: masked secrets on its
+        // HTTP events mean "as stored" (F-01), and only while their connection
+        // still goes where it went. Sealed values sent by a client were turned
+        // into masks above and are never opened here (R2-02).
+        if (document_.contains("items"))
+            restore_item_secrets(document_["items"], previous_doc, document_, &recent_event_secrets_);
+        if (document_.contains("cartOnlyItems"))
+            restore_item_secrets(document_["cartOnlyItems"], previous_doc, document_, &recent_event_secrets_);
+        // A connection this document moved or dropped takes its events' own
+        // credentials with it (R2-01), as through PUT /api/events/connections.
+        if (same_show && may_edit_connections)
+            mask_moved_event_secrets(document_, previous_connections,
+                                     document_.value("eventConnections", json::array()));
+        // What events changed belonged to the show that was here (a different
+        // one's buses and settings must not be saved with its values).
+        if (!same_show) {
+            event_bus_overrides_.clear();
+            event_settings_overrides_.clear();
+        }
+        upgrade_notes = upgrade_document(document_);
+        if (!same_show) connection_auth_.clear();
+        refresh_connection_auth_locked(json{{"eventConnections",
+                                             previous_doc.value("eventConnections", json::array())}});
         if (!document_.contains("settings")) {
             // No defaultOutputDevice — load_buses_locked() migrates that key
             // onto the master bus and erases it, so re-injecting it here would
@@ -2351,6 +3518,7 @@ bool ProjectState::replace_full_document(const json& doc) {
             }
         }
     }
+    for (const auto& note : upgrade_notes) Logger::warn("Show upgrade: {}", note);
     // Rebuild the engine strips for the new document's buses. Outside the lock.
     //
     // Loud on purpose. This tears down every strip and wires it up again,
@@ -2411,15 +3579,20 @@ ProjectState::PlaybackSnapshot ProjectState::current_playback_snapshot() const {
 // Item CRUD — operates on the document_ tree and mirrors audio items to
 // the engine.
 // ---------------------------------------------------------------------------
-audio::CueId ProjectState::add_item(const json& item, const std::string& parent_uuid,
+audio::CueId ProjectState::add_item(const json& item_in, const std::string& parent_uuid,
                                     bool cart_only) {
-    if (!item.is_object()) return {};
-    const std::string uuid = item.value("uuid", std::string{});
+    if (!item_in.is_object()) return {};
+    const std::string uuid = item_in.value("uuid", std::string{});
     if (uuid.empty()) return {};
 
     audio::CueId result;
     {
         std::lock_guard lock{mutex_};
+        // A pasted or duplicated item carries the masked secrets its client
+        // was shown: put the stored values back (F-01).
+        json item = item_in;
+        neutralise_sealed(item);
+        restore_item_secrets(item, document_, document_, &recent_event_secrets_);
 
         // Reject duplicates — the same UUID must not appear twice in the document.
         bool already_exists = false;
@@ -2468,20 +3641,18 @@ audio::CueId ProjectState::add_item(const json& item, const std::string& parent_
             }
         }
         // Queue the audio load(s) for what we just inserted instead of decoding
-        // inline: mirror_items_to_engine_locked() decodes while holding mutex_,
-        // so adding one big or network-mounted file stalled every other request
-        // for the whole decode (#43). Walking the document (rather than just the
-        // new node) covers a group's children too, and picks up any earlier item
-        // that still has no cue — the same set the mirror would have loaded.
+        // inline: decoding while holding mutex_ meant adding one big or
+        // network-mounted file stalled every other request for the whole
+        // decode (#43), and so did merely finding it on a dead share (#21).
+        // Walking the document (rather than just the new node) covers a
+        // group's children too, and picks up any earlier item that still has
+        // no cue.
         for_each_item(document_, [&](json& it, const std::string&) {
             if (it.value("type", std::string{}) != "audio") return;
             const std::string u = it.value("uuid", std::string{});
             if (u.empty()) return;
             if (item_uuid_to_cue_.find(u) != item_uuid_to_cue_.end()) return;
-            auto path = resolve_media_path(
-                it, document_.value("folderPath", std::string{}));
-            if (path.empty()) return;
-            begin_item_load_locked(u, path, it);
+            begin_item_load_locked(u, it);
         });
         auto it = item_uuid_to_cue_.find(uuid);
         if (it != item_uuid_to_cue_.end()) result = it->second;
@@ -2524,6 +3695,10 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     std::string  seq_end_action;
     {
         std::lock_guard lock{mutex_};
+        // An events edit can delete an event that Undo puts back a moment
+        // later: what each held is remembered first (R2-19).
+        const bool touches_events = patch.contains("events");
+        if (touches_events) remember_event_secrets(document_, recent_event_secrets_);
         for_each_item(document_,
             [&](json& it, const std::string& /*parent*/) {
                 if (it.value("uuid", std::string{}) != uuid) return;
@@ -2542,6 +3717,14 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                     if (k == "busId") {
                         if (!it.contains(k) || it[k] != v) bus_changed = true;
                     }
+                    if (k == "events" && v.is_array()) {
+                        // Masked secrets mean "as stored" (F-01).
+                        json item_events{{"events", v}};
+                        neutralise_sealed(item_events);
+                        restore_item_secrets(item_events, document_, document_, &recent_event_secrets_);
+                        it[k] = item_events["events"];
+                        continue;
+                    }
                     it[k] = v;
                 }
                 touched = true;
@@ -2550,9 +3733,9 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
         if (touched && media_path_changed && updated_item &&
             updated_item->value("type", std::string{}) == "audio") {
             // The media file behind this item changed: retire the old cue and
-            // queue a fresh decode on the loader thread. Doing it inline (via
-            // mirror_items_to_engine_locked) meant the decode ran under mutex_
-            // and blocked every other request for its duration (#43).
+            // queue a fresh load on the loader thread. Doing it inline meant
+            // the decode ran under mutex_ and blocked every other request for
+            // its duration (#43); finding the file did too, on a dead share (#21).
             auto old = item_uuid_to_cue_.find(uuid);
             if (old != item_uuid_to_cue_.end()) {
                 engine_.unload_cue(old->second);
@@ -2560,14 +3743,11 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                 forget_primed_cue_locked(old->second);
                 item_uuid_to_cue_.erase(old);
             }
-            auto path = resolve_media_path(
-                *updated_item, document_.value("folderPath", std::string{}));
-            if (!path.empty())
-                begin_item_load_locked(uuid, path, *updated_item);
+            begin_item_load_locked(uuid, *updated_item);
         } else if (touched && media_path_changed) {
-            // Media change on something that isn't a loadable audio item —
-            // fall back to the full mirror (cheap: nothing to decode).
-            mirror_items_to_engine_locked();
+            // Media change on something that isn't a loadable audio item:
+            // nothing to load, but a cue it had as audio has to go.
+            unload_gone_cues_locked();
         } else if (touched && updated_item) {
             // Cheap path: apply audio-engine-visible properties to the
             // existing PlaybackItem without a full mirror walk.
@@ -2586,6 +3766,7 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                             static_cast<long long>(it["playFade"].get<double>() * 1000.0)});
                     }
                     apply_item_fade_outs(*cue, it);
+                    apply_item_envelope(*cue, it);
                     if (it.contains("outPoint") && it["outPoint"].is_number()) {
                         cue->set_out_point_seconds(it["outPoint"].get<double>());
                     }
@@ -2715,6 +3896,43 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     // ensure_ltc_routing() can safely acquire it.
     if (touched && ltc_changed && rerouted.empty())
         apply_ltc_output_routing();
+
+    // Events edited while the item plays take effect on this pass: markers
+    // behind the playhead count as fired, the rest fire when reached.
+    if (touched && patch.contains("events")) {
+        // From the document, where masked credentials were put back: the
+        // client's copy carries "••••••" in their place, and the sequencer
+        // would send that (and flag the connection) for the rest of the play.
+        json stored_events = json::array();
+        {
+            std::lock_guard lock{mutex_};
+            for_each_item(document_, [&](json& it, const std::string&) {
+                if (it.value("uuid", std::string{}) == uuid && it.contains("events"))
+                    stored_events = it["events"];
+            });
+        }
+        auto fresh = events::ItemEvent::parse_list(stored_events);
+        std::string display_name;
+        if (patch.contains("displayName") && patch["displayName"].is_string())
+            display_name = patch["displayName"].get<std::string>();
+        bool playing = false;
+        {
+            std::lock_guard slock{sequencer_mutex_};
+            for (auto& si : sequenced_items_) {
+                if (si.uuid != uuid) continue;
+                const double from = si.last_pos >= 0.0 ? si.last_pos : 0.0;
+                for (auto& ev : fresh)
+                    if (ev.trigger == "time") ev.triggered = ev.time < from - 1e-3;
+                si.events = std::move(fresh);
+                if (!display_name.empty()) si.display_name = display_name;
+                playing = true;
+                break;
+            }
+        }
+        // Whatever the old list had scheduled ahead is void; the next pass
+        // schedules from the new one.
+        if (playing) events_->cancel_item(uuid);
+    }
     return touched;
 }
 
@@ -2738,6 +3956,9 @@ bool ProjectState::remove_item(const std::string& uuid) {
     };
     {
         std::lock_guard lock{mutex_};
+        // Undo puts a deleted cue back with what its client was shown: its
+        // events' own credentials are remembered for that (R2-19).
+        remember_event_secrets(document_, recent_event_secrets_);
         if (document_.contains("items")) {
             removed = erase_from(document_["items"]);
         }
@@ -2753,7 +3974,7 @@ bool ProjectState::remove_item(const std::string& uuid) {
                                      }),
                       arr.end());
         }
-        if (removed) mirror_items_to_engine_locked();
+        if (removed) unload_gone_cues_locked();
     }
     return removed;
 }
@@ -2803,21 +4024,29 @@ bool ProjectState::reorder_items(const std::vector<std::string>& uuids,
 
 std::optional<std::filesystem::path>
 ProjectState::resolve_item_path(const std::string& uuid) const {
-    std::lock_guard lock{mutex_};
-    std::optional<std::filesystem::path> out;
-    // Walk a copy-free view: we're const, so for_each_item takes a non-const
-    // json — work around with a const_cast since we only read inside the
-    // lambda. The lambda mutates nothing.
-    json& doc_ref = const_cast<json&>(document_);
-    for_each_item(doc_ref,
-        [&](json& item, const std::string& /*parent*/) {
-            if (out) return;
-            if (item.value("uuid", std::string{}) != uuid) return;
-            auto path = resolve_media_path(
-                item, doc_ref.value("folderPath", std::string{}));
-            if (!path.empty()) out = std::move(path);
-        });
-    return out;
+    // What the item names, copied under the lock; the file is found after it
+    // is released, since that stats the filesystem (#21).
+    std::optional<json> ref;
+    std::string folder;
+    {
+        std::lock_guard lock{mutex_};
+        // Walk a copy-free view: we're const, so for_each_item takes a non-const
+        // json — work around with a const_cast since we only read inside the
+        // lambda. The lambda mutates nothing.
+        json& doc_ref = const_cast<json&>(document_);
+        folder = json_get_or(doc_ref, "folderPath", std::string{});
+        for_each_item(doc_ref,
+            [&](json& item, const std::string& /*parent*/) {
+                if (ref) return;
+                if (item.value("uuid", std::string{}) != uuid) return;
+                ref = json{{"mediaPath", json_get_or(item, "mediaPath", std::string{})},
+                           {"mediaServerPath", json_get_or(item, "mediaServerPath", std::string{})}};
+            });
+    }
+    if (!ref) return std::nullopt;
+    auto path = resolve_media_path(*ref, folder);
+    if (path.empty()) return std::nullopt;
+    return path;
 }
 
 std::optional<audio::CueId>
@@ -2886,12 +4115,8 @@ std::string ProjectState::resolve_next_item_locked(const std::string& current_uu
     };
 
     if (parent_uuid.empty()) {
-        // Top-level.
-        if (doc.contains("items")) {
-            const auto next = find_next_in_array(doc["items"]);
-            if (!next.empty()) return next;
-        }
-        return {};
+        // Top-level: the next cue in this tab's running order.
+        return tabs::next_in_tab(doc, current_uuid).uuid;
     }
 
     // Inside a group — find the group, then look in its children.
@@ -2993,6 +4218,9 @@ bool ProjectState::play_item(const std::string& uuid,
     // touching the engine (engine calls take their own locks).
     std::string  ducking_mode  = "stop-all";
     float        duck_level    = 0.2f;
+    auto         duck_attack   = audio::PlaybackItem::kDefaultGainRamp;
+    auto         duck_release  = audio::PlaybackItem::kDefaultGainRamp;
+    bool         stops_use_item_fade = false;
     double       in_point      = 0.0;
     double       out_point     = 0.0;
     double       fade_out_dur  = 1.0;
@@ -3012,7 +4240,8 @@ bool ProjectState::play_item(const std::string& uuid,
     audio::CueId target_cue;
     std::vector<audio::CueId> other_cues;
 
-    std::vector<ScheduledCustomAction> custom_actions_snapshot;
+    std::vector<events::ItemEvent> events_snapshot;
+    std::string display_name_snapshot;
     {
         std::lock_guard lock{mutex_};
         auto cue_it = item_uuid_to_cue_.find(uuid);
@@ -3035,6 +4264,8 @@ bool ProjectState::play_item(const std::string& uuid,
         };
         if (doc.contains("items"))              walk(doc["items"]);
         if (!found && doc.contains("cartOnlyItems")) walk(doc["cartOnlyItems"]);
+        if (doc.contains("settings") && doc["settings"].is_object())
+            stops_use_item_fade = json_get_or(doc["settings"], "stopAllUsesItemFade", false);
 
         if (found) {
             in_point      = json_get_or(*found, "inPoint",         0.0);
@@ -3052,6 +4283,8 @@ bool ProjectState::play_item(const std::string& uuid,
                 const auto& dk = (*found)["duckingBehavior"];
                 ducking_mode = dk.value("mode",      std::string{"stop-all"});
                 duck_level   = dk.value("duckLevel", 0.2f);
+                duck_attack  = duck_ramp(dk, "duckFadeIn");
+                duck_release = duck_ramp(dk, "duckFadeOut");
             }
             if (found->contains("deviceOverride") &&
                 (*found)["deviceOverride"].is_string()) {
@@ -3075,17 +4308,10 @@ bool ProjectState::play_item(const std::string& uuid,
                     }
                 }
             }
-            // Snapshot custom actions for the sequencer to dispatch.
-            if (found->contains("customActions") &&
-                (*found)["customActions"].is_array()) {
-                for (const auto& ca : (*found)["customActions"]) {
-                    if (!ca.is_object() || !ca.contains("action")) continue;
-                    ScheduledCustomAction sca;
-                    sca.time_point = ca.value("timePoint", 0.0);
-                    sca.action     = ca["action"];
-                    custom_actions_snapshot.push_back(std::move(sca));
-                }
-            }
+            // Snapshot the item's events for the sequencer to fire (#84).
+            if (found->contains("events"))
+                events_snapshot = events::ItemEvent::parse_list((*found)["events"]);
+            display_name_snapshot = found->value("displayName", std::string{});
         }
 
         // Collect every cue id except this one.
@@ -3107,7 +4333,12 @@ bool ProjectState::play_item(const std::string& uuid,
             // started its engine-owned fade-out. Stopping it here would (since
             // it's FadingOut) route through stop_now() and hard-cut it.
             if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
-            if (auto* pi = engine_.find_cue(cid)) pi->stop(fade_ms);
+            auto* pi = engine_.find_cue(cid);
+            if (!pi) continue;
+            // #85: with stopAllUsesItemFade each cue leaves over its own Stop
+            // button fade (a cue with none still takes the incoming cue's).
+            if (stops_use_item_fade && pi->stop_fade().count() > 0) pi->stop();
+            else                                                    pi->stop(fade_ms);
         }
     } else if (ducking_mode == "duck-others") {
         const float lin = std::clamp(duck_level, 0.0f, 1.0f);
@@ -3115,8 +4346,8 @@ bool ProjectState::play_item(const std::string& uuid,
         for (auto& cid : other_cues) {
             if (!exclude_from_ducking.empty() && cid == exclude_from_ducking) continue;
             if (auto* pi = engine_.find_cue(cid)) {
-                ducks_made.push_back({cid, pi->gain_db()});
-                pi->set_gain_db(db);
+                ducks_made.push_back({cid, pi->gain_db(), duck_release});
+                pi->set_gain_db(db, duck_attack);
             }
         }
     }
@@ -3180,8 +4411,15 @@ bool ProjectState::play_item(const std::string& uuid,
         if (cm_it != cues_.end()) file_duration = cm_it->second.duration_seconds;
     }
 
+    // Pressing a cue that is already sounding doesn't start it again
+    // (PlaybackItem::play returns early), so it doesn't move it in the firing
+    // order either: GO, Up Next and Stop Current ask who was fired when (R2-08).
+    bool already_sounding = false;
     // Prime the target around the configured in-point.
     if (auto* pi = engine_.find_cue(target_cue)) {
+        const auto was = pi->stats().transport;
+        already_sounding = was == audio::TransportState::Playing ||
+                           was == audio::TransportState::FadingIn;
         pi->set_out_point_seconds(out_point > 0.0 ? out_point : 0.0);
         // Configure engine-level seamless looping based on endBehavior. Doing
         // the loop inside the audio thread (decoder seek + playhead reset on
@@ -3212,13 +4450,14 @@ bool ProjectState::play_item(const std::string& uuid,
     // this back from the state summary to answer "what did the operator fire
     // LAST?" — with several cues on air (a bed under a stinger, say), document
     // order is the wrong answer for a "currently playing" display.
-    {
+    if (!already_sounding) {
         std::lock_guard lock{mutex_};
         item_trigger_seq_[uuid] = ++trigger_seq_counter_;
     }
 
     // Register with the sequencer so it can handle end-behaviour, crossfade,
     // and stop-fade autonomously — even when the client is disconnected.
+    std::vector<EventFire> start_fires;
     {
         const bool looping = (end_behavior_action == "loop");
         // A looping cue plays forever (the audio thread seeks back to the
@@ -3227,7 +4466,7 @@ bool ProjectState::play_item(const std::string& uuid,
         // sequencer's crossfade/stop-fade triggers would fire and start the
         // *next* item — which is exactly the "loop behaves like play-next" bug.
         // effective_end = 0 disables all timing triggers while still letting
-        // custom actions fire (they're checked before the effective_end gate).
+        // events fire (they're checked before the effective_end gate).
         const double effective_end = looping
             ? 0.0
             : ((out_point > 0.0) ? out_point : file_duration);
@@ -3238,6 +4477,7 @@ bool ProjectState::play_item(const std::string& uuid,
         SequencedItem si;
         si.uuid          = uuid;
         si.cue_id        = target_cue;
+        si.run_tab       = t_run_tab;
         si.crossfade_sec = (looping || start_next_on) ? 0.0 : crossfade_sec;
         si.advance_delay_sec = (looping || start_next_on || si.crossfade_sec > 0.0)
                                    ? 0.0 : advance_delay_sec;
@@ -3250,7 +4490,17 @@ bool ProjectState::play_item(const std::string& uuid,
         si.goto_target_uuid  = end_behavior_target_uuid;
         si.goto_target_index = end_behavior_target_index;
         si.ducked        = std::move(ducks_made);
-        si.custom_actions = std::move(custom_actions_snapshot);
+        si.display_name  = display_name_snapshot;
+        si.events        = std::move(events_snapshot);
+        si.marker_chain  = events::inherited_marker_chain();
+        // Markers before where playback starts belong to a part of the file
+        // that won't play this pass.
+        for (auto& ev : si.events)
+            if (ev.trigger == "time" && ev.time < in_point - 1e-3) ev.triggered = true;
+        collect_event_fires(si, "start", start_fires);
+
+        // A re-play drops markers the previous pass had scheduled ahead.
+        events_->cancel_item(uuid);
 
         std::lock_guard slock{sequencer_mutex_};
         // Remove any prior sequencer entry for this item (re-play case).
@@ -3260,6 +4510,7 @@ bool ProjectState::play_item(const std::string& uuid,
             sequenced_items_.end());
         sequenced_items_.push_back(std::move(si));
     }
+    dispatch_event_fires(std::move(start_fires));
 
     // Best-effort: warm the *next* cue so the first read is glitch-free.
     std::string next_uuid;
@@ -3274,9 +4525,14 @@ bool ProjectState::play_item(const std::string& uuid,
             auto it = item_uuid_to_cue_.find(next_uuid);
             if (it != item_uuid_to_cue_.end()) next_cue = it->second;
         }
-        if (next_cue) {
-            std::thread([this, cue = *next_cue]() {
-                if (auto* pi = engine_.find_cue(cue)) pi->prime();
+        // Owns its reference: this thread is detached, so it can outlive both
+        // the cue's place in the engine and this ProjectState.
+        if (auto next_item = next_cue ? engine_.find_cue_shared(*next_cue) : nullptr) {
+            std::thread([item = std::move(next_item)]() {
+                try { item->prime(); }
+                catch (const std::exception& e) {
+                    Logger::warn("priming the next cue failed: {}", e.what());
+                }
             }).detach();
         }
     }
@@ -3317,7 +4573,22 @@ bool ProjectState::play_item(const std::string& uuid,
     if (start_behavior_action == "stop" && !start_behavior_target_uuid.empty()) {
         stop_item(start_behavior_target_uuid);
     } else if (start_behavior_action == "play" && !start_behavior_target_uuid.empty()) {
-        play_item(start_behavior_target_uuid);
+        // A starts B starts A would recurse until the stack ran out. The cues
+        // on this thread's chain are already starting, so a link back to one
+        // of them is where the chain ends.
+        static thread_local std::vector<std::string> starting;
+        if (std::find(starting.begin(), starting.end(), start_behavior_target_uuid) !=
+                starting.end() || start_behavior_target_uuid == uuid) {
+            Logger::warn("play '{}': start behaviour would loop back to '{}'; ignoring it",
+                         uuid, start_behavior_target_uuid);
+        } else {
+            starting.push_back(uuid);
+            struct PopOnExit {
+                std::vector<std::string>& list;
+                ~PopOnExit() { list.pop_back(); }
+            } pop{starting};
+            play_item(start_behavior_target_uuid);
+        }
     }
 
     return true;
@@ -3328,6 +4599,51 @@ bool ProjectState::play_item(const std::string& uuid,
 }
 
 bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> fade_ms) {
+    // A cart bound to a tab stops that tab's run (F-17): whatever of the tab
+    // is on air, every cue the run has advanced into (a `continue` tab runs on
+    // into the next one), and an advance still waiting out a "wait before
+    // next" gap, which would otherwise start the next cue after the stop.
+    if (tabs::is_tab_target(uuid)) {
+        const std::string tab_id = tabs::tab_id_of_target(uuid);
+        std::vector<std::string> targets;
+        {
+            std::lock_guard lock{mutex_};
+            targets = tabs::audio_uuids_in_tab(document_, tab_id);
+        }
+        const std::unordered_set<std::string> on_tab(targets.begin(), targets.end());
+        bool cancelled = false;
+        std::string still_waiting;
+        long long   still_waiting_ms = 0;
+        {
+            std::lock_guard slock{sequencer_mutex_};
+            for (const auto& si : sequenced_items_) {
+                if (si.run_tab == tab_id && !on_tab.count(si.uuid)) targets.push_back(si.uuid);
+            }
+            const auto before = delayed_advances_.size();
+            delayed_advances_.erase(
+                std::remove_if(delayed_advances_.begin(), delayed_advances_.end(),
+                               [&](const DelayedAdvance& d) {
+                                   return d.item.run_tab == tab_id || on_tab.count(d.item.uuid);
+                               }),
+                delayed_advances_.end());
+            cancelled = delayed_advances_.size() != before;
+            // Another run still waiting keeps its countdown (N-S5), as in
+            // fire_due_advances.
+            if (cancelled && !delayed_advances_.empty()) {
+                const auto& next = delayed_advances_.front();
+                still_waiting    = next.item.uuid;
+                still_waiting_ms = std::max<long long>(0, std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       next.due - std::chrono::steady_clock::now()).count());
+            }
+        }
+        if (cancelled) broadcast_advance_pending(still_waiting, still_waiting_ms);
+        bool stopped = cancelled;
+        for (const auto& u : targets) {
+            if (item_on_air(u)) stopped = stop_item(u, fade_ms) || stopped;
+        }
+        return stopped;
+    }
+
     audio::CueId cue;
     std::vector<std::string> group_members;
     {
@@ -3364,18 +4680,19 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
     }
 
     // Remove from sequencer and restore any ducked gains.
+    std::vector<EventFire> end_fires;
     {
         std::lock_guard slock{sequencer_mutex_};
         auto it = std::find_if(sequenced_items_.begin(), sequenced_items_.end(),
                                [&](const SequencedItem& si){ return si.uuid == uuid; });
         if (it != sequenced_items_.end()) {
-            for (auto& dk : it->ducked) {
-                if (auto* pi = engine_.find_cue(dk.cue_id))
-                    pi->set_gain_db(dk.original_gain_db);
-            }
+            restore_ducked(it->ducked);
+            if (!it->end_fired) collect_event_fires(*it, "end", end_fires);
             sequenced_items_.erase(it);
         }
     }
+    events_->cancel_item(uuid);
+    dispatch_event_fires(std::move(end_fires));
 
     if (fade_ms) engine_.stop(cue, std::chrono::milliseconds{std::max<long long>(0, *fade_ms)});
     else         engine_.stop(cue);
@@ -3387,26 +4704,84 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
     return true;
 }
 
-void ProjectState::stop_all_cues(std::optional<long long> fade_ms) {
-    long long resolved_ms;
-    if (fade_ms.has_value()) {
-        resolved_ms = std::max<long long>(0, *fade_ms);
-    } else {
-        // Project-wide default fade for the Stop All button (default 1000 ms).
-        long long setting_ms = 1000;
+void ProjectState::stop_all_cues(std::optional<long long> fade_ms, bool panic, bool own_fades) {
+    // Project-wide default fade for the Stop All button (default 1000 ms).
+    long long setting_ms   = 1000;
+    bool      fires_events = false;
+    bool      item_fades   = false;
+    const auto now = std::chrono::steady_clock::now();
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object()) {
+            const auto& s = document_["settings"];
+            if (s.contains("stopAllFadeMs") && s["stopAllFadeMs"].is_number())
+                setting_ms = static_cast<long long>(s["stopAllFadeMs"].get<double>());
+            if (s.contains("stopAllFiresEvents") && s["stopAllFiresEvents"].is_boolean())
+                fires_events = s["stopAllFiresEvents"].get<bool>();
+            if (s.contains("stopAllUsesItemFade") && s["stopAllUsesItemFade"].is_boolean())
+                item_fades = s["stopAllUsesItemFade"].get<bool>();
+        }
+        // The double tap: Stop All again while the last one is still fading
+        // out (the engine already cuts a fading cue on a second stop), or a
+        // moment after an instant one. Whoever sent it, it is a panic.
+        if (now < stop_all_tap_until_) panic = true;
+    }
+    long long resolved_ms = std::max<long long>(0, fade_ms.value_or(setting_ms));
+    if (panic || own_fades) resolved_ms = 0;
+    // #85: with stopAllUsesItemFade each cue fades over its own Stop button
+    // fade instead, the Stop All fade covering only cues that have none. An
+    // explicit fade from the caller still wins, and a panic is always a cut.
+    const bool force = panic || (!own_fades && (fade_ms.has_value() || !item_fades));
+    // The double-tap window lasts as long as the fades this Stop All starts:
+    // with each cue on its own fade, that's the longest of them, so a second
+    // press while a 10 s item fade is still running is the panic it looks
+    // like (F-16).
+    long long window_ms = resolved_ms;
+    if (!force) {
+        std::vector<audio::CueId> cues;
         {
             std::lock_guard lock{mutex_};
-            if (document_.contains("settings") && document_["settings"].is_object()) {
-                const auto& s = document_["settings"];
-                if (s.contains("stopAllFadeMs") && s["stopAllFadeMs"].is_number())
-                    setting_ms = static_cast<long long>(s["stopAllFadeMs"].get<double>());
-            }
+            for (const auto& [uuid, cue] : item_uuid_to_cue_) cues.push_back(cue);
         }
-        resolved_ms = std::max<long long>(0, setting_ms);
+        for (const auto& cue : cues) {
+            auto* pi = engine_.find_cue(cue);
+            if (!pi) continue;
+            // A paused cue is cut at once by a stop, so its fade starts nothing
+            // a second press could be meant to catch (N-S11).
+            const auto t = pi->stats().transport;
+            if (t == audio::TransportState::Stopped || t == audio::TransportState::Paused) continue;
+            const long long own = pi->stop_fade().count();
+            window_ms = std::max(window_ms, own > 0 ? own : resolved_ms);
+        }
     }
+    {
+        std::lock_guard lock{mutex_};
+        stop_all_tap_until_ = now + std::chrono::milliseconds{window_ms} + kStopAllDoubleTap;
+    }
+    if (panic) Logger::info("PANIC: every cue stopped, every event killed");
+
     // A panic is a panic: nothing waiting out a "wait before next" may start
     // a cue after the operator has stopped everything.
     cancel_delayed_advances();
+    // Nor may an event. Every cue playing now is Stop All's: its markers stop
+    // (it still counts as running while it fades), and its end events fire
+    // only when the show says so (stopAllFiresEvents), never on a panic, and
+    // even then may not start or resume a cue. Flagged before the engine
+    // stops, so no sequencer pass sees a stopped cue without the flag.
+    {
+        std::lock_guard slock{sequencer_mutex_};
+        for (auto& si : sequenced_items_) {
+            si.stopped_by_stop_all = true;
+            if (panic || !fires_events) si.end_fired = true;   // "already fired": none will
+        }
+    }
+    events_->cancel_all();
+    if (panic) {
+        // And everything already under way: jobs waiting on a lane, and the
+        // fades events started, which stop where they are.
+        events_->cancel_queued();
+        events_->reset_plugins();
+    }
 
     const auto fade = std::chrono::milliseconds{resolved_ms};
     bool stops_preview = true;
@@ -3417,12 +4792,13 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms) {
             stops_preview = document_["settings"].value("stopAllStopsPreview", true);
         preview = preview_cue_;
     }
-    // Global fade always wins over any per-track fade-out (force_fade = true).
+    // Global fade always wins over any per-track fade-out (force_fade = true),
+    // unless stopAllUsesItemFade says otherwise (see `force` above).
     // The audition is left out here either way: when it goes too it is faded
     // by stop_preview_if below, which is what also clears the preview state
     // and tells every client — the engine fade alone left the card stuck on
     // "previewing" (#60).
-    engine_.stop_all(fade, /*force_fade=*/true, preview);
+    engine_.stop_all(fade, /*force_fade=*/force, preview);
     if (stops_preview && !preview.empty()) stop_preview_if(preview, fade);
 }
 
@@ -3489,22 +4865,69 @@ bool ProjectState::set_selected_item(const std::string& uuid) {
 }
 
 std::string ProjectState::step_selection(int delta,
-                                         const std::vector<std::string>& anchor_candidates) {
+                                         const std::vector<std::string>& anchor_candidates,
+                                         const SelectionScope& scope) {
     std::string target;
     {
         std::lock_guard lock{mutex_};
-        const auto flat = flat_item_uuids_locked();
+        auto flat = flat_item_uuids_locked();
         if (flat.empty()) return {};
+
+        // F-05: in a show with tabs, a step keeps to one tab unless the caller
+        // asks for the whole show. The tab is the one the caller says it is
+        // looking at, else the selected cue's, else the furthest playing
+        // cue's, else the first. A desktop never moves its view to follow the
+        // selection, so crossing tabs would land on a cue no one can see, and
+        // a "Play selected" after it would fire that cue.
+        if (!scope.whole_show) {
+            if (const json* show_tabs = tabs::tab_list(document_)) {
+                std::unordered_map<std::string, std::string> tab_of;   // uuid -> root tab
+                for (const auto& root : document_["items"]) {
+                    if (!root.is_object()) continue;
+                    const std::string tab = tabs::root_tab_id(root, *show_tabs);
+                    std::function<void(const json&)> mark = [&](const json& it) {
+                        if (!it.is_object()) return;
+                        tab_of[it.value("uuid", std::string{})] = tab;
+                        if (it.value("type", std::string{}) == "group" && it.contains("children") &&
+                            it["children"].is_array())
+                            for (const auto& c : it["children"]) mark(c);
+                    };
+                    mark(root);
+                }
+                std::string tab;
+                for (const auto& t : *show_tabs) {
+                    if (!scope.tab_id.empty() && t.value("id", std::string{}) == scope.tab_id)
+                        tab = scope.tab_id;
+                }
+                if (tab.empty()) {
+                    if (auto f = tab_of.find(selected_item_uuid_); f != tab_of.end()) tab = f->second;
+                }
+                if (tab.empty()) {
+                    std::size_t furthest = 0;
+                    for (const auto& uuid : anchor_candidates) {
+                        const auto at = std::find(flat.begin(), flat.end(), uuid);
+                        if (at == flat.end()) continue;
+                        const auto pos = static_cast<std::size_t>(std::distance(flat.begin(), at)) + 1;
+                        if (pos > furthest) { furthest = pos; tab = tab_of[uuid]; }
+                    }
+                }
+                if (tab.empty()) tab = (*show_tabs)[0].value("id", std::string{});
+                flat.erase(std::remove_if(flat.begin(), flat.end(),
+                                          [&](const std::string& u) { return tab_of[u] != tab; }),
+                           flat.end());
+                if (flat.empty()) return {};
+            }
+        }
 
         auto it = std::find(flat.begin(), flat.end(), selected_item_uuid_);
         bool have_position = !selected_item_uuid_.empty() && it != flat.end();
 
         // Nothing selected (or a selection that no longer exists — the item was
-        // deleted by another client). If the caller handed us anchors — the
-        // items currently playing — step from the furthest one down the
-        // playlist: an operator who has been firing cues without touching the
-        // selection means "carry on from what I'm hearing", not "jump back to
-        // the top of the show".
+        // deleted by another client — or one on another tab). If the caller
+        // handed us anchors — the items currently playing — step from the
+        // furthest one down the playlist: an operator who has been firing cues
+        // without touching the selection means "carry on from what I'm
+        // hearing", not "jump back to the top of the show".
         if (!have_position && !anchor_candidates.empty()) {
             for (const auto& uuid : anchor_candidates) {
                 auto anchor = std::find(flat.begin(), flat.end(), uuid);
@@ -3520,8 +4943,9 @@ std::string ProjectState::step_selection(int delta,
             const auto idx = static_cast<long long>(std::distance(flat.begin(), it));
             const auto last = static_cast<long long>(flat.size()) - 1;
             // Clamp at both ends — the same "stop at the edge" behaviour as the
-            // client's arrow keys. Wrapping would risk a blind operator holding
-            // a button and silently landing back at the top of the show.
+            // client's arrow keys, which call this too. Wrapping would risk a
+            // blind operator holding a button and silently landing back at the
+            // top of the show.
             target = flat[static_cast<std::size_t>(std::clamp(idx + delta, 0LL, last))];
         }
     }
@@ -3604,8 +5028,18 @@ json ProjectState::state_summary() const {
     bool        show_mode_now = false;
     std::string locale_now;
     std::unordered_map<std::string, long long> trigger_seq;
+    bool go_from_latest = false;
     json project_block;
     json cart_bindings = json::array();
+    // Cart pages in tab order, and what a cart bound to a whole playlist tab
+    // shows: the tab's name and colour, and the cues that make it "playing".
+    json cart_pages = json::array();
+    struct TabFacts {
+        std::string              name;
+        std::string              color;
+        std::vector<std::string> audio;
+    };
+    std::unordered_map<std::string, TabFacts> tab_facts;
 
     {
         std::lock_guard lock{mutex_};
@@ -3682,11 +5116,33 @@ json ProjectState::state_summary() const {
         show_mode_now = show_mode_;
         locale_now    = default_ui_locale_;
         trigger_seq   = item_trigger_seq_;
+        if (document_.contains("settings") && document_["settings"].is_object())
+            go_from_latest = json_get_or(document_["settings"], "goContinuesFrom", std::string{}) == "latest";
 
         if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
             for (const auto& c : document_["cartItems"]) {
                 if (c.is_object()) cart_bindings.push_back(c);
             }
+        }
+        cart_pages = tabs::pages_or_default(document_);
+        const json* show_tabs = tabs::tab_list(document_);
+        const auto add_tab = [&](const std::string& id, const json* tab) {
+            TabFacts t;
+            if (tab) {
+                t.name  = tab->value("name", std::string{});
+                t.color = tab->value("color", std::string{});
+            }
+            t.audio = tabs::audio_uuids_in_tab(document_, id);
+            tab_facts.emplace(id, std::move(t));
+        };
+        if (show_tabs) {
+            for (const auto& t : *show_tabs) add_tab(t.value("id", std::string{}), &t);
+        }
+        // A cart can name a tab of a show that has only its one implicit tab.
+        for (const auto& c : cart_bindings) {
+            const std::string target = c.value("itemUuid", std::string{});
+            const std::string id = tabs::tab_id_of_target(target);
+            if (!id.empty() && !tab_facts.count(id) && !show_tabs) add_tab(id, nullptr);
         }
     }
 
@@ -3749,9 +5205,21 @@ json ProjectState::state_summary() const {
     std::string next_uuid   = override_uuid;
     std::string next_source = next_uuid.empty() ? "" : "override";
     if (next_uuid.empty() && !on_air.empty()) {
+        // The same cue decides as for GO (on_air_for_go): the one fired first,
+        // or with goContinuesFrom "latest" the one fired last (R2-08).
+        std::vector<const OnAir*> by_recency;
+        for (const auto& e : on_air) by_recency.push_back(&e);
+        const auto seq_of = [&](const std::string& u) {
+            const auto it = trigger_seq.find(u);
+            return it != trigger_seq.end() ? it->second : 0LL;
+        };
+        std::stable_sort(by_recency.begin(), by_recency.end(), [&](const OnAir* a, const OnAir* b) {
+            return go_from_latest ? seq_of(a->uuid) > seq_of(b->uuid)
+                                  : seq_of(a->uuid) < seq_of(b->uuid);
+        });
         std::lock_guard lock{mutex_};
-        for (const auto& e : on_air) {
-            const auto n = resolve_next_item_locked(e.uuid);
+        for (const auto* e : by_recency) {
+            const auto n = resolve_next_item_locked(e->uuid);
             if (!n.empty()) { next_uuid = n; next_source = "auto"; break; }
         }
     }
@@ -3783,20 +5251,63 @@ json ProjectState::state_summary() const {
     }
 
     // Cart bindings, decorated with the bound item's name, colour + live state.
+    // `slot` is the raw slot number POST /api/transport/cart/<slot>/play takes;
+    // `page` (position in the tab strip) and `cart` (position on that page) are
+    // what /api/transport/cart/<page>/<cart>/play takes, and `address` is the
+    // two joined. A slot no page shows (its page was removed, or shrunk below
+    // it) is left out: nothing can fire it. A cart bound to a whole playlist
+    // tab carries the tab's name and colour and plays while any of its cues do.
     json cart = json::array();
+    const auto on_air_has = [&](const std::string& uuid) {
+        return std::any_of(on_air.begin(), on_air.end(),
+                           [&](const OnAir& e){ return e.uuid == uuid; });
+    };
     for (const auto& c : cart_bindings) {
         const int slot = c.value("slot", -1);
         const std::string uuid = c.value("itemUuid", std::string{});
         if (slot < 0 || uuid.empty()) continue;
-        json entry{{"slot", slot}, {"itemUuid", uuid}};
-        if (auto it = facts.find(uuid); it != facts.end()) {
-            entry["name"]  = it->second.name;
-            entry["color"] = it->second.color;
+        int page_index = -1, position = -1;
+        const json* page = nullptr;
+        for (std::size_t p = 0; p < cart_pages.size(); ++p) {
+            const int base = cart_pages[p].value("slotBase", 0);
+            const int size = cart_pages[p].value("size", tabs::kDefaultCartsPerPage);
+            if (slot >= base && slot < base + size) {
+                page_index = static_cast<int>(p);
+                position   = slot - base;
+                page       = &cart_pages[p];
+                break;
+            }
         }
-        entry["playing"] = std::any_of(on_air.begin(), on_air.end(),
-                                       [&](const OnAir& e){ return e.uuid == uuid; });
+        if (!page) continue;
+        json entry{{"slot", slot}, {"itemUuid", uuid},
+                   {"page", page_index}, {"cart", position},
+                   {"address", std::to_string(page_index) + "," + std::to_string(position)},
+                   {"pageId", page->value("id", std::string{})},
+                   {"pageName", page->value("name", std::string{})}};
+        if (const std::string tab_id = tabs::tab_id_of_target(uuid); !tab_id.empty()) {
+            entry["type"]  = "tab";
+            entry["tabId"] = tab_id;
+            bool tab_playing = false;
+            if (auto t = tab_facts.find(tab_id); t != tab_facts.end()) {
+                entry["name"]  = t->second.name;
+                entry["color"] = t->second.color;
+                tab_playing = std::any_of(t->second.audio.begin(), t->second.audio.end(), on_air_has);
+            }
+            entry["playing"] = tab_playing;
+        } else {
+            if (auto it = facts.find(uuid); it != facts.end()) {
+                entry["name"]  = it->second.name;
+                entry["color"] = it->second.color;
+                entry["type"]  = it->second.type;
+            }
+            entry["playing"] = on_air_has(uuid);
+        }
         cart.push_back(std::move(entry));
     }
+    std::sort(cart.begin(), cart.end(), [](const json& a, const json& b) {
+        return std::make_pair(a.value("page", 0), a.value("cart", 0)) <
+               std::make_pair(b.value("page", 0), b.value("cart", 0));
+    });
 
     // Buses: names, levels and flags only, for Companion-style control
     // surfaces (D23: meters ride the separate `meters` WS broadcast, not
@@ -3861,26 +5372,16 @@ std::string ProjectState::go() {
 
     if (target.empty()) {
         // No override armed — derive from the currently-playing item's
-        // endBehavior, the same fallback the client's GO button uses.
-        std::vector<std::pair<std::string, audio::CueId>> pairs;
-        {
-            std::lock_guard lock{mutex_};
-            pairs.reserve(item_uuid_to_cue_.size());
-            for (const auto& [u, c] : item_uuid_to_cue_) pairs.emplace_back(u, c);
-        }
-        std::vector<std::string> on_air;
-        for (const auto& [u, c] : pairs) {
-            if (auto* pi = engine_.find_cue(c)) {
-                if (pi->stats().transport != audio::TransportState::Stopped)
-                    on_air.push_back(u);
-            }
-        }
-        {
-            std::lock_guard lock{mutex_};
-            for (const auto& u : on_air) {
-                const auto n = resolve_next_item_locked(u);
-                if (!n.empty()) { target = n; break; }
-            }
+        // endBehavior, the same fallback the client's GO button uses. With
+        // several on air the show's goContinuesFrom decides: the one fired
+        // first (the default, as 2.5 and the desktop's Up Next behave) or the
+        // one fired last — never whichever an unordered map listed first
+        // (F-19, R2-08).
+        const auto on_air = on_air_for_go();
+        std::lock_guard lock{mutex_};
+        for (const auto& u : on_air) {
+            const auto n = resolve_next_item_locked(u);
+            if (!n.empty()) { target = n; break; }
         }
     }
 
@@ -3889,6 +5390,70 @@ std::string ProjectState::go() {
     // Consume the override only after a successful trigger so a GO against a
     // not-yet-loaded item doesn't silently disarm the operator's choice.
     if (from_override) set_next_item_override("");
+    return target;
+}
+
+std::vector<std::string> ProjectState::on_air_by_recency() const {
+    std::vector<std::pair<std::string, audio::CueId>> pairs;
+    std::unordered_map<std::string, long long> seq;
+    {
+        std::lock_guard lock{mutex_};
+        pairs.reserve(item_uuid_to_cue_.size());
+        for (const auto& [u, c] : item_uuid_to_cue_) pairs.emplace_back(u, c);
+        seq = item_trigger_seq_;
+    }
+    std::vector<std::string> on_air;
+    for (const auto& [u, c] : pairs) {
+        if (auto* pi = engine_.find_cue(c)) {
+            if (pi->stats().transport != audio::TransportState::Stopped) on_air.push_back(u);
+        }
+    }
+    const auto seq_of = [&](const std::string& u) {
+        const auto it = seq.find(u);
+        return it != seq.end() ? it->second : 0LL;
+    };
+    std::stable_sort(on_air.begin(), on_air.end(), [&](const std::string& a, const std::string& b) {
+        return seq_of(a) > seq_of(b);
+    });
+    return on_air;
+}
+
+std::vector<std::string> ProjectState::on_air_for_go() const {
+    bool latest = false;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object())
+            latest = json_get_or(document_["settings"], "goContinuesFrom", std::string{}) == "latest";
+    }
+    auto on_air = on_air_by_recency();
+    if (!latest) std::reverse(on_air.begin(), on_air.end());
+    return on_air;
+}
+
+std::string ProjectState::stop_current_cue(std::optional<long long> fade_ms) {
+    // The cue fired most recently that is still going. One already leaving
+    // over its stop fade has been stopped: a second press moves on to the one
+    // before it rather than cutting it (R2-13). A paused cue counts only when
+    // nothing is sounding.
+    std::vector<std::pair<std::string, audio::TransportState>> on_air;
+    for (const auto& u : on_air_by_recency()) {
+        audio::CueId cue;
+        {
+            std::lock_guard lock{mutex_};
+            const auto it = item_uuid_to_cue_.find(u);
+            if (it == item_uuid_to_cue_.end()) continue;
+            cue = it->second;
+        }
+        if (auto* pi = engine_.find_cue(cue)) on_air.emplace_back(u, pi->stats().transport);
+    }
+    std::string target;
+    for (const auto& [u, t] : on_air)
+        if (t == audio::TransportState::Playing || t == audio::TransportState::FadingIn) { target = u; break; }
+    if (target.empty())
+        for (const auto& [u, t] : on_air)
+            if (t == audio::TransportState::Paused) { target = u; break; }
+    if (target.empty()) return {};
+    stop_item(target, fade_ms);
     return target;
 }
 
@@ -3913,6 +5478,17 @@ bool ProjectState::trigger_item(const std::string& uuid,
   // Guard the whole body: a malformed item field must never throw uncaught
   // into the network layer. 
   try {
+    // A cart bound to a whole playlist tab starts it from its first cue (#61).
+    if (tabs::is_tab_target(uuid)) {
+        std::string first;
+        {
+            std::lock_guard lock{mutex_};
+            first = tabs::first_playable_in_tab(document_, tabs::tab_id_of_target(uuid));
+        }
+        RunTabScope run{tabs::tab_id_of_target(uuid)};
+        return !first.empty() && trigger_item(first, fade_in_override_sec, exclude_from_ducking);
+    }
+
     // Look up the item's type and (for groups) startBehavior + children.
     std::string type;
     std::string start_action;
@@ -5212,6 +6788,39 @@ bool ProjectState::set_bus_dsp_live(const std::string& id, const json& dsp) {
     return true;
 }
 
+bool ProjectState::set_bus_send_live(const std::string& id, const std::string& send_id,
+                                     float level_db) {
+    BusDef     def;
+    BusRouting routing;
+    {
+        std::lock_guard lock{mutex_};
+        const auto bit = std::find_if(buses_.begin(), buses_.end(),
+                                      [&](const BusDef& b) { return b.id == id; });
+        if (bit == buses_.end()) return false;
+        def = *bit;
+        const auto rit = bus_routings_.find(id);
+        if (rit == bus_routings_.end()) return false;
+        routing = rit->second;
+    }
+    const auto send = std::find_if(def.sends.begin(), def.sends.end(),
+                                   [&](const BusDef::Send& s) { return s.id == send_id; });
+    if (send == def.sends.end() || routing.mixer.empty()) return false;
+    int  dst_width   = 2;
+    bool dst_preview = false;
+    const auto dst = resolve_bus_strip(send_id, nullptr, &dst_width, &dst_preview);
+    if (dst.empty() || dst_preview) return false;
+
+    // Not written back to buses_, as pan and DSP are not. Re-issuing the send
+    // replaces it in place (see wire_bus_sends), so the level moves without
+    // a gap, by the same law and clamp patch_bus applies.
+    auto gains = bus_to_bus_lane_gains(def, dst_width);
+    for (auto& g : gains) g.gain_db += std::clamp(level_db, -120.0f, 12.0f);
+    if (!engine_.set_mixer_send_gains_live(routing.mixer, dst, gains)) {
+        engine_.route_mixer_send(routing.mixer, dst, send->pre_fader, gains);
+    }
+    return true;
+}
+
 bool ProjectState::set_bus_pan_live(const std::string& id, float pan) {
     BusDef     def;
     BusRouting routing;
@@ -6011,9 +7620,85 @@ std::optional<BusDef> ProjectState::create_bus(const json& spec, PatchBusResult*
     return d;
 }
 
+namespace {
+// Where a bus patch writes, as JSON pointers: objects are walked into, and
+// anything else (a level, a flag, the whole sends list) is one place.
+void patch_leaves(const json& patch, const json::json_pointer& at,
+                  std::vector<json::json_pointer>& out) {
+    if (!patch.is_object()) { out.push_back(at); return; }
+    for (const auto& [key, value] : patch.items()) patch_leaves(value, at / key, out);
+}
+
+// Whether two pointers are the same place, or one lies inside the other.
+bool pointers_overlap(const std::string& a, const std::string& b) {
+    const auto inside = [](const std::string& in, const std::string& of) {
+        return in.size() > of.size() && in.compare(0, of.size(), of) == 0 && in[of.size()] == '/';
+    };
+    return a == b || inside(a, b) || inside(b, a);
+}
+} // namespace
+
 ProjectState::PatchBusResult ProjectState::patch_bus(const std::string& id,
                                                      const json& patch,
                                                      std::string* materialised_output) {
+    const PatchBusResult r = apply_bus_patch(id, patch, materialised_output);
+    if (r != PatchBusResult::Ok || !patch.is_object()) return r;
+    // The operator set these, so they are the show's again: saved as they are,
+    // whatever an event did to them before.
+    std::vector<json::json_pointer> leaves;
+    patch_leaves(patch, json::json_pointer{}, leaves);
+    std::lock_guard lock{mutex_};
+    const auto it = event_bus_overrides_.find(id);
+    if (it == event_bus_overrides_.end()) return r;
+    for (const auto& leaf : leaves) {
+        const std::string set = leaf.to_string();
+        for (auto o = it->second.begin(); o != it->second.end();)
+            o = pointers_overlap(o->first, set) ? it->second.erase(o) : std::next(o);
+    }
+    if (it->second.empty()) event_bus_overrides_.erase(it);
+    return r;
+}
+
+ProjectState::PatchBusResult ProjectState::patch_bus_from_event(const std::string& id,
+                                                                const json& patch) {
+    std::vector<json::json_pointer> leaves;
+    if (patch.is_object()) patch_leaves(patch, json::json_pointer{}, leaves);
+    std::vector<std::string> recorded;
+    {
+        std::lock_guard lock{mutex_};
+        const json* bus = nullptr;
+        if (document_.contains("buses") && document_["buses"].is_array())
+            for (const auto& b : document_["buses"])
+                if (b.is_object() && b.value("id", std::string{}) == id) { bus = &b; break; }
+        if (bus) {
+            auto& overrides = event_bus_overrides_[id];
+            for (const auto& leaf : leaves) {
+                // Only the first event to move a field records it: a second
+                // would record the first one's value as the operator's.
+                const std::string at = leaf.to_string();
+                if (overrides.count(at)) continue;
+                overrides[at] = bus->contains(leaf) ? std::optional<json>{bus->at(leaf)}
+                                                    : std::nullopt;
+                recorded.push_back(at);
+            }
+            if (overrides.empty()) event_bus_overrides_.erase(id);
+        }
+    }
+    const PatchBusResult r = apply_bus_patch(id, patch, nullptr);
+    if (r != PatchBusResult::Ok && !recorded.empty()) {
+        // Refused, so nothing moved: nothing to keep from the save.
+        std::lock_guard lock{mutex_};
+        if (auto it = event_bus_overrides_.find(id); it != event_bus_overrides_.end()) {
+            for (const auto& at : recorded) it->second.erase(at);
+            if (it->second.empty()) event_bus_overrides_.erase(it);
+        }
+    }
+    return r;
+}
+
+ProjectState::PatchBusResult ProjectState::apply_bus_patch(const std::string& id,
+                                                           const json& patch,
+                                                           std::string* materialised_output) {
     if (materialised_output) materialised_output->clear();
     std::string to_materialise;
     std::string materialise_device;   // the real, present name it refers to
@@ -6745,7 +8430,8 @@ audio::MixerChannelId ProjectState::mixer_for_bus(const std::string& bus_id) con
     return it == bus_routings_.end() ? audio::MixerChannelId{} : it->second.mixer;
 }
 
-bool ProjectState::start_preview(const std::string& item_uuid) {
+bool ProjectState::start_preview(const std::string& item_uuid,
+                                 std::optional<double> start_seconds) {
     if (item_uuid.empty()) return false;
 
     // 1. Resolve the source file and the strip to audition it on, under the
@@ -6756,17 +8442,24 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
     double in_point  = 0.0;
     double out_point = 0.0;
     float  gain_db   = 0.0f;
+    json   item_snapshot;   // for the volume automation, applied once loaded
     audio::MixerChannelId preview_mixer;
+    // What the item names; the file is found once the lock is released, as
+    // finding it stats the filesystem (#21).
+    json media_ref;
+    std::string folder;
     {
         std::lock_guard lock{mutex_};
+        folder = json_get_or(document_, "folderPath", std::string{});
         for_each_item(document_,
             [&](json& it, const std::string&) {
                 if (it.value("uuid", std::string{}) != item_uuid) return;
-                auto p = resolve_media_path(
-                    it, document_.value("folderPath", std::string{}));
-                if (!p.empty()) file_path = std::move(p);
+                media_ref = json{{"mediaPath", json_get_or(it, "mediaPath", std::string{})},
+                                 {"mediaServerPath", json_get_or(it, "mediaServerPath", std::string{})}};
                 in_point  = it.value("inPoint", 0.0);
                 out_point = it.value("outPoint", 0.0);
+                if (it.contains("volumeAutomation"))
+                    item_snapshot["volumeAutomation"] = it["volumeAutomation"];
                 // The item's own level, same 0..2 linear field playback uses.
                 // Auditioning is meant to answer "what will this sound like
                 // when I fire it", and a preview that ignored the trim you
@@ -6780,6 +8473,7 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
             });
         preview_mixer = mixer_for_bus(preview_bus_id_locked());
     }
+    if (media_ref.is_object()) file_path = resolve_media_path(media_ref, folder);
     if (file_path.empty()) {
         Logger::warn("preview: item '{}' has no resolvable file path", item_uuid);
         return false;
@@ -6829,7 +8523,17 @@ bool ProjectState::start_preview(const std::string& item_uuid) {
         // The trim, too: the preview card counts down to the out-point, and an
         // audition that ran on past it played audio the show never will.
         pi->set_out_point_seconds(out_point);
-        pi->prime(audio::kPrimeSeconds, in_point);
+        // The automation, though: it is part of "what this will sound like".
+        apply_item_envelope(*pi, item_snapshot);
+        // "Preview from cursor" starts where the operator put the cursor,
+        // anywhere in the file (an out-point before it is ignored: the
+        // audition plays to the end of the file instead of stopping at once).
+        double from = in_point;
+        if (start_seconds) {
+            from = std::max(0.0, *start_seconds);
+            if (out_point > 0.0 && from >= out_point) pi->set_out_point_seconds(0.0);
+        }
+        pi->prime(audio::kPrimeSeconds, from);
     }
     engine_.play(cue_id);
 
@@ -6919,8 +8623,13 @@ audio::CueId ProjectState::current_preview_cue_id() const {
 // ---------------------------------------------------------------------------
 // Cart slot bindings
 // ---------------------------------------------------------------------------
+bool ProjectState::cart_slot_is_shown(int slot) const {
+    std::lock_guard lock{mutex_};
+    return tabs::slot_is_shown(document_, slot);
+}
+
 bool ProjectState::set_cart_slot(int slot, const std::string& item_uuid) {
-    if (slot < 0 || slot >= 64) return false;
+    if (slot < 0 || slot >= tabs::kCartSlotCount) return false;
     std::lock_guard lock{mutex_};
     if (!document_.contains("cartItems") || !document_["cartItems"].is_array()) {
         document_["cartItems"] = json::array();
@@ -6938,6 +8647,133 @@ bool ProjectState::set_cart_slot(int slot, const std::string& item_uuid) {
         {"index",    json::array({-1, slot})},
     });
     return true;
+}
+
+std::string ProjectState::cart_item_at(int page, int cart) const {
+    std::optional<int> slot;
+    {
+        std::lock_guard lock{mutex_};
+        slot = tabs::slot_of(document_, page, cart);
+    }
+    return slot ? cart_slot_item_uuid(*slot) : std::string{};
+}
+
+std::string ProjectState::cart_item_at_slot(int slot) const {
+    {
+        std::lock_guard lock{mutex_};
+        if (!tabs::slot_is_shown(document_, slot)) return {};
+    }
+    return cart_slot_item_uuid(slot);
+}
+
+json ProjectState::project_tabs() const {
+    std::lock_guard lock{mutex_};
+    return json{
+        {"playlistTabs", document_.value("playlistTabs", json::array())},
+        {"cartPages",    document_.value("cartPages",    json::array())},
+        {"limits",       tabs::limits()},
+    };
+}
+
+json ProjectState::set_project_tabs(const json& patch, std::vector<int>* removed_slots) {
+    {
+        std::lock_guard lock{mutex_};
+        for (const char* key : {"playlistTabs", "cartPages"}) {
+            if (patch.contains(key)) document_[key] = patch[key];
+        }
+        tabs::normalise(document_);
+        // A page that is gone takes its carts with it (F-18). Left behind,
+        // they waited in the page's block of slot numbers, and the next new
+        // page, given that block, showed them again. The desktop deletes them
+        // itself; this covers every other client of the route.
+        if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
+            auto& arr = document_["cartItems"];
+            for (auto it = arr.begin(); it != arr.end();) {
+                const int slot = it->is_object() ? json_get_or(*it, "slot", -1) : -1;
+                if (slot >= 0 && !tabs::slot_in_some_page(document_, slot)) {
+                    if (removed_slots) removed_slots->push_back(slot);
+                    it = arr.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if (document_.contains("cartPinnedKeys"))
+                document_["cartPinnedKeys"] = clean_pinned_keys(document_["cartPinnedKeys"], arr);
+        }
+    }
+    return project_tabs();
+}
+
+json ProjectState::cart_keys() const {
+    std::lock_guard lock{mutex_};
+    return json{{"cartSlotKeys", document_.value("cartSlotKeys", json::object())},
+                {"cartPinnedKeys", document_.value("cartPinnedKeys", json::object())}};
+}
+
+json ProjectState::set_cart_keys(const json& patch) {
+    {
+        std::lock_guard lock{mutex_};
+        if (patch.contains("cartSlotKeys"))
+            document_["cartSlotKeys"] = clean_slot_keys(patch["cartSlotKeys"]);
+        if (patch.contains("cartPinnedKeys"))
+            document_["cartPinnedKeys"] = clean_pinned_keys(
+                patch["cartPinnedKeys"], document_.value("cartItems", json::array()));
+    }
+    return cart_keys();
+}
+
+json ProjectState::drop_pins_without_carts() {
+    std::lock_guard lock{mutex_};
+    if (!document_.contains("cartPinnedKeys")) return nullptr;
+    json clean = clean_pinned_keys(document_["cartPinnedKeys"],
+                                   document_.value("cartItems", json::array()));
+    if (clean == document_["cartPinnedKeys"]) return nullptr;
+    document_["cartPinnedKeys"] = clean;
+    return clean;
+}
+
+json ProjectState::cart_pages() const {
+    std::lock_guard lock{mutex_};
+    json& doc = const_cast<json&>(document_);
+    std::unordered_map<std::string, std::string> names;
+    for_each_item(doc, [&](json& it, const std::string&) {
+        names[it.value("uuid", std::string{})] = it.value("displayName", std::string{});
+    });
+    if (const json* show_tabs = tabs::tab_list(document_)) {
+        for (const auto& t : *show_tabs) {
+            names[std::string{tabs::kTabTargetPrefix} + t.value("id", std::string{})] =
+                t.value("name", std::string{});
+        }
+    }
+    json out = json::array();
+    int index = 0;
+    for (const auto& page : tabs::pages_or_default(document_)) {
+        const int base = page.value("slotBase", 0);
+        const int size = page.value("size", tabs::kDefaultCartsPerPage);
+        json carts = json::array();
+        if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
+            for (const auto& c : document_["cartItems"]) {
+                if (!c.is_object()) continue;
+                const int slot = c.value("slot", -1);
+                if (slot < base || slot >= base + size) continue;
+                const std::string uuid = c.value("itemUuid", std::string{});
+                const auto name = names.find(uuid);
+                carts.push_back(json{{"cart", slot - base}, {"address", std::to_string(index) + "," +
+                                                                        std::to_string(slot - base)},
+                                     {"itemUuid", uuid},
+                                     {"name", name != names.end() ? name->second : std::string{}}});
+            }
+        }
+        std::sort(carts.begin(), carts.end(), [](const json& a, const json& b) {
+            return a.value("cart", 0) < b.value("cart", 0);
+        });
+        json entry{{"page", index}, {"id", page.value("id", std::string{})},
+                   {"name", page.value("name", std::string{})}, {"size", size}, {"carts", std::move(carts)}};
+        if (page.contains("color")) entry["color"] = page["color"];
+        out.push_back(std::move(entry));
+        ++index;
+    }
+    return out;
 }
 
 bool ProjectState::clear_cart_slot(int slot) {
@@ -7008,7 +8844,8 @@ void ProjectState::set_user_meter_modes(std::vector<std::string> modes) {
 // Settings patches
 // ---------------------------------------------------------------------------
 bool ProjectState::patch_settings(const json&               patch,
-                                  std::vector<std::string>* dropped_out) {
+                                  std::vector<std::string>* dropped_out,
+                                  bool                      from_event) {
     if (!patch.is_object()) return false;
     std::vector<std::string> dropped;
     bool ltc_output_changed      = false;
@@ -7065,6 +8902,21 @@ bool ProjectState::patch_settings(const json&               patch,
             // meter gate: it sets the unit this show implies, and since U4
             // that is all the document says about metering.
             if (key == "outputTarget") meter_gate_changed = true;
+            if (from_event) {
+                // The first event to move a key records the operator's value;
+                // a second would record the first one's.
+                if (!event_settings_overrides_.count(key)) {
+                    const auto& s = document_["settings"];
+                    event_settings_overrides_[key] = s.contains(key)
+                        ? std::optional<json>{s[key]} : std::nullopt;
+                }
+            } else if (!(document_["settings"].contains(key) &&
+                         document_["settings"][key] == *accepted)) {
+                // The operator changed it, so it is the show's again. (The
+                // desktop sends its whole settings object on every edit, so an
+                // unchanged value is just the event's value coming back.)
+                event_settings_overrides_.erase(key);
+            }
             document_["settings"][key] = *accepted;
         }
         // outputTargetLevels is derived, so it is never stored — full_document()
@@ -7181,14 +9033,22 @@ json ProjectState::upgrade_legacy_document(const json& legacy) const {
     return out;
 }
 
-bool ProjectState::load_from_json(const json& doc_in) {
+bool ProjectState::load_from_json(const json& doc_in, bool from_disk) {
     // The .liveplay format the Electron client writes today is camelCase and
     // hierarchical (items → groups → audio items). Detect that flavour and
     // store the full document for the client to read back via /api/project.
     // The engine-facing tables (cues_/mixers_/routes_) get populated by
-    // mirror_items_to_engine_locked() so audio playback works as before.
+    // the load thread (start_async_mirror) so audio playback works as before.
     if (is_client_document(doc_in)) {
-        // Run repair before taking the lock — it's pure document transformation.
+        // Another show, so nothing the old one set going carries on: not a
+        // marker it scheduled, not a fade it started (see reset()). Its running
+        // items go first: the sequencer would otherwise see their cues vanish
+        // and fire their end events into the show being opened.
+        //
+        // The new document is prepared first (repair, upgrade, credentials
+        // opened): a file that turns out to be unreadable halfway must leave
+        // the running show exactly as it was, cues, markers and advances
+        // included.
         json doc_repaired = doc_in;
         RepairInfo repair = detect_and_repair(doc_repaired);
         if (repair.repaired) {
@@ -7197,9 +9057,27 @@ bool ProjectState::load_from_json(const json& doc_in) {
             for (const auto& issue : repair.issues)
                 Logger::warn("  - {}", issue);
         }
+        // Credentials were sealed for disk with this machine's key, bound to
+        // where they go; what was sealed elsewhere, or for another address,
+        // stays sealed and asks for a sign-in. A document from a request body
+        // was copied out of a file at best: its sealed values are never opened
+        // (R2-02), only shown as missing.
+        if (from_disk) {
+            secrets::ensure_key(/*create=*/false);
+            open_secrets(doc_repaired);
+        } else {
+            neutralise_sealed(doc_repaired);
+        }
+
+        forget_sequenced_items();
+        if (events_) {
+            events_->cancel_all();
+            events_->reset_plugins();
+        }
 
         {
             std::lock_guard lock{mutex_};
+            event_bus_overrides_.clear();   // the old show's
             // Unload any previously-loaded engine cues so we start clean.
             for (auto& [_, id] : item_uuid_to_cue_) engine_.unload_cue(id);
             item_uuid_to_cue_.clear();
@@ -7213,7 +9091,10 @@ bool ProjectState::load_from_json(const json& doc_in) {
             // reclaimed — see release_device_routings_locked().
             release_device_routings_locked();
 
+            event_settings_overrides_.clear();
             document_ = std::move(doc_repaired);
+            connection_auth_.clear();
+            refresh_connection_auth_locked();
             // Read the incoming document's buses (settling the roles, synthesising if
             // it predates them) and write them back so the shape is canonical
             // from here on. Strips are created after the lock is released.
@@ -7409,7 +9290,7 @@ bool ProjectState::load(const std::filesystem::path& path) {
         if (path.has_parent_path() && doc.is_object()) {
             doc["folderPath"] = util::path_to_utf8(path.parent_path());
         }
-        const bool ok = load_from_json(doc);
+        const bool ok = load_from_json(doc, /*from_disk=*/true);
         if (ok) {
             // Adopting the path re-anchors folderPath and media_root_ onto the
             // file's real location (see set_project_file_path).
@@ -7418,8 +9299,43 @@ bool ProjectState::load(const std::filesystem::path& path) {
             // folderPath points at the file's real location: drops stale
             // absolute mediaServerPaths so the document served to clients (and
             // written on the next save) stays portable across moves.
+            //
+            // On a copy, outside the lock: it stats and canonicalises every
+            // path, which a dead share makes ~21 s per server (#21). The three
+            // fields it rewrites go back by uuid, to items that haven't
+            // changed them meanwhile.
+            json copy;
+            {
+                std::lock_guard lock{mutex_};
+                copy = document_;
+            }
+            static constexpr const char* kFields[] = {"mediaPath", "mediaServerPath", "waveformPath"};
+            const auto fields_of = [](const json& item) {
+                json f = json::object();
+                for (const char* k : kFields) if (item.contains(k)) f[k] = item[k];
+                return f;
+            };
+            std::unordered_map<std::string, json> before, after;
+            for_each_item(copy, [&](json& it, const std::string&) {
+                const std::string u = json_get_or(it, "uuid", std::string{});
+                if (!u.empty()) before[u] = fields_of(it);
+            });
+            relativize_media_paths(copy);
+            for_each_item(copy, [&](json& it, const std::string&) {
+                const std::string u = json_get_or(it, "uuid", std::string{});
+                if (!u.empty()) after[u] = fields_of(it);
+            });
             std::lock_guard lock{mutex_};
-            relativize_media_paths(document_);
+            for_each_item(document_, [&](json& it, const std::string&) {
+                const std::string u = json_get_or(it, "uuid", std::string{});
+                const auto b = before.find(u), a = after.find(u);
+                if (b == before.end() || a == after.end() || b->second == a->second) return;
+                if (fields_of(it) != b->second) return;   // changed meanwhile: theirs
+                for (const char* k : kFields) {
+                    if (a->second.contains(k)) it[k] = a->second[k];
+                    else it.erase(k);
+                }
+            });
         }
         return ok;
     } catch (const std::exception& ex) {
@@ -7455,6 +9371,260 @@ RepairInfo ProjectState::repair_project() {
         Logger::info("ProjectState::repair_project: {} issue(s) repaired.", info.issues.size());
     }
     return info;
+}
+
+namespace {
+// A string field, or "" when it is absent or not a string. json::value()
+// throws on a type mismatch, and these run on every client's poll.
+std::string string_field(const json& j, const char* key) {
+    const auto it = j.find(key);
+    return it != j.end() && it->is_string() ? it->get<std::string>() : std::string{};
+}
+
+// The file name an audio item refers to: mediaFileName, else the last
+// component of mediaPath / mediaServerPath.
+std::string item_media_file_name(const json& item) {
+    std::string name = string_field(item, "mediaFileName");
+    if (!name.empty()) return name;
+    for (const char* key : {"mediaPath", "mediaServerPath"}) {
+        const std::string p = string_field(item, key);
+        if (!p.empty()) return util::path_to_utf8(util::utf8_to_path(p).filename());
+    }
+    return {};
+}
+
+std::string ascii_lower(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return s;
+}
+
+// An audio item's media reference, copied out of the document so its file can
+// be checked with mutex_ released.
+struct MediaRef {
+    std::string uuid, display_name, file_name, media_path, server_path;
+};
+
+MediaRef media_ref_of(const json& item) {
+    return MediaRef{
+        string_field(item, "uuid"),
+        string_field(item, "displayName"),
+        item_media_file_name(item),
+        string_field(item, "mediaPath"),
+        string_field(item, "mediaServerPath"),
+    };
+}
+
+// Items naming the same file in the same project share one check.
+std::string media_ref_key(const std::string& folder, const MediaRef& r) {
+    return folder + '\n' + r.media_path + '\n' + r.server_path;
+}
+
+// Media reference -> its file is missing. This is the slow part: never call
+// it with mutex_ held.
+std::unordered_map<std::string, bool> check_media_refs(const std::string& folder,
+                                                       const std::vector<MediaRef>& refs) {
+    std::unordered_map<std::string, bool> missing_by_ref;
+    for (const auto& r : refs) {
+        auto key = media_ref_key(folder, r);
+        if (missing_by_ref.count(key)) continue;
+        const json item{{"mediaPath", r.media_path}, {"mediaServerPath", r.server_path}};
+        const auto path = resolve_media_path(item, folder);
+        std::error_code ec;
+        missing_by_ref.emplace(std::move(key),
+                               path.empty() || !std::filesystem::exists(path, ec));
+    }
+    return missing_by_ref;
+}
+
+// missing_media()'s entries: the refs a check found missing. A ref the check
+// hasn't seen (added or relinked since it started) isn't reported.
+json missing_entries(const std::string& folder, const std::vector<MediaRef>& refs,
+                     const std::unordered_map<std::string, bool>& missing_by_ref) {
+    json out = json::array();
+    for (const auto& r : refs) {
+        const auto it = missing_by_ref.find(media_ref_key(folder, r));
+        if (it == missing_by_ref.end() || !it->second) continue;
+        out.push_back(json{
+            {"uuid",          r.uuid},
+            {"displayName",   r.display_name},
+            {"mediaFileName", r.file_name},
+            {"mediaPath",     r.media_path},
+        });
+    }
+    return out;
+}
+} // namespace
+
+json ProjectState::missing_media() const {
+    // How long a poll waits for a scan, when it waits at all. Local disks
+    // finish well inside it. This runs on a Crow I/O thread, which every
+    // connection pinned to it shares (WebSockets and GOs included), so past it
+    // the poll answers from the last finished scan.
+    constexpr auto kMaxWait = std::chrono::milliseconds(250);
+
+    std::string folder;
+    std::vector<MediaRef> refs;
+    {
+        std::lock_guard lock{mutex_};
+        folder = string_field(document_, "folderPath");
+        // for_each_item only walks; nothing below writes to the document.
+        for_each_item(const_cast<json&>(document_), [&](json& item, const std::string&) {
+            if (string_field(item, "type") == "audio") refs.push_back(media_ref_of(item));
+        });
+    }
+
+    // One scan at a time, so polls can't pile up behind a dead mount. Each poll
+    // starts one unless one is running. It waits only when the last scan
+    // hasn't seen some reference yet (a new show, media added or relinked);
+    // otherwise it answers from that scan and the new one serves the next poll.
+    const auto scan = media_scan_;
+    std::unique_lock lk{scan->m};
+    const std::uint64_t wanted = scan->finished + 1;
+    const bool all_seen = std::all_of(refs.begin(), refs.end(), [&](const MediaRef& r) {
+        return scan->missing_by_ref.count(media_ref_key(folder, r)) > 0;
+    });
+    if (!scan->running) {
+        try {
+            std::thread([scan, folder, refs] {
+                std::unordered_map<std::string, bool> found;
+                bool ok = true;
+                try {
+                    found = check_media_refs(folder, refs);
+                } catch (const std::exception& e) {
+                    ok = false;
+                    Logger::warn("missing_media: scan failed: {}", e.what());
+                }
+                std::lock_guard g{scan->m};
+                if (ok) scan->missing_by_ref = std::move(found);
+                ++scan->finished;
+                scan->running = false;
+                scan->cv.notify_all();
+            }).detach();
+            // The thread can't finish before this: it needs scan->m, held here.
+            scan->running = true;
+            scan->waited_out = false;
+        } catch (const std::system_error& e) {
+            Logger::warn("missing_media: could not start a scan: {}", e.what());
+        }
+    }
+    // Once one poll has waited the scan out, it is slow (a dead share) or stuck
+    // (an NFS hard mount); making every later poll wait too buys nothing.
+    if (scan->running && !all_seen && !scan->waited_out &&
+        !scan->cv.wait_for(lk, kMaxWait, [&] { return scan->finished >= wanted; }))
+        scan->waited_out = true;
+    return missing_entries(folder, refs, scan->missing_by_ref);
+}
+
+json ProjectState::locate_missing_media(const std::filesystem::path& folder,
+                                        bool recursive) {
+    namespace fs = std::filesystem;
+    json result{{"relinked", json::array()}, {"missing", json::array()}};
+
+    std::string project_folder;
+    std::vector<MediaRef> refs;
+    fs::path media_dir;
+    {
+        std::lock_guard lock{mutex_};
+        project_folder = string_field(document_, "folderPath");
+        for_each_item(const_cast<json&>(document_), [&](json& item, const std::string&) {
+            if (string_field(item, "type") == "audio") refs.push_back(media_ref_of(item));
+        });
+        media_dir = media_root_;
+    }
+    // A fresh check on this thread rather than the poll's: a relink should act
+    // on what is missing now, and walking a folder is slow anyway.
+    json missing = missing_entries(project_folder, refs,
+                                   check_media_refs(project_folder, refs));
+    if (missing.empty()) return result;
+
+    // Index the folder by lower-cased file name; the shallowest match wins
+    // because the iterator visits a directory's files before its subfolders'.
+    // Capped so pointing it at a drive root can't stall the request forever.
+    std::unordered_map<std::string, fs::path> by_name;
+    std::unordered_set<std::string> wanted;
+    for (const auto& m : missing)
+        wanted.insert(ascii_lower(m.value("mediaFileName", std::string{})));
+    constexpr std::size_t kMaxEntries = 200000;
+    std::size_t seen = 0;
+    const auto consider = [&](const fs::directory_entry& e) {
+        std::error_code ec;
+        if (!e.is_regular_file(ec)) return;
+        const auto key = ascii_lower(util::path_to_utf8(e.path().filename()));
+        if (wanted.count(key)) by_name.emplace(key, e.path());
+    };
+    std::error_code ec;
+    const auto opts = fs::directory_options::skip_permission_denied;
+    if (recursive) {
+        for (fs::recursive_directory_iterator it{folder, opts, ec}, end;
+             !ec && it != end && seen < kMaxEntries; it.increment(ec), ++seen)
+            consider(*it);
+    } else {
+        for (fs::directory_iterator it{folder, opts, ec}, end;
+             !ec && it != end && seen < kMaxEntries; it.increment(ec), ++seen)
+            consider(*it);
+    }
+    if (seen >= kMaxEntries)
+        Logger::warn("locate_missing_media: stopped scanning '{}' after {} entries",
+                     util::path_to_utf8(folder), kMaxEntries);
+
+    std::error_code fec;
+    const fs::path project_base = project_folder.empty()
+        ? fs::path{}
+        : fs::weakly_canonical(util::utf8_to_path(project_folder), fec);
+
+    // Relative "a/b.wav" form of `p` when it lies inside the project folder.
+    const auto inside_project = [&](const fs::path& p) -> std::optional<std::string> {
+        if (project_base.empty()) return std::nullopt;
+        std::error_code e1, e2;
+        const auto canon = fs::weakly_canonical(p, e1);
+        const auto rel   = fs::relative(e1 ? p : canon, project_base, e2);
+        if (e2 || rel.empty() || *rel.begin() == fs::path("..")) return std::nullopt;
+        std::string s = util::path_to_utf8(rel);
+        std::replace(s.begin(), s.end(), '\\', '/');
+        return s;
+    };
+
+    for (const auto& m : missing) {
+        const std::string uuid = m.value("uuid", std::string{});
+        const auto hit = by_name.find(ascii_lower(m.value("mediaFileName", std::string{})));
+        if (hit == by_name.end()) { result["missing"].push_back(m); continue; }
+
+        try {
+            fs::path dest = hit->second;
+            auto rel = inside_project(dest);
+            if (!rel) {
+                // Outside the project: copy it in, never overwriting a
+                // different file that already has the name.
+                fs::create_directories(media_dir);
+                const auto src_name = hit->second.filename();
+                dest = media_dir / src_name;
+                for (int n = 2; fs::exists(dest) && !fs::equivalent(dest, hit->second); ++n) {
+                    dest = media_dir / util::utf8_to_path(
+                        util::path_to_utf8(src_name.stem()) + " (" + std::to_string(n) + ")" +
+                        util::path_to_utf8(src_name.extension()));
+                }
+                if (!fs::exists(dest)) fs::copy_file(hit->second, dest);
+                rel = inside_project(dest);
+            }
+            json patch{
+                {"mediaFileName",   util::path_to_utf8(dest.filename())},
+                {"mediaPath",       rel ? *rel : util::path_to_utf8(dest)},
+                {"mediaServerPath", util::path_to_utf8(dest)},
+            };
+            if (update_item(uuid, patch)) {
+                result["relinked"].push_back(json{{"uuid", uuid}, {"patch", patch}});
+                Logger::info("locate_missing_media: relinked '{}' -> '{}'",
+                             uuid, util::path_to_utf8(dest));
+            } else {
+                result["missing"].push_back(m);
+            }
+        } catch (const std::exception& e) {
+            Logger::warn("locate_missing_media: '{}' failed: {}", uuid, e.what());
+            result["missing"].push_back(m);
+        }
+    }
+    return result;
 }
 
 void ProjectState::apply_to_engine_locked() {
@@ -7546,6 +9716,17 @@ void ProjectState::sequencer_loop() {
     constexpr double kSeamlessLeadSec =
         2.0 * std::chrono::duration<double>(kPollInterval).count();
 
+    // Event markers (#84) due within this much of the playhead are handed to
+    // the dispatcher with a delay, so they fire on their mark instead of on
+    // the next pass: 1.5 polls, so a marker is always seen one pass early.
+    constexpr double kEventLookaheadSec =
+        1.5 * std::chrono::duration<double>(kPollInterval).count();
+    // A playhead that moved back by more than this between passes looped or
+    // was sought; forward by more than this, it was sought (one pass moves it
+    // one poll, and a stalled pass a few).
+    constexpr double kEventJumpSec = 0.25;
+    constexpr double kEventSeekSec = 1.0;
+
     while (sequencer_running_.load(std::memory_order_acquire)) {
         std::this_thread::sleep_for(kPollInterval);
         if (!sequencer_running_.load(std::memory_order_acquire)) break;
@@ -7566,14 +9747,74 @@ void ProjectState::sequencer_loop() {
                                  // start next item a hair before out-point so
                                  // there's no audible gap; current plays its tail
                 Cleanup,       // cue gone; restore ducking, no end behavior
-                CustomAction,  // fire one of the item's customActions
             } kind;
-            json custom_action;  // populated only for Kind::CustomAction
         };
         std::vector<PendingAction> pending;
+        // Events (#84) found this pass, and items whose scheduled-ahead
+        // markers are void (paused, stopped, or the playhead jumped).
+        std::vector<EventFire>   event_fires;
+        std::vector<std::string> event_cancels;
 
+        // Watch one item's transport and playhead for its events. Runs every
+        // pass, before any check that might `continue`, so a pause or a stop
+        // is seen whatever else the item is doing.
+        const auto track_events = [&](SequencedItem& si, audio::TransportState ts,
+                                      double pos) {
+            const auto running = [](audio::TransportState t) {
+                return t == audio::TransportState::Playing ||
+                       t == audio::TransportState::FadingIn ||
+                       t == audio::TransportState::FadingOut;
+            };
+            const bool was_running = running(si.last_transport);
+            const bool is_running  = running(ts);
+            if (si.last_pos >= 0.0) {
+                if (was_running && ts == audio::TransportState::Paused) {
+                    collect_event_fires(si, "pause", event_fires);
+                    event_cancels.push_back(si.uuid);
+                } else if (si.last_transport == audio::TransportState::Paused && is_running) {
+                    collect_event_fires(si, "resume", event_fires);
+                } else if ((was_running || si.last_transport == audio::TransportState::Paused) &&
+                           ts == audio::TransportState::Stopped && !si.end_fired) {
+                    // Stopped without the sequencer's say-so (Stop All, an
+                    // engine-level stop): it ended all the same.
+                    si.end_fired = true;
+                    collect_event_fires(si, "end", event_fires);
+                    event_cancels.push_back(si.uuid);
+                }
+                if (pos + kEventJumpSec < si.last_pos) {
+                    // Looped or sought back: what's ahead of the playhead plays
+                    // again, so it fires again (a once-per-play marker that
+                    // already fired doesn't).
+                    event_cancels.push_back(si.uuid);
+                    for (auto& ev : si.events)
+                        if (ev.trigger == "time" && !(ev.once && ev.triggered))
+                            ev.triggered = ev.time < pos - 1e-3;
+                } else if (pos > si.last_pos + kEventSeekSec) {
+                    // Sought forward: markers jumped over did not play.
+                    for (auto& ev : si.events)
+                        if (ev.trigger == "time" && ev.time < pos - 1e-3) ev.triggered = true;
+                }
+            }
+            si.last_transport = ts;
+            si.last_pos       = pos;
+            // Fading out under Stop All still counts as running, but the
+            // operator has stopped the show: its markers don't fire.
+            if (!is_running || si.stopped_by_stop_all) return;
+            // Anything due before the next pass is scheduled now, for exactly
+            // when it falls due; a late pass fires overdue markers at once.
+            for (auto& ev : si.events) {
+                if (ev.trigger != "time" || ev.triggered) continue;
+                if (ev.time > pos + kEventLookaheadSec) continue;
+                ev.triggered = true;
+                event_fires.push_back({si.uuid, si.display_name, ev, "time",
+                                       std::max(0.0, ev.time - pos), false, si.marker_chain});
+            }
+        };
+
+        std::uint64_t pass_epoch = 0;
         {
             std::lock_guard slock{sequencer_mutex_};
+            pass_epoch = sequencer_epoch_.load(std::memory_order_acquire);
             for (auto& si : sequenced_items_) {
                 auto* pi = engine_.find_cue(si.cue_id);
                 if (!pi) {
@@ -7587,24 +9828,19 @@ void ProjectState::sequencer_loop() {
                     continue;
                 }
 
-                // Stop-fade completed (transport settled to Stopped).
                 const auto ts = pi->stats().transport;
-                if (ts == audio::TransportState::Stopped && si.stop_fade_triggered) {
-                    pending.push_back({si, PendingAction::Kind::StopFadeEnded});
-                    continue;
-                }
-
                 const double pos = pi->stats().playhead_seconds;
+                track_events(si, ts, pos);
 
-                // Custom-action dispatch: any action whose time_point we've
-                // crossed fires now. Snapshot the action JSON into pending so
-                // we can execute it outside the lock.
-                for (auto& sca : si.custom_actions) {
-                    if (sca.triggered) continue;
-                    if (pos < sca.time_point) continue;
-                    sca.triggered = true;
-                    pending.push_back({si, PendingAction::Kind::CustomAction,
-                                       sca.action});
+                // Stop-fade completed (transport settled to Stopped). Only a
+                // fade that reached silence ends the cue: one cut short by
+                // Stop All, a panic or another cue's stop-all ducking is a
+                // stop, and must not start the next cue.
+                if (ts == audio::TransportState::Stopped && si.stop_fade_triggered) {
+                    pending.push_back({si, pi->take_fade_out_completed() && !si.stopped_by_stop_all
+                                               ? PendingAction::Kind::StopFadeEnded
+                                               : PendingAction::Kind::Cleanup});
+                    continue;
                 }
 
                 // Start Next marker: fires once when the playhead crosses it,
@@ -7665,14 +9901,47 @@ void ProjectState::sequencer_loop() {
                     p.kind == PendingAction::Kind::StopFadeEnded ||
                     p.kind == PendingAction::Kind::Cleanup;
                 if (terminal) {
-                    sequenced_items_.erase(
-                        std::remove_if(sequenced_items_.begin(), sequenced_items_.end(),
-                            [&](const SequencedItem& x){ return x.uuid == p.item.uuid; }),
-                        sequenced_items_.end());
+                    for (auto it = sequenced_items_.begin(); it != sequenced_items_.end();) {
+                        if (it->uuid != p.item.uuid) { ++it; continue; }
+                        if (!it->end_fired) {
+                            it->end_fired = true;
+                            collect_event_fires(*it, "end", event_fires);
+                        }
+                        it = sequenced_items_.erase(it);
+                    }
                 }
                 // BeginStopFade items stay until they reach the Stopped state.
             }
         }
+
+        // Another show opened while this pass was looking at the last one:
+        // everything collected above belongs to a show that is gone.
+        if (sequencer_epoch_.load(std::memory_order_acquire) != pass_epoch) continue;
+
+        // Events first, cancels before fires: a loop both voids what was
+        // scheduled and re-schedules what is ahead in the same pass.
+        for (const auto& u : event_cancels) {
+            const auto dropped = events_->cancel_item(u);
+            if (dropped.empty()) continue;
+            // A marker the cancel caught never fired. Still ahead of the
+            // playhead, it is re-armed and resume fires it on its mark;
+            // otherwise a pause just before it came due would lose it for
+            // good. Already behind it, the audio reached it first: fire now.
+            std::lock_guard slock{sequencer_mutex_};
+            for (auto& si : sequenced_items_) {
+                if (si.uuid != u || si.stopped_by_stop_all) continue;
+                for (auto& ev : si.events)
+                    for (const auto& d : dropped) {
+                        if (d.trigger != "time" || ev.trigger != "time" ||
+                            ev.id != d.event_id || ev.time != d.time)
+                            continue;
+                        if (ev.time >= si.last_pos - 1e-3) ev.triggered = false;
+                        else event_fires.push_back({si.uuid, si.display_name, ev, "time", 0.0,
+                                                    false, si.marker_chain});
+                    }
+            }
+        }
+        dispatch_event_fires(std::move(event_fires));
 
         // Execute pending actions with the sequencer lock released. Each action
         // is wrapped so a single failure (e.g. malformed end-behaviour data)
@@ -7688,10 +9957,7 @@ void ProjectState::sequencer_loop() {
 
             case PendingAction::Kind::Crossfade: {
                 // Restore ducked gains so the new cue's ducking applies fresh.
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 // Fade out the old cue over the crossfade window.
                 if (auto* pi = engine_.find_cue(p.item.cue_id)) {
                     pi->stop_with_fade(std::chrono::milliseconds{
@@ -7719,6 +9985,7 @@ void ProjectState::sequencer_loop() {
                         Logger::playback("CROSSFADE: next item '{}' already "
                                          "on air — not restarting", next_uuid);
                     } else {
+                        RunTabScope run{p.item.run_tab};
                         trigger_item(next_uuid, p.item.crossfade_sec, p.item.cue_id);
                     }
                 }
@@ -7728,10 +9995,7 @@ void ProjectState::sequencer_loop() {
             case PendingAction::Kind::StartNext: {
                 // Restore gains this cue ducked so the incoming cue's own
                 // ducking applies fresh (mirrors the Crossfade path).
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 // Optional radio-style tail: begin fading this cue out at
                 // the marker (over its fadeOutDuration). Without it the cue
                 // simply plays on to its natural end underneath the next one.
@@ -7763,6 +10027,7 @@ void ProjectState::sequencer_loop() {
                         Logger::playback("START NEXT: next item '{}' already "
                                          "on air — not restarting", next_uuid);
                     } else {
+                        RunTabScope run{p.item.run_tab};
                         trigger_item(next_uuid, -1.0, p.item.cue_id);
                     }
                 }
@@ -7772,10 +10037,7 @@ void ProjectState::sequencer_loop() {
             case PendingAction::Kind::SeamlessAdvance: {
                 // Restore gains this cue ducked so the incoming cue's own
                 // ducking applies fresh (mirrors Crossfade / StartNext).
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 // Resolve the advance target (consumes an Up-Next override for
                 // the "next" case) and start it now. The outgoing cue keeps
                 // playing its short tail to its natural end, where it stops
@@ -7787,6 +10049,7 @@ void ProjectState::sequencer_loop() {
                         Logger::playback("SEAMLESS ADVANCE: next item '{}' already "
                                          "on air — not restarting", next_uuid);
                     } else {
+                        RunTabScope run{p.item.run_tab};
                         trigger_item(next_uuid, -1.0, p.item.cue_id);
                     }
                 }
@@ -7801,15 +10064,9 @@ void ProjectState::sequencer_loop() {
                 break;
 
             case PendingAction::Kind::Cleanup:
-                for (const auto& dk : p.item.ducked) {
-                    if (auto* pi = engine_.find_cue(dk.cue_id))
-                        pi->set_gain_db(dk.original_gain_db);
-                }
+                restore_ducked(p.item.ducked);
                 break;
 
-            case PendingAction::Kind::CustomAction:
-                execute_custom_action(p.custom_action);
-                break;
             }
           } catch (const std::exception& e) {
             Logger::warn("sequencer action (item '{}') threw: {}", p.item.uuid, e.what());
@@ -7819,85 +10076,550 @@ void ProjectState::sequencer_loop() {
 }
 
 // ---------------------------------------------------------------------------
-// Custom-action dispatcher — fired by the sequencer when an item's playhead
-// crosses a customAction.timePoint. Server-side action types are executed
-// directly; http-request is fanned out via the broadcast hook (which the
-// control server wires up so a connected client performs the actual fetch).
+// Event system (#84). The sequencer decides when an item's events fire; this
+// turns them into dispatcher jobs (connection resolved, placeholders filled).
 // ---------------------------------------------------------------------------
-void ProjectState::execute_custom_action(const json& action) {
-    if (!action.is_object()) return;
-    const std::string type = action.value("type", "");
+void ProjectState::collect_event_fires(const SequencedItem& si, const std::string& trigger,
+                                       std::vector<EventFire>& out) {
+    for (const auto& ev : si.events)
+        if (ev.trigger == trigger)
+            out.push_back({si.uuid, si.display_name, ev, trigger, 0.0, si.stopped_by_stop_all});
+}
 
-    if (type == "play-item") {
-        const auto u = action.value("uuid", std::string{});
-        if (!u.empty()) trigger_item(u);
+std::optional<events::Job> ProjectState::make_event_job_locked(
+        const events::ItemEvent& ev, const json* draft_connection,
+        events::FireContext ctx, std::string& why) const {
+    if (!events_->find(ev.plugin)) {
+        why = "unknown plugin '" + ev.plugin + "'";
+        return std::nullopt;
     }
-    else if (type == "play-index") {
-        // index is an array path through the items tree. Resolve under lock.
-        std::vector<int> idx;
-        if (action.contains("index") && action["index"].is_array()) {
-            for (const auto& v : action["index"]) {
-                if (v.is_number_integer()) idx.push_back(v.get<int>());
-            }
+    events::Job job;
+    job.plugin = ev.plugin;
+    job.action = ev.action;
+    json options = ev.options;
+    if (events_->plugin_needs_connection(ev.plugin)) {
+        const json* conn = nullptr;
+        if (draft_connection && draft_connection->is_object()) {
+            conn = draft_connection;
+        } else if (document_.contains("eventConnections") &&
+                   document_["eventConnections"].is_array()) {
+            for (const auto& c : document_["eventConnections"])
+                if (c.is_object() && c.value("id", std::string{}) == ev.connection_id) {
+                    conn = &c;
+                    break;
+                }
         }
-        std::string target_uuid;
-        {
-            std::lock_guard lock{mutex_};
-            const json* arr = document_.contains("items") ? &document_["items"] : nullptr;
-            const json* current = nullptr;
-            for (std::size_t depth = 0; depth < idx.size() && arr && arr->is_array(); ++depth) {
-                const int i = idx[depth];
-                if (i < 0 || i >= static_cast<int>(arr->size())) { current = nullptr; break; }
-                current = &(*arr)[i];
-                if (depth + 1 < idx.size()) {
-                    if (current->value("type", std::string{}) == "group" &&
-                        current->contains("children")) {
-                        arr = &(*current)["children"];
-                    } else { current = nullptr; break; }
+        if (!conn) {
+            why = ev.connection_id.empty() ? "no connection chosen" : "connection not found";
+            return std::nullopt;
+        }
+        if (!conn->value("enabled", true)) {
+            why = "connection '" + conn->value("name", std::string{}) + "' is disabled";
+            return std::nullopt;
+        }
+        if (conn->value("plugin", ev.plugin) != ev.plugin) {
+            why = "connection is for another plugin";
+            return std::nullopt;
+        }
+        job.connection_id = conn->value("id", std::string{});
+        if (conn->contains("config") && (*conn)["config"].is_object()) {
+            job.connection = events::substitute((*conn)["config"], ctx);
+            // Where a connection goes is the connection's, never a cue's: a
+            // placeholder in its address would let whoever names a cue steer
+            // the connection's credentials (R2-21).
+            if ((*conn)["config"].contains("baseUrl"))
+                job.connection["baseUrl"] = (*conn)["config"]["baseUrl"];
+        }
+        if (!ev.preset_id.empty()) {
+            const json* preset = nullptr;
+            if (conn->contains("presets") && (*conn)["presets"].is_array()) {
+                for (const auto& p : (*conn)["presets"]) {
+                    if (p.is_object() && p.value("id", std::string{}) == ev.preset_id) {
+                        preset = &p;
+                        break;
+                    }
                 }
             }
-            if (current && current->is_object())
-                target_uuid = current->value("uuid", std::string{});
+            if (!preset) {
+                why = "preset not found on this connection";
+                return std::nullopt;
+            }
+            job.action = preset->value("action", std::string{});
+            // The event's own options, if any, override single fields.
+            options = preset->contains("options") && (*preset)["options"].is_object()
+                          ? (*preset)["options"] : json::object();
+            if (ev.options.is_object()) {
+                for (auto it = ev.options.begin(); it != ev.options.end(); ++it)
+                    options[it.key()] = it.value();
+            }
         }
-        if (!target_uuid.empty()) trigger_item(target_uuid);
     }
-    else if (type == "stop-all") {
-        // Per-cue fades (not forced), as before. The audition obeys the same
-        // stopAllStopsPreview setting as the button; when it is stopped,
-        // poll_preview() notices and clears the preview state.
-        audio::CueId spare;
+    job.options = events::substitute(options, ctx);
+    job.ctx     = std::move(ctx);
+    return job;
+}
+
+void ProjectState::dispatch_event_fires(std::vector<EventFire> fires) {
+    if (fires.empty()) return;
+    const auto now = events::Dispatcher::Clock::now();
+    struct Queued {
+        events::Job                          job;
+        events::Dispatcher::Clock::time_point when;
+        std::function<events::Due()>         check;
+    };
+    std::vector<Queued> jobs;
+    std::vector<json> failures;
+    {
+        std::lock_guard lock{mutex_};
+        for (auto& f : fires) {
+            events::FireContext ctx{f.item_uuid, f.item_name, f.event.id, f.trigger,
+                                    f.trigger == "time" ? f.event.time : 0.0,
+                                    events::current_chain()};
+            // A marker fires from the sequencer, which is executing no job, so
+            // what started this cue is on the cue. Without it, two cues whose
+            // markers play each other restart one another for ever.
+            if (f.trigger == "time" && ctx.chain.empty()) ctx.chain = f.marker_chain;
+            std::string why;
+            std::optional<events::Job> job;
+            // A cue restarted by its own chain of events (one that plays a
+            // group holding it, say) would restart it again: its start events
+            // stop here. play-item refuses the direct case before it plays.
+            if (f.trigger == "start" &&
+                std::find(ctx.chain.begin(), ctx.chain.end(), f.item_uuid) != ctx.chain.end()) {
+                why = "its own events restarted it, so its start events would loop";
+            } else if (f.after_stop_all && f.event.plugin == "liveplay" &&
+                       (f.event.action == "play-item" || f.event.action == "resume-item")) {
+                why = "Stop All stopped this cue, so its events don't start another";
+            } else {
+                ctx.chain.push_back(f.item_uuid);
+                job = make_event_job_locked(f.event, nullptr, ctx, why);
+            }
+            if (!job) {
+                Logger::warn("EVENT: {} '{}' {}/{} skipped: {}", f.trigger, f.item_name,
+                             f.event.plugin, f.event.action, why);
+                failures.push_back(json{{"itemUuid", f.item_uuid}, {"eventId", f.event.id},
+                                        {"trigger", f.trigger}, {"plugin", f.event.plugin},
+                                        {"action", f.event.action}, {"ok", false},
+                                        {"error", why}});
+                continue;
+            }
+            const auto delay = std::chrono::duration_cast<events::Dispatcher::Clock::duration>(
+                std::chrono::duration<double>(f.delay_sec));
+            // A marker scheduled ahead fires only if its cue is still running
+            // when it comes due, or paused after reaching it. A pause short of
+            // the mark holds it until the sequencer's next pass notices,
+            // cancels and re-arms it.
+            std::function<events::Due()> check;
+            if (f.trigger == "time" && f.delay_sec > 0.0) {
+                if (auto c = item_uuid_to_cue_.find(f.item_uuid); c != item_uuid_to_cue_.end()) {
+                    check = [this, cue = c->second, mark = f.event.time] {
+                        const auto pi = engine_.find_cue_shared(cue);
+                        if (!pi) return events::Due::Drop;
+                        const auto st = pi->stats();
+                        switch (st.transport) {
+                            case audio::TransportState::Paused:
+                                return st.playhead_seconds >= mark - 1e-3 ? events::Due::Fire
+                                                                          : events::Due::Hold;
+                            case audio::TransportState::Stopped: return events::Due::Drop;
+                            default:                             return events::Due::Fire;
+                        }
+                    };
+                }
+            }
+            jobs.push_back({std::move(*job),
+                            f.delay_sec > 0.0 ? now + delay : events::Dispatcher::Clock::time_point{},
+                            std::move(check)});
+        }
+    }
+    for (auto& q : jobs) events_->enqueue(std::move(q.job), q.when, std::move(q.check));
+    if (!failures.empty()) {
+        std::function<void(const json&)> cb;
         {
             std::lock_guard lock{mutex_};
-            if (document_.contains("settings") && document_["settings"].is_object() &&
-                !document_["settings"].value("stopAllStopsPreview", true))
-                spare = preview_cue_;
+            cb = event_fired_broadcaster_;
         }
-        engine_.stop_all(std::chrono::milliseconds{0}, /*force_fade=*/false, spare);
-    }
-    else if (type == "http-request") {
-        // Hand off to whoever subscribed via set_external_action_handler.
-        // The control server wires this to a doc_patch broadcast so a
-        // connected client executes the fetch — keeping server free of an
-        // HTTP client dependency.
-        std::function<void(const json&)> handler;
-        {
-            std::lock_guard lock{mutex_};
-            handler = external_action_handler_;
-        }
-        if (handler) {
-            try { handler(action); } catch (...) {}
-        } else {
-            Logger::warn("custom action http-request: no handler installed");
-        }
-    }
-    else {
-        Logger::warn("custom action: unknown type '{}'", type);
+        if (cb) for (const auto& f : failures) cb(f);
     }
 }
 
-void ProjectState::set_external_action_handler(std::function<void(const json&)> h) {
+json ProjectState::event_plugins() const { return events_->plugins_json(); }
+
+json ProjectState::event_connections() const {
     std::lock_guard lock{mutex_};
-    external_action_handler_ = std::move(h);
+    return connections_with_auth_locked();
+}
+
+json ProjectState::connections_with_auth_locked() const {
+    json list = document_.contains("eventConnections") && document_["eventConnections"].is_array()
+                    ? document_["eventConnections"] : json::array();
+    for (auto& c : list) {
+        if (!c.is_object()) continue;
+        if (auto a = connection_auth_.find(str_of(c, "id")); a != connection_auth_.end())
+            c["auth"] = a->second;
+    }
+    return list;
+}
+
+void ProjectState::refresh_connection_auth_locked(const json& before) {
+    // Which connections hold a secret that can't be sent: sealed by another
+    // machine's key, or a mask nothing could put a value back for.
+    std::set<std::string> unusable;
+    std::map<std::string, std::string> secrets_now;   // id → every secret text, joined
+    for_each_http_headers(document_, [&](json& text, const std::string& id) {
+        if (id.empty()) return;
+        const std::string t = text.get<std::string>();
+        if (secrets::has_unusable_secret(t)) unusable.insert(id);
+        secrets_now[id] += t + "\n";
+    });
+    std::map<std::string, std::string> secrets_before;
+    if (before.is_object()) {
+        json copy = before;
+        for_each_http_headers(copy, [&](json& text, const std::string& id) {
+            if (!id.empty()) secrets_before[id] += text.get<std::string>() + "\n";
+        });
+    }
+    for (auto it = connection_auth_.begin(); it != connection_auth_.end();) {
+        const bool rejected_and_changed = it->second == "rejected" && before.is_object() &&
+                                          secrets_before[it->first] != secrets_now[it->first];
+        if ((it->second == "missing" && !unusable.count(it->first)) || rejected_and_changed)
+            it = connection_auth_.erase(it);
+        else
+            ++it;
+    }
+    for (const auto& id : unusable) connection_auth_[id] = "missing";
+}
+
+int ProjectState::seal_secrets(json& doc) {
+    // Each value is bound to its connection, that connection's address and
+    // its header name (R2-02), so a sealed value copied anywhere else is
+    // useless. One that can't be sealed is left out (a mask), never written in
+    // plain text (R2-03): the show then asks for it when it is next opened.
+    const auto dests = destinations_of(doc);
+    int unsealed = 0;
+    for_each_http_headers(doc, [&](json& text, const std::string& id) {
+        const auto d = dests.find(id);
+        const std::string base = d == dests.end() ? std::string{} : d->second.second;
+        text = secrets::map_secret_values(text.get<std::string>(),
+                                          [&](const std::string& v, const std::string& name) {
+            if (secrets::is_sealed(v)) return v;
+            const auto sealed = secrets::seal(v, secrets::seal_binding(id, base, name));
+            if (sealed) return *sealed;
+            ++unsealed;
+            return std::string{secrets::kMask};
+        });
+    });
+    return unsealed;
+}
+
+void ProjectState::open_secrets(json& doc) {
+    const auto dests = destinations_of(doc);
+    for_each_http_headers(doc, [&](json& text, const std::string& id) {
+        const auto d = dests.find(id);
+        const std::string base = d == dests.end() ? std::string{} : d->second.second;
+        text = secrets::map_secret_values(text.get<std::string>(),
+                                          [&](const std::string& v, const std::string& name) {
+            if (!secrets::is_sealed(v)) return v;
+            const auto plain = secrets::open(v, secrets::seal_binding(id, base, name));
+            return plain ? *plain : v;
+        });
+    });
+}
+
+void ProjectState::refresh_connection_auth() {
+    std::function<void(const json&)> cb;
+    json list;
+    {
+        std::lock_guard lock{mutex_};
+        const auto before = connection_auth_;
+        refresh_connection_auth_locked();
+        if (before == connection_auth_) return;
+        cb   = connections_broadcaster_;
+        list = connections_with_auth_locked();
+    }
+    if (cb) cb(list);
+}
+
+void ProjectState::set_connections_broadcaster(std::function<void(const json&)> cb) {
+    std::lock_guard lock{mutex_};
+    connections_broadcaster_ = std::move(cb);
+}
+
+json ProjectState::redact_event_connections(json connections) {
+    mask_secrets(connections, /*all_values=*/true);
+    return connections;
+}
+
+void ProjectState::mask_secrets(json& j, bool all_values) {
+    if (j.is_array()) {
+        for (auto& x : j) mask_secrets(x, all_values);
+        return;
+    }
+    if (!j.is_object()) return;
+    const bool http = str_of(j, "plugin") == "http";
+    for (auto it = j.begin(); it != j.end(); ++it) {
+        json& v = it.value();
+        if (http && (it.key() == "config" || it.key() == "options") && v.is_object()) {
+            if (auto h = v.find("headers"); h != v.end() && h->is_string())
+                *h = secrets::mask_headers(h->get<std::string>(), all_values);
+        } else if (http && it.key() == "presets" && v.is_array()) {
+            for (auto& p : v) {
+                if (!p.is_object()) continue;
+                if (auto o = p.find("options"); o != p.end() && o->is_object())
+                    if (auto h = o->find("headers"); h != o->end() && h->is_string())
+                        *h = secrets::mask_headers(h->get<std::string>(), all_values);
+            }
+        } else if (v.is_structured()) {
+            mask_secrets(v, all_values);
+        }
+    }
+}
+
+bool ProjectState::may_hold_secrets(const std::string& serialized) {
+    return serialized.find("\"headers\"") != std::string::npos;
+}
+
+json ProjectState::set_event_connections(const json& connections_in) {
+    json connections = connections_in;
+    neutralise_sealed(connections);
+    std::lock_guard lock{mutex_};
+    remember_event_secrets(document_, recent_event_secrets_);
+    json clean = clean_event_connections(
+        connections, document_.value("eventConnections", json::array()));
+    // A preset made from an event ("Save as preset") carries the masked
+    // credential its client was shown, under a new preset id. Within the same
+    // connection, still going where it went, the event's or another preset's
+    // value is the one meant.
+    {
+        std::unordered_map<std::string, std::vector<std::string>> known;   // connection → header texts
+        for_each_http_headers(document_, [&](json& text, const std::string& id) {
+            if (!id.empty()) known[id].push_back(text.get<std::string>());
+        });
+        const json stored = document_.value("eventConnections", json::array());
+        for (auto& c : clean) {
+            if (!c.is_object() || str_of(c, "plugin") != "http" || !c.contains("presets")) continue;
+            const std::string id = str_of(c, "id");
+            bool same_destination = false;
+            for (const auto& old : stored)
+                if (str_of(old, "id") == id) same_destination = base_url_of(old) == base_url_of(c);
+            if (!same_destination) continue;
+            for (auto& preset : c["presets"]) {
+                if (!preset.is_object() || !preset.contains("options") || !preset["options"].is_object())
+                    continue;
+                auto h = preset["options"].find("headers");
+                if (h == preset["options"].end() || !h->is_string()) continue;
+                std::string text = h->get<std::string>();
+                for (const auto& candidate : known[id]) {
+                    if (text.find(secrets::kMask) == std::string::npos) break;
+                    text = secrets::restore_headers(text, candidate);
+                }
+                *h = text;
+            }
+        }
+    }
+    const json before = json{{"eventConnections", document_.value("eventConnections", json::array())}};
+    // A connection pointed somewhere else, removed, or made into another
+    // plugin takes its events' own credentials with it (R2-01): those events
+    // ask for a sign-in, as they would on another machine.
+    if (const int n = mask_moved_event_secrets(document_, before["eventConnections"], clean))
+        Logger::info("Events: {} event header set(s) need their credentials again: their "
+                     "connection's address changed or it was removed", n);
+    document_["eventConnections"] = clean;
+    // New credentials for a connection that was asking for them clear its
+    // sign-in prompt; one still missing keeps it.
+    refresh_connection_auth_locked(before);
+    return connections_with_auth_locked();
+}
+
+events::Result ProjectState::test_event(const json& event, const json& draft_in,
+                                        const std::string& item_uuid) {
+    // The editor's draft is what its client was shown: masked secrets mean
+    // the stored values, for the connection and for the event alike.
+    json draft_connection = draft_in;
+    json event_in = json{{"events", json::array({event})}};
+    neutralise_sealed(draft_connection);
+    neutralise_sealed(event_in);
+    {
+        std::lock_guard lock{mutex_};
+        if (draft_connection.is_object()) {
+            json one = clean_event_connections(json::array({draft_connection}),
+                                               document_.value("eventConnections", json::array()));
+            if (!one.empty()) draft_connection = one[0];
+        }
+        // A draft connection is where this test goes: the event's secrets
+        // follow only if that is still the stored connection's destination.
+        json new_doc = json{{"eventConnections", document_.value("eventConnections", json::array())}};
+        if (draft_connection.is_object()) {
+            for (auto& c : new_doc["eventConnections"])
+                if (str_of(c, "id") == str_of(draft_connection, "id")) c = draft_connection;
+        }
+        restore_item_secrets(event_in, document_, new_doc, &recent_event_secrets_);
+    }
+    json wrapped = json::array({event_in["events"][0]});
+    if (wrapped[0].is_object()) {
+        // A test fires whatever the editor shows, whatever its trigger.
+        wrapped[0]["enabled"] = true;
+        if (!wrapped[0].contains("trigger")) wrapped[0]["trigger"] = "start";
+    }
+    const auto parsed = events::ItemEvent::parse_list(wrapped);
+    if (parsed.empty()) return events::Result::fail("event needs a plugin and an action");
+
+    std::optional<events::Job> job;
+    std::string why;
+    {
+        std::lock_guard lock{mutex_};
+        std::string name;
+        if (!item_uuid.empty()) {
+            for_each_item(document_, [&](json& it, const std::string&) {
+                if (it.value("uuid", std::string{}) == item_uuid)
+                    name = it.value("displayName", std::string{});
+            });
+        }
+        events::FireContext ctx{item_uuid, name, parsed[0].id, "test", parsed[0].time};
+        if (!item_uuid.empty()) ctx.chain.push_back(item_uuid);
+        job = make_event_job_locked(parsed[0],
+                                    draft_connection.is_object() ? &draft_connection : nullptr,
+                                    std::move(ctx), why);
+    }
+    if (!job) return events::Result::fail(why);
+    return events_->run_now(*job);
+}
+
+json ProjectState::event_options(const std::string& plugin, const std::string& source,
+                                 const std::string& connection_id, const json& draft_connection,
+                                 const json& values) {
+    auto* p = events_->find(plugin);
+    if (!p) return json{{"options", json::array()}, {"error", "unknown plugin '" + plugin + "'"}};
+    json config = json::object();
+    if (draft_connection.is_object()) {
+        if (draft_connection.contains("config") && draft_connection["config"].is_object())
+            config = draft_connection["config"];
+    } else if (!connection_id.empty()) {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("eventConnections") && document_["eventConnections"].is_array())
+            for (const auto& c : document_["eventConnections"])
+                if (c.is_object() && c.value("id", std::string{}) == connection_id &&
+                    c.contains("config") && c["config"].is_object())
+                    config = c["config"];
+    }
+    // Outside the lock: the plugin may wait on the network.
+    events::OptionsResult r;
+    try { r = p->options(source, config, values.is_object() ? values : json::object()); }
+    catch (const std::exception& e) { r.error = e.what(); }
+    json out{{"options", r.options.is_array() ? r.options : json::array()}};
+    if (!r.error.empty()) out["error"] = r.error;
+    return out;
+}
+
+json ProjectState::event_discover(const std::string& plugin, std::chrono::milliseconds budget) {
+    auto* p = events_->find(plugin);
+    json out = json::array();
+    if (!p) return out;
+    try {
+        for (const auto& d : p->discover(budget))
+            out.push_back(json{{"label", d.label}, {"name", d.name}, {"config", d.config}});
+    } catch (const std::exception& e) {
+        Logger::warn("events: '{}' discovery failed: {}", plugin, e.what());
+    }
+    return out;
+}
+
+// ---- Verbs for the LivePlay event plugin -------------------------------------
+// These run on event threads, with no lock held, while a media swap or a show
+// load can unload the cue: each holds its own reference for as long as it uses it.
+bool ProjectState::pause_item(const std::string& uuid) {
+    const auto cue = item_to_cue_id(uuid);
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
+    if (!pi) return false;
+    pi->pause();
+    return true;
+}
+
+bool ProjectState::resume_item(const std::string& uuid) {
+    const auto cue = item_to_cue_id(uuid);
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
+    if (!pi) return false;
+    pi->resume();
+    return true;
+}
+
+namespace {
+// An item's own volume (linear in the document) as dB.
+double item_volume_db(const json& item) {
+    const double lin = json_get_or(item, "volume", 1.0);
+    return lin <= 0.0001 ? -120.0 : 20.0 * std::log10(lin);
+}
+} // namespace
+
+std::optional<double> ProjectState::cue_level_offset_db(const std::string& uuid) {
+    const auto cue = item_to_cue_id(uuid);
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
+    if (!pi || pi->stats().transport == audio::TransportState::Stopped) return std::nullopt;
+    double base = 0.0;
+    {
+        std::lock_guard lock{mutex_};
+        for_each_item(document_, [&](json& it, const std::string&) {
+            if (it.value("uuid", std::string{}) == uuid) base = item_volume_db(it);
+        });
+    }
+    return pi->gain_db() - base;
+}
+
+bool ProjectState::set_cue_level_offset_db(const std::string& uuid, double offset_db) {
+    const auto cue = item_to_cue_id(uuid);
+    const auto pi = cue ? engine_.find_cue_shared(*cue) : nullptr;
+    if (!pi) return false;
+    double base = 0.0;
+    {
+        std::lock_guard lock{mutex_};
+        for_each_item(document_, [&](json& it, const std::string&) {
+            if (it.value("uuid", std::string{}) == uuid) base = item_volume_db(it);
+        });
+    }
+    pi->set_gain_db(static_cast<float>(std::max(-120.0, base + offset_db)));
+    return true;
+}
+
+bool ProjectState::set_bus_gain_live(const std::string& id, float db) {
+    const auto strip = bus_strip(id);
+    const auto m = strip.empty() ? nullptr : engine_.find_mixer_channel_shared(strip);
+    if (!m) return false;
+    m->set_gain_db(db);
+    return true;
+}
+
+json ProjectState::buses_document() const {
+    std::lock_guard lock{mutex_};
+    return document_.contains("buses") ? document_["buses"] : json::array();
+}
+
+std::vector<std::string> ProjectState::output_names() const {
+    std::vector<std::string> names = OutputMap::builtin_names();
+    for (const auto& n : outputs_.names())
+        if (std::find(names.begin(), names.end(), n) == names.end()) names.push_back(n);
+    return names;
+}
+
+double ProjectState::master_gain_db() const { return engine_.master_gain_db(); }
+
+void ProjectState::set_master_gain_db(float db, bool notify) {
+    engine_.set_master_gain_db(db);
+    if (notify)
+        notify_clients(json{{"type", "doc_patch"}, {"op", "master_gain_changed"},
+                            {"db", engine_.master_gain_db()}});
+}
+
+void ProjectState::notify_clients(const json& patch) {
+    std::function<void(const json&)> cb;
+    {
+        std::lock_guard lock{mutex_};
+        cb = ui_state_broadcaster_;
+    }
+    if (cb) cb(patch);
+}
+
+void ProjectState::set_event_fired_broadcaster(std::function<void(const json&)> cb) {
+    std::lock_guard lock{mutex_};
+    event_fired_broadcaster_ = std::move(cb);
 }
 
 bool ProjectState::item_on_air(const std::string& uuid) {
@@ -8020,7 +10742,15 @@ void ProjectState::arm_next_after_stop(const std::string& stopped_uuid,
 
         // Advance to the next sibling in document order.
         std::vector<int> next_path = stopped_path;
-        if (!next_path.empty()) {
+        const json* show_tabs = tabs::tab_list(document_);
+        if (show_tabs && stopped_path.size() == 1) {
+            // A top-level cue in a tabbed show: its tab decides what follows.
+            const auto next = tabs::next_in_tab(document_, stopped_uuid);
+            next_to_arm = next.uuid;
+            if (next_to_arm.empty() && !was_manual && next.at_end != "stop") {
+                next_to_arm = tabs::first_playable_in_tab(document_, next.tab_id);
+            }
+        } else if (!next_path.empty()) {
             next_path.back()++;
             const std::string nxt = resolve_index_path_locked(next_path);
             if (!nxt.empty()) {
@@ -8028,8 +10758,19 @@ void ProjectState::arm_next_after_stop(const std::string& stopped_uuid,
             } else if (!was_manual) {
                 // Fell off the end on a natural end → wrap to the first playable
                 // item so a single GO restarts the show. A manual stop leaves
-                // the arming empty (operator is holding the show).
-                next_to_arm = first_playable_item_uuid_locked();
+                // the arming empty (operator is holding the show). In a tabbed
+                // show that means the first cue of this cue's own tab.
+                if (show_tabs) {
+                    const auto& root = document_["items"][static_cast<std::size_t>(stopped_path[0])];
+                    const std::string tab = tabs::root_tab_id(root, *show_tabs);
+                    std::string at_end;
+                    for (const auto& t : *show_tabs) {
+                        if (t.value("id", std::string{}) == tab) at_end = t.value("atEnd", std::string{});
+                    }
+                    if (at_end != "stop") next_to_arm = tabs::first_playable_in_tab(document_, tab);
+                } else {
+                    next_to_arm = first_playable_item_uuid_locked();
+                }
             }
         }
     }
@@ -8060,16 +10801,20 @@ void ProjectState::arm_first_item_on_open() {
     if (!first.empty()) set_next_item_override(first, /*manual=*/false);
 }
 
+void ProjectState::restore_ducked(const std::vector<DuckedEntry>& ducked) {
+    for (const auto& dk : ducked) {
+        if (auto* pi = engine_.find_cue(dk.cue_id))
+            pi->set_gain_db(dk.original_gain_db, dk.release);
+    }
+}
+
 void ProjectState::handle_item_ended(const SequencedItem& item) {
     // Ensure the engine explicitly transitions the transport state and 
     // triggers a cue_state broadcast so the client UI updates.
     engine_.stop(item.cue_id);
 
     // Restore ducked gains first so the next item starts with clean levels.
-    for (const auto& dk : item.ducked) {
-        if (auto* pi = engine_.find_cue(dk.cue_id))
-            pi->set_gain_db(dk.original_gain_db);
-    }
+    restore_ducked(item.ducked);
 
     // The Start Next marker already advanced the playlist while this cue was
     // still playing — firing the end behaviour now would trigger the next
@@ -8190,6 +10935,8 @@ void ProjectState::run_end_behaviour(const SequencedItem& item) {
 
     Logger::playback("END BEHAVIOUR: item '{}' action='{}' targetUuid='{}' targetIndexLen={}",
                      item.uuid, end_action, target_uuid, target_index.size());
+    // What this starts is part of the same tab run, if there is one.
+    RunTabScope run{item.run_tab};
 
     if (end_action == "loop") {
         // Normally a looping cue never reaches here (the audio thread seeks

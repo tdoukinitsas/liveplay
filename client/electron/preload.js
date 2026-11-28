@@ -157,6 +157,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Cart player window — detach/attach
   openCartPlayerWindow: (projectFolderPath) => ipcRenderer.invoke('open-cart-player-window', projectFolderPath),
   attachCartPlayerWindow: () => ipcRenderer.send('cart-player-window-attach'),
+  // A playlist tab or cart page in a window of its own (#74).
+  openTabWindow: (kind, id) => ipcRenderer.invoke('open-tab-window', kind, id),
+  onTabWindowsChanged: (callback) => replaceIpcListener('tab-windows-changed', callback),
+  // Main window only: a different show is open, so its tabs' windows go.
+  closeTabWindows: () => ipcRenderer.send('tab-windows-close-all'),
+  // A tab window whose tab has been deleted closes itself.
+  closeOwnTabWindow: () => ipcRenderer.send('tab-window-close-self'),
   getCartWindowProjectData: () => ipcRenderer.invoke('get-cart-window-project-data'),
   onCartPlayerWindowOpened: (callback) => replaceIpcListener('cart-player-window-opened', callback),
   onCartPlayerWindowClosed: (callback) => replaceIpcListener('cart-player-window-closed', callback),
@@ -173,6 +180,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // UI mode ("show mode") sync across windows
   broadcastUiMode: (mode) => ipcRenderer.send('ui-mode-changed', mode),
   onUiModeSet: (callback) => ipcRenderer.on('ui-mode-set', callback),
+  // What a window shows ({ cartPage, playlistTab }), when it gains focus or
+  // changes it: the main window's MIDI acts on the one looked at last (R2-05).
+  broadcastViewFocus: (view) => ipcRenderer.send('view-focus-changed', view),
+  onViewFocus: (callback) => ipcRenderer.on('view-focus-set', callback),
 
   // State viewer - send state updates to main process
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),

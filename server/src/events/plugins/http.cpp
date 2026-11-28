@@ -1,0 +1,169 @@
+// =============================================================================
+// events/plugin_http.cpp — HTTP requests (Postman-style)
+// -----------------------------------------------------------------------------
+// A connection is a base URL plus headers sent with every request (an API key,
+// say); each event adds a method, path, its own headers and a body. Plain HTTP
+// only: show-control gear on a LAN rarely speaks TLS, and HTTPS would mean
+// shipping OpenSSL in the server.
+// =============================================================================
+#include "liveplay/events/plugin.hpp"
+#include "liveplay/core/secret_headers.hpp"
+
+#include <httplib.h>
+
+#include <algorithm>
+#include <cctype>
+#include <sstream>
+#include <string_view>
+
+namespace liveplay::events {
+namespace {
+
+std::string trim(std::string s) {
+    const auto not_space = [](unsigned char c) { return !std::isspace(c); };
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
+    s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
+    return s;
+}
+
+// "Name: value" per line.
+void add_header_lines(httplib::Headers& headers, const std::string& text) {
+    std::istringstream in{text};
+    std::string line;
+    while (std::getline(in, line)) {
+        const auto colon = line.find(':');
+        if (colon == std::string::npos) continue;
+        auto name = trim(line.substr(0, colon));
+        if (!name.empty()) headers.emplace(std::move(name), trim(line.substr(colon + 1)));
+    }
+}
+
+class HttpPlugin final : public Plugin {
+public:
+    std::string id() const override { return "http"; }
+
+    json schema() const override {
+        return json{
+            {"id", "http"},
+            {"label", "HTTP"},
+            {"icon", "http"},
+            {"description", "HTTP requests to anything with a web API: Companion, media servers, home automation."},
+            {"needsConnection", true},
+            {"connectionFields", json::array({
+                field("baseUrl", "Base URL", "string",
+                      {{"default", "http://127.0.0.1:8000"}, {"required", true},
+                       {"placeholder", "http://192.168.1.20:8000"},
+                       {"help", "http:// only; HTTPS isn't supported yet."}}),
+                field("headers", "Headers", "headers",
+                      {{"default", ""}, {"placeholder", "Authorization: Bearer ..."},
+                       {"help", "Sent with every request. Passwords, tokens and keys are kept "
+                                "sealed and shown as dots."}}),
+                field("timeoutMs", "Timeout (ms)", "integer",
+                      {{"default", 2000}, {"min", 100}, {"max", 30000}}),
+            })},
+            {"actions", json::array({
+                json{
+                    {"id", "request"},
+                    {"label", "Request"},
+                    {"summary", "{method} {path}"},
+                    {"fields", json::array({
+                        field("method", "Method", "enum",
+                              {{"default", "GET"},
+                               {"options", options_list({{"GET", "GET"}, {"POST", "POST"},
+                                                         {"PUT", "PUT"}, {"PATCH", "PATCH"},
+                                                         {"DELETE", "DELETE"}})}}),
+                        field("path", "Path", "string",
+                              {{"default", "/"}, {"placeholder", "/api/location/1/0/0/press"}}),
+                        field("headers", "Headers", "headers",
+                              {{"default", ""}, {"help", "Added to the connection's headers."}}),
+                        field("contentType", "Body type", "enum",
+                              {{"default", "none"},
+                               {"options", options_list({{"none", "None"},
+                                                         {"application/json", "JSON"},
+                                                         {"application/x-www-form-urlencoded", "Form"},
+                                                         {"text/plain", "Text"}})}}),
+                        field("body", "Body", "text",
+                              {{"default", ""},
+                               {"showIf", {{"field", "contentType"},
+                                           {"equals", json::array({"application/json",
+                                                                   "application/x-www-form-urlencoded",
+                                                                   "text/plain"})}}}}),
+                    })},
+                },
+            })},
+        };
+    }
+
+    Result execute(const Job& job) override {
+        if (job.action != "request") return Result::fail("unknown HTTP action '" + job.action + "'");
+        std::string base = trim(opt_string(job.connection, "baseUrl"));
+        if (base.empty()) return Result::fail("HTTP connection has no base URL");
+        const auto has_scheme = [&](std::string_view scheme) {
+            return base.size() >= scheme.size() &&
+                   std::equal(scheme.begin(), scheme.end(), base.begin(), [](char a, char b) {
+                       return a == std::tolower(static_cast<unsigned char>(b));
+                   });
+        };
+        if (has_scheme("https://")) return Result::fail("HTTPS isn't supported yet; use http://");
+        base = "http://" + (has_scheme("http://") ? base.substr(7) : base);
+        // httplib's client takes scheme://host:port and nothing else: the path
+        // of "http://host:8000/api" was dropped without a word, so requests
+        // went somewhere else and reported success. It prefixes every path.
+        std::string prefix;
+        if (const auto slash = base.find('/', 7); slash != std::string::npos) {
+            prefix = base.substr(slash);
+            base.erase(slash);
+        }
+        while (!prefix.empty() && prefix.back() == '/') prefix.pop_back();
+
+        httplib::Client cli{base};
+        if (!cli.is_valid()) return Result::fail("invalid base URL '" + base + "'");
+        const int timeout_ms = std::clamp(opt_int(job.connection, "timeoutMs", 2000), 100, 30000);
+        cli.set_connection_timeout(std::chrono::milliseconds{timeout_ms});
+        cli.set_read_timeout(std::chrono::milliseconds{timeout_ms});
+        cli.set_write_timeout(std::chrono::milliseconds{timeout_ms});
+
+        // A credential that can't be sent as it is (sealed with another
+        // machine's key, or never given) is never sent: the connection asks
+        // the operator to sign in again instead (F-23).
+        const std::string conn_headers = opt_string(job.connection, "headers");
+        const std::string own_headers  = opt_string(job.options, "headers");
+        if (core::secrets::has_unusable_secret(conn_headers) ||
+            core::secrets::has_unusable_secret(own_headers))
+            return Result::auth_failed("this connection needs its credentials entered again", "missing");
+        httplib::Headers headers;
+        add_header_lines(headers, conn_headers);
+        add_header_lines(headers, own_headers);
+
+        std::string path = trim(opt_string(job.options, "path", "/"));
+        if (path.empty() || path[0] != '/') path = "/" + path;
+        path = prefix + path;
+        const std::string method = opt_string(job.options, "method", "GET");
+        const std::string type = opt_string(job.options, "contentType", "none");
+        const std::string body = type == "none" ? std::string{} : opt_string(job.options, "body");
+        const std::string ctype = type == "none" ? std::string{"text/plain"} : type;
+
+        httplib::Result res;
+        if (method == "GET")         res = cli.Get(path, headers);
+        else if (method == "POST")   res = cli.Post(path, headers, body, ctype);
+        else if (method == "PUT")    res = cli.Put(path, headers, body, ctype);
+        else if (method == "PATCH")  res = cli.Patch(path, headers, body, ctype);
+        else if (method == "DELETE") res = cli.Delete(path, headers, body, ctype);
+        else return Result::fail("unsupported method '" + method + "'");
+
+        if (!res) return Result::fail(httplib::to_string(res.error()));
+        // The device is there and refused us: the credentials are wrong.
+        if (res->status == 401 || res->status == 403)
+            return Result::auth_failed("HTTP " + std::to_string(res->status) + " from " + base + path +
+                                       ": the credentials were refused", "rejected");
+        if (res->status >= 400)
+            return Result::fail("HTTP " + std::to_string(res->status) + " from " + base + path);
+        return {};
+    }
+};
+
+} // namespace
+
+std::unique_ptr<Plugin> make_http_plugin(Host&) { return std::make_unique<HttpPlugin>(); }
+
+} // namespace liveplay::events

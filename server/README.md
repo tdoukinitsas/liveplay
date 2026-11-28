@@ -90,14 +90,17 @@ The path guard applies to selected filesystem operations; it is not a comprehens
 | `core/project_state.cpp` | Show document, cue/bus materialization and transport coordination |
 | `core/output_map.cpp` | Logical output names to physical device channels |
 | `core/user_store.cpp` | Accounts, password hashes and signed/API tokens |
+| `core/secrets.cpp` | Sealing credentials in show files with the machine's key (`secret.key`); the masking rules are in `secret_headers.hpp` |
 | `core/user_prefs.cpp` | Sparse per-user profiles |
 | `core/server_config.cpp` | Configuration schema, validation and persisted overrides |
 | `core/backup_manager.cpp` | Periodic copies of the saved project |
 | `net/control_server.cpp` | HTTP handlers, WebSocket dispatch, events and meters |
 | `net/discovery.cpp` | LAN announcements |
+| `events/dispatcher.cpp` | Item events: scheduling, and lanes per plugin and per connection |
+| `events/plugins/` | OSC, MIDI, HTTP, X Air and LivePlay plugins |
 | `meta/` | Metadata and waveform computation |
 
-Dependencies include miniaudio, Crow, TagLib, miniz, libsodium and nlohmann/json. CMake and the vcpkg manifest specify the actual dependency set.
+Dependencies include miniaudio, Crow, TagLib, miniz, libsodium, nlohmann/json, RtMidi and cpp-httplib (Asio arrives with Crow). CMake and the vcpkg manifest specify the actual dependency set.
 
 ## Threads and real-time boundaries
 
@@ -110,6 +113,10 @@ Dependencies include miniaudio, Crow, TagLib, miniz, libsodium and nlohmann/json
 | File decoding | Playback decode workers |
 | Metadata/waveforms | Handler or asynchronous work, depending on endpoint |
 | Project backups | BackupManager worker |
+| Cue sequencing (end behaviour, markers, delayed advances) | ProjectState sequencer thread |
+| Single-item decode after add/update | ProjectState loader thread |
+| Item events | Dispatcher scheduler thread, then a lane thread per plugin and per connection in use; a SysEx send has its own thread it can walk away from |
+| Event fades on outside gear | `Ramps` threads in the plugins that use them (X Air), plus the X Air plugin's network thread |
 
 Topology changes are constructed on the control side and published as snapshots. DSP parameters publish coefficient sets; filter changes ramp in the render path. Device output callbacks consume buffered samples. Avoid filesystem work, blocking locks and allocation in audio callbacks.
 

@@ -7,6 +7,15 @@ if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         CACHE STRING "Vcpkg toolchain file")
 endif()
 
+# macOS floor: 13.3, the first release whose libc++ dylib has the floating-point
+# std::to_chars that std::format needs. Must be set before project(). The
+# overlay triplets in triplets/ build the vcpkg dependencies to the same floor,
+# so no static library drags in a newer OS's libc++ symbols (issue #81).
+if(CMAKE_HOST_APPLE)  # APPLE is not defined until project()
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "13.3" CACHE STRING "Minimum macOS version")
+    set(VCPKG_OVERLAY_TRIPLETS "${CMAKE_CURRENT_SOURCE_DIR}/triplets" CACHE STRING "")
+endif()
+
 # Read version from vcpkg.json to keep build version in sync with package manifest
 file(READ "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg.json" VCPKG_JSON_CONTENT)
 string(JSON LIVEPLAY_VERSION GET "${VCPKG_JSON_CONTENT}" "version-string")
@@ -47,20 +56,14 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
-# macOS: std::format vs. deployment target
+# macOS: libc++ availability
 # ---------------------------------------------------------------------------
-# Instantiating std::format for *any* argument pulls in libc++'s floating-point
-# formatter, which calls std::to_chars(float/double). Apple marks that overload
-# "unavailable" below macOS 13.3, so the build fails even for string-only calls
-# (e.g. Logger::error("Reason : {}", reason)) whenever the deployment target is
-# older than 13.3 — which it is for our 11.0 (x64) / 12.0 (arm64) artifacts.
-#
-# The implementation is header-only in modern libc++ (no dylib symbol), so it
-# runs correctly on those older systems; only the availability annotation is
-# conservative. Disable the annotations so we can keep the older targets.
-if(APPLE)
-    add_compile_definitions(_LIBCPP_DISABLE_AVAILABILITY)
-endif()
+# Never define _LIBCPP_DISABLE_AVAILABILITY. libc++ uses the availability
+# annotations both to reject calls the deployment target's dylib lacks AND to
+# pick inline fallbacks for them. With the annotations off, the macOS 26 SDK
+# emitted calls to std::__hash_memory, which older dylibs don't export, and the
+# server segfaulted before main() on every macOS below 26 (issue #81). The 13.3
+# floor above is what lets std::format compile with the annotations on.
 
 # ---------------------------------------------------------------------------
 # Dependencies (resolved via vcpkg manifest — see vcpkg.json)
@@ -82,6 +85,10 @@ endif()
 find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 # miniz — used for .lpa (zip) packaging of project exports/imports.
 find_package(miniz CONFIG REQUIRED)
+# Event system (#84): MIDI out and the HTTP client. OSC needs only asio, which
+# arrives with Crow.
+find_package(RtMidi CONFIG REQUIRED)
+find_package(httplib CONFIG REQUIRED)
 # libsodium — password hashing (Argon2id) and token signing for the user store.
 # Nothing here rolls its own crypto: the point of the dependency is that the
 # primitives, the constant-time comparisons and the CSPRNG all come from one
@@ -176,6 +183,7 @@ add_executable(liveplay-server
     src/core/project_state.cpp
     src/core/output_map.cpp
     src/core/user_store.cpp
+    src/core/secrets.cpp
     src/core/user_prefs.cpp
     src/core/server_config.cpp
     src/core/backup_manager.cpp
@@ -185,6 +193,18 @@ add_executable(liveplay-server
     # Milestone 4 — metadata + waveform
     src/meta/metadata.cpp
     src/meta/waveform.cpp
+
+    # Event system (#84). A new plugin is one file in src/events/plugins/
+    # plus a line in builtin_plugins.cpp; see docs/EVENT_PLUGINS.md.
+    src/events/dispatcher.cpp
+    src/events/builtin_plugins.cpp
+    src/events/helpers.cpp
+    src/events/osc.cpp
+    src/events/plugins/osc.cpp
+    src/events/plugins/midi.cpp
+    src/events/plugins/http.cpp
+    src/events/plugins/liveplay.cpp
+    src/events/plugins/xair.cpp
 )
 
 target_include_directories(liveplay-server
@@ -199,6 +219,8 @@ target_link_libraries(liveplay-server
         Crow::Crow
         liveplay_miniaudio
         miniz::miniz
+        RtMidi::rtmidi
+        httplib::httplib
 )
 
 # Link libsodium under whichever target name vcpkg exposed.
@@ -264,6 +286,46 @@ if(LIVEPLAY_BUILD_TESTS)
         PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
     )
     add_test(NAME device_name COMMAND liveplay-device-name-tests)
+
+    # Media import naming: a file must never overwrite another cue's (#92).
+    add_executable(liveplay-media-names-tests tests/media_names_test.cpp)
+    target_include_directories(liveplay-media-names-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME media_names COMMAND liveplay-media-names-tests)
+
+    # Playlist tabs and cart pages: running order, addressing, clean-up (#74).
+    add_executable(liveplay-show-tabs-tests tests/show_tabs_test.cpp)
+    target_include_directories(liveplay-show-tabs-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(liveplay-show-tabs-tests PRIVATE nlohmann_json::nlohmann_json)
+    add_test(NAME show_tabs COMMAND liveplay-show-tabs-tests)
+
+    # Credentials in HTTP headers: never shown, never lost (F-01, F-23).
+    add_executable(liveplay-secret-headers-tests tests/secret_headers_test.cpp)
+    target_include_directories(liveplay-secret-headers-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    target_link_libraries(liveplay-secret-headers-tests PRIVATE nlohmann_json::nlohmann_json)
+    add_test(NAME secret_headers COMMAND liveplay-secret-headers-tests)
+
+    # Sealing for disk: bound to where a value goes, v1 still opened, nothing
+    # sealed without a key, the key file this account's only (R2-02/03/20).
+    add_executable(liveplay-secrets-tests
+        tests/secrets_test.cpp
+        src/core/secrets.cpp
+        src/logger.cpp
+    )
+    target_include_directories(liveplay-secrets-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    if(TARGET unofficial-sodium::sodium)
+        target_link_libraries(liveplay-secrets-tests PRIVATE unofficial-sodium::sodium Threads::Threads)
+    elseif(TARGET sodium)
+        target_link_libraries(liveplay-secrets-tests PRIVATE sodium Threads::Threads)
+    endif()
+    add_test(NAME secrets COMMAND liveplay-secrets-tests)
 
     # Mixer strip gain / fade envelope (peek vs. advance).
     # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
@@ -335,6 +397,16 @@ if(LIVEPLAY_BUILD_TESTS)
         PRIVATE liveplay_miniaudio Threads::Threads
     )
     add_test(NAME topo COMMAND liveplay-topo-tests)
+
+    # Volume automation envelope (2.6): linear-in-dB keyframes on source-file
+    # time. Header-only.
+    add_executable(liveplay-envelope-tests
+        tests/gain_envelope_test.cpp
+    )
+    target_include_directories(liveplay-envelope-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    add_test(NAME envelope COMMAND liveplay-envelope-tests)
 
     # Waveform downsampler (single-pass decode, per-channel traces).
     add_executable(liveplay-waveform-tests

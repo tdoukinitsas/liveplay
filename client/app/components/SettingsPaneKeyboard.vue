@@ -4,7 +4,10 @@
     <p class="settings-pane-intro">{{ t('settings.sectionKeyboardHelp') }}</p>
 
     <div class="binding-group">
-      <div class="category-header">{{ t('controls.sectionPlayback') }}</div>
+      <h4 class="settings-group-title">
+        {{ t('controls.sectionPlayback') }}
+        <SettingsScope scope="you" />
+      </h4>
       <div
         v-for="action in PLAYBACK_ACTIONS"
         :key="action.id"
@@ -31,9 +34,12 @@
     </div>
 
     <div class="binding-group">
-      <div class="category-header">{{ t('controls.sectionCartSlots') }}</div>
+      <h4 class="settings-group-title">
+        {{ t('controls.sectionCartSlots') }}
+        <SettingsScope scope="show" />
+      </h4>
       <div
-        v-for="slot in 16"
+        v-for="slot in slotRowCount"
         :key="slot"
         class="action-row"
         :class="{ capturing: capturingSlot === slot - 1, conflict: conflictSlot === slot - 1 }"
@@ -54,6 +60,34 @@
       </div>
     </div>
 
+    <div v-if="pinnableCarts.length" class="binding-group">
+      <h4 class="settings-group-title">
+        {{ t('controls.sectionPinnedCarts') }}
+        <SettingsScope scope="show" />
+      </h4>
+      <p class="settings-help">{{ t('controls.pinnedCartsHelp') }}</p>
+      <div
+        v-for="cart in pinnableCarts"
+        :key="cart.slot"
+        class="action-row"
+        :class="{ capturing: capturingPin === cart.slot }"
+        @click="startCapturePin(cart.slot)"
+      >
+        <span class="action-label">{{ cart.label }}</span>
+        <span class="action-binding">
+          <template v-if="capturingPin === cart.slot">{{ t('controls.pressAnyKey') }}</template>
+          <template v-else-if="pinnedKeys[String(cart.slot)]">{{ formatKeyLabel(pinnedKeys[String(cart.slot)]!) }}</template>
+          <template v-else>—</template>
+        </span>
+        <button
+          v-if="pinnedKeys[String(cart.slot)]"
+          class="clear-key-btn"
+          @click.stop="clearPin(cart.slot)"
+        >{{ t('controls.clear') }}</button>
+        <span v-if="keyErrorMessage && keyErrorPin === cart.slot" class="error-msg">{{ keyErrorMessage }}</span>
+      </div>
+    </div>
+
     <div class="settings-actions">
       <button class="reset-btn" @click="handleReset">{{ t('controls.resetKeyboard') }}</button>
     </div>
@@ -63,6 +97,7 @@
 <script setup lang="ts">
 import { formatKeyLabel, eventToBinding, isReservedCombo } from '~/composables/useCartHotkeys';
 import type { PlaybackKeyAction, CartSlotKeyBinding } from '~/types/project';
+import SettingsScope from './SettingsScope.vue';
 
 const { t } = useLocalization();
 
@@ -74,6 +109,7 @@ const PLAYBACK_ACTIONS: { id: PlaybackKeyAction; labelKey: string }[] = [
   { id: 'toggle-loop',     labelKey: 'controls.toggleLoop'     },
   { id: 'cue-to-continue', labelKey: 'controls.cueToContinue'  },
   { id: 'jump-cue',        labelKey: 'controls.jumpCue'        },
+  { id: 'stop-current-cue', labelKey: 'controls.stopCurrentCue' },
   { id: 'stop-all',        labelKey: 'controls.stopAll'        },
   { id: 'select-up',       labelKey: 'controls.selectUp'       },
   { id: 'select-down',     labelKey: 'controls.selectDown'     },
@@ -82,6 +118,11 @@ const PLAYBACK_ACTIONS: { id: PlaybackKeyAction; labelKey: string }[] = [
 
 const {
   keyMappings,
+  pinnedKeys,
+  setPinnedKey,
+  clearSlotKey,
+  keyHolder,
+  cartLabel,
   playbackMappings,
   updateBinding: updateKeyBinding,
   updatePlaybackBinding,
@@ -89,6 +130,44 @@ const {
   resetPlaybackToDefaults,
 } = useCartHotkeys();
 const { saveProject, currentProject } = useProject();
+const { cartPages } = useShowTabs();
+
+// "That key is already used by …", naming what holds it (F-48).
+const holderMessage = (holder: NonNullable<ReturnType<typeof keyHolder>>): string => {
+  if (holder.kind === 'action') {
+    return t('controls.conflictAction', {
+      action: t(PLAYBACK_ACTIONS.find(a => a.id === holder.action)?.labelKey ?? ''),
+    });
+  }
+  if (holder.kind === 'slot') return t('controls.conflictSlot', { n: holder.position + 1 });
+  return t('controls.conflictPinned', { cart: cartLabel(holder.slot) });
+};
+
+// Position keys apply to whichever page is showing, so there are as many rows
+// as the largest page has carts.
+const slotRowCount = computed(() => Math.max(16, ...cartPages.value.map(p => p.size)));
+
+// Every cart in the show, by page: what a key can be pinned to. A pin is the
+// cart's, by slot, so it goes when the cart is cleared (F-13).
+const pinnableCarts = computed(() => {
+  const carts = currentProject.value?.cartItems ?? [];
+  return cartPages.value.flatMap(page => carts
+    .filter(c => c.slot >= page.slotBase && c.slot < page.slotBase + page.size)
+    .sort((a, b) => a.slot - b.slot)
+    .map(c => ({ slot: c.slot, label: cartLabel(c.slot) })));
+});
+const capturingPin = ref<number | null>(null);
+const keyErrorPin = ref<number | null>(null);
+const startCapturePin = (slot: number) => {
+  capturingPin.value = slot;
+  capturingSlot.value = null;
+  capturingKeyAction.value = null;
+  resetCaptureState();
+};
+const clearPin = (slot: number) => {
+  setPinnedKey(slot, null);
+  saveProject();
+};
 
 const capturingSlot = ref<number | null>(null);
 const capturingKeyAction = ref<PlaybackKeyAction | null>(null);
@@ -111,8 +190,7 @@ const getPlaybackKeyLabel = (action: PlaybackKeyAction): string => {
 };
 
 const clearSlotBinding = (slotIndex: number) => {
-  if (!currentProject.value?.cartSlotKeys) return;
-  delete currentProject.value.cartSlotKeys[slotIndex];
+  clearSlotKey(slotIndex);
   saveProject();
 };
 const clearPlaybackBinding = (action: PlaybackKeyAction) => {
@@ -124,6 +202,7 @@ const resetCaptureState = () => {
   keyErrorMessage.value = null;
   keyErrorSlot.value = null;
   keyErrorActionId.value = null;
+  keyErrorPin.value = null;
   conflictSlot.value = null;
   keyConflictAction.value = null;
   keyConflictSlotForAction.value = null;
@@ -131,11 +210,13 @@ const resetCaptureState = () => {
 const startCaptureSlot = (slotIndex: number) => {
   capturingSlot.value = slotIndex;
   capturingKeyAction.value = null;
+  capturingPin.value = null;
   resetCaptureState();
 };
 const startCaptureAction = (action: PlaybackKeyAction) => {
   capturingKeyAction.value = action;
   capturingSlot.value = null;
+  capturingPin.value = null;
   resetCaptureState();
 };
 
@@ -149,9 +230,10 @@ const handleKeydown = (e: KeyboardEvent) => {
   // first, and capture-phase listeners on the same target fire in
   // registration order.
   if (e.key === 'Escape') {
-    if (capturingSlot.value !== null || capturingKeyAction.value !== null) {
+    if (capturingSlot.value !== null || capturingKeyAction.value !== null || capturingPin.value !== null) {
       capturingSlot.value = null;
       capturingKeyAction.value = null;
+      capturingPin.value = null;
       resetCaptureState();
       e.preventDefault();
       e.stopPropagation();
@@ -159,7 +241,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     return;
   }
 
-  if (capturingSlot.value === null && capturingKeyAction.value === null) return;
+  if (capturingSlot.value === null && capturingKeyAction.value === null && capturingPin.value === null) return;
   if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
 
   e.preventDefault();
@@ -171,7 +253,30 @@ const handleKeydown = (e: KeyboardEvent) => {
     keyErrorMessage.value = t('controls.reserved');
     if (capturingSlot.value !== null) keyErrorSlot.value = capturingSlot.value;
     if (capturingKeyAction.value !== null) keyErrorActionId.value = capturingKeyAction.value;
+    if (capturingPin.value !== null) keyErrorPin.value = capturingPin.value;
     return;
+  }
+
+  if (capturingPin.value !== null) {
+    const holder = setPinnedKey(capturingPin.value, binding);
+    if (holder) {
+      keyErrorMessage.value = holderMessage(holder);
+      keyErrorPin.value = capturingPin.value;
+      return;
+    }
+    resetCaptureState();
+    capturingPin.value = null;
+    saveProject();
+    return;
+  }
+
+  if (capturingSlot.value !== null) {
+    const holder = keyHolder(binding);
+    if (holder?.kind === 'pin') {
+      keyErrorMessage.value = holderMessage(holder);
+      keyErrorSlot.value = capturingSlot.value;
+      return;
+    }
   }
 
   if (capturingSlot.value !== null) {
@@ -222,6 +327,12 @@ const handleKeydown = (e: KeyboardEvent) => {
       keyErrorActionId.value = action;
       return;
     }
+    if (result.conflictPinned) {
+      const holder = keyHolder(binding);
+      keyErrorMessage.value = holder ? holderMessage(holder) : t('controls.keyInUse');
+      keyErrorActionId.value = action;
+      return;
+    }
     resetCaptureState();
     capturingKeyAction.value = null;
     saveProject();
@@ -244,13 +355,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown, true));
   flex-direction: column;
   gap: 2px;
 }
-.category-header {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  margin: 8px 0 6px;
+/* Group headings take the shared look from SettingsPage.vue; only the spacing
+   is this list's, whose rows sit 2px apart rather than the pane's 18px. */
+.binding-group > h4.settings-group-title {
+  margin: 10px 0 6px;
 }
 .action-row {
   display: flex;

@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "Döljer nedräkningen ”Tystnad om” i sidhuvudet.",
     "transitionMode": "Standardövergång",
     "transitionModeHelp": "Hur nyimporterade spår lämnar över till nästa. Du kan ändra det per spår under Egenskaper.",
+    "goContinuesFrom": "GO med flera cues som spelar",
+    "goContinuesFromEarliest": "Fortsätt från den cue som startade först",
+    "goContinuesFromLatest": "Fortsätt från den cue som startade sist",
+    "goContinuesFromHelp": "När fler än en cue spelar och inget är satt som Nästa, vilken GO och Nästa fortsätter från. Kontrollytor och MIDI följer samma val.",
     "transitionModeCrossfade": "Övertoning till nästa",
     "transitionModeStartNext": "Starta nästa vid markör",
     "autoCueNext": "Sätt alltid nästa objekt som Näst på tur",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "Servern som appen är ansluten till och, för administratörer, dess konfiguration.",
     "sectionUsers": "Konton",
     "sectionUsersHelp": "Vem som får använda den här servern och vad de får ändra.",
+    "stopAllFiresEvents": "Stoppa allt utlöser ”Vid slut”-händelser",
+    "stopAllFiresEventsHelp": "När detta är avstängt utlöser köer som Stoppa allt stoppar inga ”Vid slut”-händelser. När det är på gör de det, men ingen kan starta en annan kö. Att trycka på Stoppa allt igen innan det är klart är panik: allt stoppas direkt och ingen händelse utlöses.",
     "stopAllStopsPreview": "Stoppa allt stoppar även förlyssningen",
     "stopAllStopsPreviewHelp": "När detta är avstängt stoppar Stoppa allt inte en kö som du förlyssnar på.",
     "sectionAppearance": "Utseende",
@@ -169,13 +175,30 @@
     "accentColorHelp": "Används för markeringar, köer som spelas och framhävningar.",
     "accentColorSwatch": "Accentfärg {color}",
     "sectionAbout": "Om",
-    "sectionAboutHelp": "Version, medverkande och licens."
+    "sectionAboutHelp": "Version, medverkande och licens.",
+    "sectionConnections": "Anslutningar",
+    "stopAllUsesItemFade": "Stoppade cuer använder sin egen stoppknappstoning",
+    "stopAllUsesItemFadeHelp": "När det är på tonar Stop All och duckningsläget ”Stoppa alla andra” ut varje cue med dess egen stoppknappstoning. Cuer utan en använder Stop All-toningen. Två tryck på Stop All stoppar fortfarande allt direkt.",
+    "thisComputer": "Den här datorn",
+    "scopeYou": "Personlig",
+    "scopeShow": "Den här showen",
+    "scopeServer": "Server",
+    "groupLanguageLayout": "Språk och layout",
+    "groupDisplay": "Visning",
+    "groupGoUpNext": "GO och Näst på tur",
+    "groupNewCues": "Nya cues",
+    "groupLoudness": "Loudness och mätning",
+    "groupRouting": "Routing och tidkod",
+    "groupConnection": "Anslutning",
+    "sectionPlaybackIntro": "Hur cues startar, stoppar och lämnar över till varandra, och vad nya cues börjar med.",
+    "disableAutoVolumeAndTrimHelp": "Nya cues behåller filens egen nivå och längd. Du kan fortfarande nivåjustera eller trimma vilket cue som helst under dess flik Uppspelning."
   },
   "common": {
     "default": "standard",
     "loading": "Läser in…",
     "error": "Fel",
-    "cancel": "Avbryt"
+    "cancel": "Avbryt",
+    "moreInfo": "Mer information"
   },
   "project": {
     "enterName": "Ange projektnamn",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "Routad till en buss som saknas",
     "newGroup": "Ny grupp"
   },
+  "tabs": {
+    "playlistLabel": "Spellisteflikar",
+    "cartLabel": "Cartsidor",
+    "add_playlist": "Lägg till spellisteflik",
+    "add_cart": "Lägg till cartsida",
+    "limitReached": "Du har nått maximalt antal flikar.",
+    "defaultPlaylist": "Spellista {n}",
+    "defaultPage": "Sida {n}",
+    "edit": "Redigera flik",
+    "name": "Namn",
+    "colour": "Färg",
+    "noColour": "Ingen färg",
+    "cartCount": "Antal carts",
+    "fewer": "Färre carts",
+    "more": "Fler carts",
+    "cartCountFloor": "Kan inte gå under {n}: det finns en cart på den platsen.",
+    "atEnd": "Efter sista posten",
+    "atEndWrap": "Tillbaka till början av den här fliken",
+    "atEndContinue": "Fortsätt till nästa flik",
+    "atEndStop": "Stopp",
+    "popOut": "Öppna i nytt fönster",
+    "delete": "Ta bort flik",
+    "deleteYes": "Ta bort",
+    "deleteEmpty": "Ta bort ”{name}”?",
+    "deleteConfirm_playlist": "Ta bort ”{name}” och dess objekt ({count})?",
+    "deleteConfirm_cart": "Ta bort ”{name}” och dess carts ({count})?",
+    "deletePlaying": "Något på den här fliken spelas. Stoppa det först.",
+    "upNextOn": "Näst på tur: {name}",
+    "following": "Följer {name}",
+    "followLost": "{name} är offline",
+    "followStop": "Sluta följa",
+    "followSetting": "Följ en annan operatörs flikar",
+    "followOff": "Av",
+    "followOffline": "offline",
+    "followHelp": "Det här fönstret visar samma spellisteflik och cartsida som operatören du väljer. Klickar du själv på en flik slutar du följa.",
+    "followThisComputer": "Sparas bara på den här datorn.",
+    "followSession": "{name} (session {n})",
+    "editPage": "Redigera sida",
+    "deletePage": "Ta bort sida",
+    "limitReachedPages": "Du har nått maximalt antal sidor.",
+    "deletePlayingPage": "Något på den här sidan spelas. Stoppa det först.",
+    "deleteConfirmCue": "Ta bort ”{name}” och dess cue?",
+    "deleteConfirmCues": "Ta bort ”{name}” och dess {count} cues?",
+    "deleteConfirmCart": "Ta bort ”{name}” och dess cart?",
+    "deleteConfirmCarts": "Ta bort ”{name}” och dess {count} carts?",
+    "colourN": "Färg {n}",
+    "pageFull": "”{name}” är full"
+  },
   "cart": {
     "title": "Cartspelare",
+    "clickToImportOrPlaylist": "Klicka för att importera eller dra hit ett objekt, en grupp eller en spellisteflik",
+    "startPlaylist": "Låt den här carten starta en spellista",
+    "playlistSlot": "Den här carten startar en hel spellisteflik",
     "emptySlot": "Klicka för att importera eller dra hit ett objekt",
     "clickToImport": "Klicka för att importera eller dra hit ett objekt",
     "configureHotkeys": "Ställ in snabbtangenter",
@@ -217,7 +291,8 @@
     "conflict": "Redan tilldelad plats {slot}",
     "reserved": "Den här tangentkombinationen är reserverad",
     "resetDefaults": "Återställ standard",
-    "groupSlot": "Spellistegrupp: spelar hela gruppen från den här platsen"
+    "groupSlot": "Spellistegrupp: spelar hela gruppen från den här platsen",
+    "choosePlaylist": "Vilken spellista ska starta?"
   },
   "behaviors": {
     "startPlayNext": "Start: spela nästa",
@@ -239,6 +314,21 @@
     "startNextTitle": "Starta nästa: {time}",
     "loadingWaveform": "Läser in vågform…"
   },
+  "automation": {
+    "enable": "Volymautomation",
+    "enableHint": "Rita en volymkurva på vågformen. Avmarkering förbigår den och behåller nyckelpunkterna.",
+    "addKeyframe": "Lägg till nyckelpunkt",
+    "addKeyframeHint": "Lägg till en nyckelpunkt vid markören, eller vid spelhuvudet medan cuen spelar.",
+    "removeKeyframe": "Ta bort nyckelpunkt",
+    "removeKeyframeHint": "Ta bort den valda nyckelpunkten eller den vid markören. Högerklick på en nyckelpunkt eller Delete gör samma sak.",
+    "clear": "Rensa",
+    "clearHint": "Ta bort alla nyckelpunkter.",
+    "clearConfirm": "Ta bort alla nyckelpunkter för volymautomation på den här cuen?",
+    "previewFromCursor": "Förhandslyssna från markören",
+    "previewFromCursorHint": "Spela cuen från markören på förlyssningsbussen, med automation. Klicka i vågformen för att placera markören.",
+    "previewUnavailable": "Kräver en förlyssningsbuss som är dirigerad till en utgång. Ställ in den i mixern.",
+    "stopPreview": "Stoppa förlyssning"
+  },
   "properties": {
     "title": "Egenskaper",
     "resize": "Ändra storlek på egenskapspanelen",
@@ -255,8 +345,8 @@
     "startBehavior": "Startbeteende",
     "duckingBehavior": "Ducking-beteende",
     "fadeOutDuration": "Uttoningstid",
-    "duckFadeIn": "Ducking-intoning",
-    "duckFadeOut": "Ducking-uttoning",
+    "duckFadeIn": "Sänk under (sekunder)",
+    "duckFadeOut": "Återgå under (sekunder)",
     "children": "Underobjekt",
     "seconds": "sekunder",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "Tonar över loopens slut till dess början under så här många sekunder. 0 loopar utan övertoning.",
     "loopCrossfadeNeedsLoop": "Ställ in slutbeteendet för den här kön på Loop för att använda loop-övertoning.",
     "advanceDelay": "Vänta före nästa (sekunder)",
-    "advanceDelayHint": "När den här kön är slut väntar LivePlay så här länge innan slutbeteendet startar nästa kö. Ignoreras när en övertoning eller Starta nästa är inställd."
+    "advanceDelayHint": "När den här kön är slut väntar LivePlay så här länge innan slutbeteendet startar nästa kö. Ignoreras när en övertoning eller Starta nästa är inställd.",
+    "duckTimesHint": "Hur lång tid de andra cuerna tar på sig att sänkas när den här cuen startar, och att komma tillbaka när den slutar.",
+    "volumeHelp": "Nivån för den här kön. Dra fadern eller skriv en nivå i dB, till exempel -6.5 (-inf för tystnad).",
+    "playFadeHelp": "Tonar in kön under så många sekunder varje gång den startar. 0 startar med full nivå.",
+    "stopFadeHelp": "Tonar ut kön under så många sekunder före utpunkten. 0 spelar till slutet med full nivå.",
+    "crossFadeHelp": "Under så många sekunder före utpunkten tonas den här kön ut medan nästa tonas in över den. 0 går över utan överlapp.",
+    "startNextHelp": "När uppspelningen når markören startar nästa kö medan den här fortsätter spela: en övergång som på radio.",
+    "duckModeHelp": "Vad start av den här kön gör med andra köer som spelar: stoppar dem, låter dem vara eller sänker dem till ducking-nivån tills den är klar.",
+    "apiTriggerUrlHelp": "Skicka en GET- eller POST-begäran till den här adressen för att spela kön från ett annat system, ett skript eller en webbläsare.",
+    "groupTrim": "Trimning",
+    "groupFades": "Toningar",
+    "groupStopLoop": "Stopp och loop",
+    "groupTransition": "Övergång"
   },
   "playback": {
     "panic": "Stoppa alla köer",
@@ -449,7 +551,8 @@
     "noDevices": "Inga utgångsenheter hittades",
     "silentServer": "Kör servern tyst i meddelandefältet",
     "silentServerHelp": "Startar servern utan konsolfönster. En ikon i meddelandefältet (menyraden på macOS) visar att den körs, även efter att LivePlay har stängts, och dess meny kan visa konsolen, öppna loggarna eller stoppa servern. Gäller nästa gång servern startar.",
-    "silentServerForced": "På för den här sessionen eftersom LivePlay startades med --silent."
+    "silentServerForced": "På för den här sessionen eftersom LivePlay startades med --silent.",
+    "localPortHelp": "Porten som ljudmotorn på den här datorn lyssnar på. Ändra den bara om ett annat program redan använder den."
   },
   "serverConfig": {
     "title": "Serverkonfiguration",
@@ -647,6 +750,7 @@
     "currentVersion": "Nuvarande version",
     "newVersion": "Ny version",
     "whatsNew": "Nyheter",
+    "seeWhatsNew": "Se vad som är nytt i {version}",
     "updatePrompt": "En ny version av LivePlay finns. Vill du ladda ner och installera den nu?",
     "manualUpdatePrompt": "En ny version av LivePlay finns. Klicka nedan för att gå till nedladdningssidan.",
     "downloading": "Laddar ner uppdatering",
@@ -689,6 +793,9 @@
     "title": "Ställ in kontroller",
     "tabKeyboard": "Tangentbord",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "Tangenter fästa vid en cart",
+    "pinnedCartsHelp": "En fäst tangent utlöser just den carten från valfri sida. Tangenterna ovan utlöser en plats på den sida som visas.",
+    "keyInUse": "Den tangenten används redan.",
     "sectionCartSlots": "Cartplatser",
     "sectionPlayback": "Uppspelning",
     "sectionVolume": "Volym",
@@ -721,7 +828,10 @@
     "playNext": "Spela nästa",
     "volumeMultiplier": "Volymmultiplikator",
     "volumeMultiplierHint": "dB per MIDI-steg. Öka för encodrar eller hjul som rör sig i små steg.",
-    "nextIn": "Nästa om {seconds} s"
+    "nextIn": "Nästa om {seconds} s",
+    "stopCurrentCue": "Stoppa aktuell cue",
+    "conflictPinned": "Redan fäst vid {cart}",
+    "midiDeviceHelp": "Vilken kontroller LivePlay lyssnar på. Alla enheter lyssnar på alla anslutna kontroller."
   },
   "selectProject": {
     "title": "Välj projekt",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "Importera ljud",
+    "notPlayable": "Inte importerad: {files}. LivePlay spelar upp WAV-, AIFF-, FLAC- och MP3-filer.",
     "tabServer": "På servern",
     "tabUpload": "Ladda upp från den här datorn",
     "serverHint": "Filer på servern. Dubbelklicka på en mapp för att öppna den. Markera filer (Skift- eller Ctrl/Cmd-klicka för flera) och klicka sedan på Importera markerade.",
@@ -809,6 +920,15 @@
     "serverCloseServer": "Stäng servern",
     "serverCloseClient": "Stäng bara klienten",
     "return": "Tillbaka till projektet"
+  },
+  "openFileModal": {
+    "title": "Öppna den här filen?",
+    "message": "Om du öppnar {file} stängs den aktuella showen.",
+    "liveTitle": "En show spelas",
+    "liveMessage": "Spelas nu: {cues}. Om du öppnar {file} stängs den här showen och dess ljud stoppas.",
+    "andMore": "{cues} och {count} till",
+    "keep": "Behåll aktuell show",
+    "open": "Stäng showen och öppna"
   },
   "deleteSelection": {
     "title": "Ta bort objekt",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}: klicka eller dra för att öppna",
     "emptyTitle": "Alla paneler är hopfällda",
     "emptyHint": "Klicka på eller dra i en list vid kanten, eller använd knapparna högst upp, för att öppna en panel."
+  },
+  "missingMedia": {
+    "badge": "Mediafilen saknas. Ersätt den under Egenskaper eller använd Hitta saknade medier.",
+    "banner": "{count} mediafil(er) hittas inte.",
+    "locate": "Hitta…",
+    "locateHint": "Välj en mapp där de saknade filerna ska sökas efter namn. Filer utanför projektet kopieras till projektets mediamapp.",
+    "locateResult": "Länkade om {relinked} objekt. {missing} saknas fortfarande.",
+    "locateFailed": "Det gick inte att söka i mappen: {error}",
+    "replace": "Ersätt mediafil",
+    "replaceFailed": "Det gick inte att ersätta mediafilen: {error}",
+    "propertiesHint": "Servern hittar inte den här filen. Använd ersätt-knappen för att välja den igen."
+  },
+  "events": {
+    "tab": "Händelser",
+    "addEvent": "Lägg till händelse",
+    "addEventHint": "Lägger till en händelse vid markören. Klicka i vågformen för att placera markören.",
+    "addTriggerEvent": "Lägg till vid…",
+    "cursor": "Markör",
+    "cursorHint": "Klicka eller dra i vågformen för att flytta markören, eller skriv en tid som m:ss.mmm eller i sekunder.",
+    "manageConnections": "Hantera anslutningar…",
+    "multiSelect": "Markera ett enda objekt för att redigera dess händelser.",
+    "noEvents": "Inga händelser än. Klicka i vågformen för att placera markören och tryck sedan på Lägg till händelse.",
+    "selectEvent": "Markera en händelse för att redigera den.",
+    "unsupported": "Den här servern stöder inte händelser. Uppdatera LivePlay-servern för att använda dem.",
+    "noPlugins": "Servern har inga händelseplugins.",
+    "loadFailed": "Det gick inte att läsa in händelseplugins från servern.",
+    "loading": "Läser in händelseplugins…",
+    "retry": "Försök igen",
+    "trigger": {
+      "label": "Utlösare",
+      "time": "Vid en tidpunkt",
+      "start": "Vid start",
+      "end": "Vid slut",
+      "pause": "Vid paus",
+      "resume": "Vid återupptagning"
+    },
+    "name": "Namn",
+    "enabled": "Aktiverad",
+    "time": "Tid",
+    "timeHint": "Position i filen, som m:ss.mmm eller i sekunder. Utanför in- och utpunkten utlöses händelsen aldrig.",
+    "useCursor": "Flytta till markören",
+    "plugin": "Plugin",
+    "connection": "Anslutning",
+    "noConnection": "Ingen anslutning",
+    "connectionMissing": "Anslutningen hittades inte",
+    "connectionDisabled": "Den här anslutningen är inaktiverad, så händelsen utlöses inte.",
+    "noConnectionsForPlugin": "Det finns inga {plugin}-anslutningar än.",
+    "action": "Åtgärd",
+    "preset": "Förinställning",
+    "presetNone": "Ingen (anpassad)",
+    "presetSave": "Spara de här inställningarna som förinställning",
+    "presetSaveConfirm": "Spara förinställning",
+    "presetMissing": "Förinställningen hittades inte",
+    "presetMissingHelp": "Händelsens förinställning finns inte längre, så den utlöses inte. Välj en annan förinställning eller Ingen.",
+    "presetInUse": "Använder förinställningen ”{name}”",
+    "presetEdit": "Redigera förinställning",
+    "presetDetach": "Gör anpassad",
+    "unknownPlugin": "Den här händelsen använder pluginet ”{plugin}”, som inte finns på den här servern. Den utlöses inte.",
+    "outsideTrim": "Utanför in- och utpunkten: den här händelsen utlöses inte.",
+    "placeholdersHelp": "Textfält kan använda {item.name}, {item.uuid}, {trigger} och {time}; servern fyller i dem när händelsen utlöses.",
+    "test": "Testa",
+    "testing": "Testar…",
+    "testOk": "Skickat.",
+    "testFailed": "Misslyckades: {error}",
+    "duplicate": "Duplicera",
+    "delete": "Ta bort",
+    "lastOk": "Senast utlöst kl. {time}: OK",
+    "lastError": "Senast utlöst kl. {time}: misslyckades: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(objektet hittades inte)",
+      "cartItem": "Cart {slot} · {name}",
+      "addRow": "Lägg till",
+      "removeRow": "Ta bort",
+      "moveUp": "Flytta upp",
+      "moveDown": "Flytta ned",
+      "refreshOptions": "Läs in listan från enheten igen"
+    },
+    "connections": {
+      "intro": "Dit händelser skickas: ett ljusbord, en MIDI-port, en webhook. Varje anslutning ställs in en gång för showen och kan användas av hur många händelser som helst.",
+      "noProject": "Öppna ett projekt för att hantera dess anslutningar.",
+      "empty": "Inga anslutningar än.",
+      "add": "Lägg till anslutning",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Ny {plugin}-anslutning",
+      "editTitle": "Redigera ”{name}”",
+      "name": "Namn",
+      "enabled": "Aktiverad",
+      "disabled": "inaktiverad",
+      "edit": "Redigera",
+      "save": "Spara",
+      "cancel": "Avbryt",
+      "delete": "Ta bort",
+      "deleteConfirm": "Ta bort ”{name}”?",
+      "deleteInUse": "{count} händelse(r) använder ”{name}”. De utlöses inte förrän de får en annan anslutning. Ta bort ändå?",
+      "usage": "{count} händelse(r)",
+      "unused": "Används inte",
+      "unknownPlugin": "Okänd typ ”{plugin}”",
+      "noFields": "Den här typen har inget att ställa in.",
+      "addressDropsCredentials": "När du sparar den nya adressen tas de sparade inloggningsuppgifterna bort från den här anslutningen och från händelserna som använder den. Du blir ombedd att ange dem igen.",
+      "testWith": "Testa med",
+      "saveFailed": "Det gick inte att spara anslutningarna: {error}",
+      "discover": "Sök i nätverket",
+      "discoverNone": "Inget hittades. Kontrollera att enheten är på och i samma nätverk som servern.",
+      "discoverFailed": "Det gick inte att söka i nätverket: {error}",
+      "discoverUsed": "Använder {device}.",
+      "presets": "Förinställningar",
+      "presetsHelp": "Inställningar att återanvända i flera händelser. Ändrar du en förinställning följer alla händelser som använder den med.",
+      "presetAdd": "Lägg till förinställning",
+      "presetName": "Namn på förinställning",
+      "presetDone": "Klar",
+      "presetDelete": "Ta bort förinställning (dess händelser behåller de här inställningarna)",
+      "enabledFor": "{name} aktiverad",
+      "editNamed": "Redigera {name}",
+      "deleteNamed": "Ta bort {name}",
+      "authRejected": "Inloggningsuppgifter nekade",
+      "authMissing": "Saknar inloggningsuppgifter",
+      "signIn": "Logga in",
+      "signInRejectedHelp": "Enheten nekade de här inloggningsuppgifterna. Ange dem igen under Huvuden; de sparade visas som punkter.",
+      "signInMissingHelp": "Showens inloggningsuppgifter krypterades på en annan dator, så den här kan inte använda dem. Ange dem igen under Huvuden.",
+      "signInMany": "{count} anslutningar behöver få sina inloggningsuppgifter angivna igen.",
+      "signInRejected": "”{name}” nekade sina inloggningsuppgifter. Logga in igen så att dess händelser fortsätter att fungera.",
+      "signInMissing": "”{name}” behöver få sina inloggningsuppgifter angivna på den här datorn.",
+      "signInWaiting": "”{name}” behöver loggas in. Inloggningen öppnas här när du sparar eller avbryter dina ändringar i den här anslutningen.",
+      "signInLater": "Inte nu",
+      "signInDiscard": "Ignorera ändringar och logga in",
+      "nameHelp": "Namnet anslutningen visas med när du väljer en för en händelse.",
+      "enabledHelp": "När den är av skickas inget till den här anslutningen och dess händelser utlöses inte."
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Zooma in",
+    "zoomOut": "Zooma ut",
+    "zoomFit": "Visa hela filen",
+    "scroll": "Scrolla tidslinjen",
+    "navHint": "Scrolla för att zooma · Shift-scrolla eller dra med mittenknappen för att panorera",
+    "deleted": "”{name}” togs bort.",
+    "undo": "Ångra",
+    "deviceTimeout": "Enheten svarade inte i tid.",
+    "headers": {
+      "name": "Namn",
+      "value": "Värde",
+      "valueFor": "Värde för {name}",
+      "secret": "Krypterat, visas som punkter",
+      "secretPlaceholder": "Lösenord, token eller nyckel",
+      "remove": "Ta bort huvud",
+      "add": "Lägg till huvud",
+      "rawLine": "Huvudrad"
+    },
+    "groupWhen": "När",
+    "groupCommand": "Kommando",
+    "triggerHelp": "När händelsen utlöses: vid en tidpunkt i filen, eller när kön startar, pausas, återupptas eller slutar."
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control via UDP: ljusbord, QLab, Companion med mera.",
+      "actions": {
+        "message": "Skicka meddelande"
+      },
+      "connection": {
+        "host": {
+          "label": "Värd"
+        },
+        "port": {
+          "label": "Port"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Adress"
+        },
+        "args": {
+          "label": "Argument",
+          "help": "Strängvärden kan använda {item.name}, {item.uuid}, {trigger} och {time}."
+        },
+        "type": {
+          "label": "Typ"
+        },
+        "value": {
+          "label": "Värde"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Heltal",
+          "f": "Flyttal",
+          "s": "Sträng",
+          "T": "Sant",
+          "F": "Falskt",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "MIDI ut från serverdatorn: toner, CC, program change, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note on",
+        "note-off": "Note off",
+        "control-change": "Control change",
+        "program-change": "Program change",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (rå)"
+      },
+      "summaries": {
+        "note-on": "kan {channel} ton {note}",
+        "note-off": "kan {channel} ton {note}",
+        "control-change": "kan {channel} CC {controller} = {value}",
+        "program-change": "kan {channel} program {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Utgångsport",
+          "help": "Portar på datorn där LivePlay-servern körs, matchade efter namn."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Kanal"
+        },
+        "note": {
+          "label": "Ton"
+        },
+        "velocity": {
+          "label": "Anslagsstyrka"
+        },
+        "controller": {
+          "label": "Kontroller"
+        },
+        "value": {
+          "label": "Värde"
+        },
+        "program": {
+          "label": "Program"
+        },
+        "deviceId": {
+          "label": "Enhets-ID",
+          "help": "127 adresserar alla enheter."
+        },
+        "commandFormat": {
+          "label": "Kommandoformat"
+        },
+        "command": {
+          "label": "Kommando"
+        },
+        "cue": {
+          "label": "Kö"
+        },
+        "list": {
+          "label": "Kölista"
+        },
+        "path": {
+          "label": "Kösökväg"
+        },
+        "data": {
+          "label": "Byte (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Ljus (allmänt)",
+          "moving-lights": "Rörligt ljus",
+          "sound": "Ljud (allmänt)",
+          "video": "Video (allmänt)",
+          "all": "Alla typer"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "HTTP-förfrågningar till allt med ett webb-API: Companion, mediaservrar, hemautomation.",
+      "actions": {
+        "request": "Förfrågan"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "Bas-URL",
+          "help": "Endast http://; HTTPS stöds inte än."
+        },
+        "headers": {
+          "label": "Huvuden",
+          "help": "Skickas med varje förfrågan. Lösenord, tokens och nycklar lagras krypterade och visas som punkter."
+        },
+        "timeoutMs": {
+          "label": "Tidsgräns (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Metod"
+        },
+        "path": {
+          "label": "Sökväg"
+        },
+        "headers": {
+          "label": "Huvuden",
+          "help": "Läggs till anslutningens huvuden."
+        },
+        "contentType": {
+          "label": "Innehållstyp"
+        },
+        "body": {
+          "label": "Innehåll",
+          "help": "Kan använda {item.name}, {item.uuid}, {trigger} och {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Inget",
+          "application/x-www-form-urlencoded": "Formulär",
+          "text/plain": "Text"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Den här showen: starta, stoppa och ducka köer, och styr den interna mixern.",
+      "actions": {
+        "play-item": "Spela kö",
+        "stop-item": "Stoppa kö",
+        "stop-all": "Stoppa allt",
+        "pause-item": "Pausa kö",
+        "resume-item": "Återuppta kö",
+        "arm-next": "Ange Näst på tur",
+        "duck-item": "Ducka en kö",
+        "bus-level": "Ställ in bussfader",
+        "bus-mute": "Mute / unmute en buss",
+        "bus-send": "Ställ in send-nivå",
+        "bus-route": "Routa en buss",
+        "bus-dsp": "Ställ in bussbearbetning",
+        "master-level": "Ställ in masternivå",
+        "stop-fade-mode": "Ställ in Stop All-toningsläge"
+      },
+      "fields": {
+        "item": {
+          "label": "Kö"
+        },
+        "level": {
+          "label": "Nivå",
+          "help": "Relativt köns egen volym: 0 återställer den, -90 tystar den. Gäller bara kön som spelas; dess sparade volym ändras inte."
+        },
+        "fade": {
+          "label": "Övertoning",
+          "help": "0 ändrar direkt; längre tid tonar över från där den är nu."
+        },
+        "bus": {
+          "label": "Buss"
+        },
+        "state": {
+          "label": "Läge"
+        },
+        "send": {
+          "label": "Till",
+          "help": "Bussens befintliga sends; lägg först till en i mixern."
+        },
+        "to": {
+          "label": "Går till"
+        },
+        "param": {
+          "label": "Inställning"
+        },
+        "value": {
+          "label": "Värde",
+          "help": "I inställningens egen enhet; brytare är 0 (av) eller 1 (på)."
+        },
+        "mode": {
+          "label": "Stoppade cuer tonar ut med",
+          "help": "Inställningar > Uppspelning: vilken toning Stop All och duckningen ”stoppa alla andra” använder. Panik klipper alltid."
+        },
+        "stopFade": {
+          "label": "Stoppade cuer tonar ut med"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "param": {
+          "eqEnabled": "EQ på (0/1)",
+          "dynEnabled": "Dynamik på (0/1)",
+          "hpf_freq": "Högpassfrekvens (20–2000 Hz)",
+          "lpf_freq": "Lågpassfrekvens (1000–24000 Hz)",
+          "gate_on": "Gate på (0/1)",
+          "gate_threshold": "Gate-tröskel (-80–0 dB)",
+          "gate_range": "Gate-range (-80–0 dB)",
+          "comp_on": "Kompressor på (0/1)",
+          "comp_threshold": "Kompressortröskel (-60–0 dB)",
+          "comp_ratio": "Kompressorratio (1–60 :1)",
+          "comp_makeup": "Kompressor-makeup (-12–24 dB)",
+          "width_width": "Stereobredd (0–2 ×)"
+        },
+        "mode": {
+          "item": "Varje cues egen stoppknappstoning",
+          "global": "Stop All-toningen",
+          "toggle": "Växla mellan de två"
+        },
+        "stopFade": {
+          "show": "Stop All-toningen",
+          "cue": "Varje cues egen stoppknappstoning, eller direkt"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "XR12-, XR16-, XR18- och Midas MR-mixrar: snapshots, fadrar, sends, FX, routing och USB-inspelaren.",
+      "actions": {
+        "snapshot": "Hämta snapshot",
+        "fader": "Ställ in fader",
+        "send": "Ställ in send-nivå",
+        "mute": "Mute / unmute",
+        "recorder": "USB-inspelare",
+        "fx-type": "Ställ in FX-typ",
+        "fx-param": "Ställ in FX-parameter",
+        "route-output": "Routa en utgång",
+        "route-main": "Routa huvudutgången",
+        "check": "Kontrollera anslutning"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Mixerns adress"
+        },
+        "port": {
+          "label": "Port"
+        },
+        "maxLevelDb": {
+          "label": "Maxnivå",
+          "help": "Ingen fader eller send som en händelse ställer in går över detta."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Kanal"
+        },
+        "level": {
+          "label": "Nivå",
+          "help": "-90 är av (-inf). Begränsas av anslutningens maxnivå."
+        },
+        "fade": {
+          "label": "Övertoning",
+          "help": "0 ändrar direkt; längre tid tonar över från där den är nu."
+        },
+        "send": {
+          "label": "Till"
+        },
+        "state": {
+          "label": "Läge"
+        },
+        "command": {
+          "label": "Kommando",
+          "help": "Spelar in på USB-minnet i mixern."
+        },
+        "slot": {
+          "label": "FX-plats"
+        },
+        "type": {
+          "label": "Effekt"
+        },
+        "param": {
+          "label": "Parameter"
+        },
+        "value": {
+          "label": "Värde",
+          "help": "I parameterns egen enhet (visas bredvid); brytare är 0/1, val räknas från 0."
+        },
+        "output": {
+          "label": "Utgång"
+        },
+        "source": {
+          "label": "Källa",
+          "help": "USB-sends kan inte ta USB-returer."
+        },
+        "tap": {
+          "label": "Uttagspunkt"
+        },
+        "assign": {
+          "label": "Huvudutgången bär"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Mute",
+          "unmute": "Unmute"
+        },
+        "command": {
+          "record": "Spela in",
+          "stop": "Stopp",
+          "record-pause": "Pausa inspelning",
+          "play": "Spela",
+          "play-pause": "Pausa uppspelning"
+        },
+        "tap": {
+          "keep": "Ändra inte",
+          "0": "Analog ingång",
+          "1": "Analog ingång + mute",
+          "2": "Ingång",
+          "3": "Ingång + mute",
+          "4": "Pre EQ",
+          "5": "Pre EQ + mute",
+          "6": "Post EQ",
+          "7": "Post EQ + mute",
+          "8": "Pre fader",
+          "9": "Pre fader + mute",
+          "10": "Post fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

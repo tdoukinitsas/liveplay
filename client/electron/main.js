@@ -304,9 +304,16 @@ const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
  *   * the position must still be ON a display. Unplug the second monitor and
  *     yesterday's x of 2800 is off the edge of the world. Dropping x/y lets
  *     Electron centre it, which is the same thing that happened before any of
- *     this existed.
+ *     this existed. And on it in a way that can be grabbed: overlapping the
+ *     display is not enough if the title bar is above the top of the work area
+ *     or only a sliver of the window is left on it, so the position is pulled
+ *     in until the title bar is inside and enough of the width shows.
  */
 function savedWindowBounds(key, defaults) {
+  // How much of the window has to stay on the work area to be dragged back:
+  // a title bar's height, and a stretch of its width a pointer can find.
+  const GRAB_HEIGHT = 40;
+  const GRAB_WIDTH = 100;
   const saved = readWindowBoundsStore()[key];
   if (!saved || typeof saved !== 'object') return { ...defaults };
   if (!isPositiveInt(saved.width) || !isPositiveInt(saved.height)) return { ...defaults };
@@ -332,8 +339,15 @@ function savedWindowBounds(key, defaults) {
       saved.x < area.x + area.width  && saved.x + saved.width  > area.x &&
       saved.y < area.y + area.height && saved.y + saved.height > area.y;
     if (onScreen) {
-      out.x = saved.x;
-      out.y = saved.y;
+      // The top edge (the title bar) inside the work area, and at least
+      // GRAB_WIDTH of the width on it. Width is already no wider than the area,
+      // so both ranges are well formed.
+      const grab = Math.min(GRAB_WIDTH, out.width);
+      const minX = area.x - out.width + grab;
+      const maxX = area.x + area.width - grab;
+      const maxY = area.y + Math.max(0, area.height - GRAB_HEIGHT);
+      out.x = Math.min(Math.max(saved.x, minX), maxX);
+      out.y = Math.min(Math.max(saved.y, area.y), maxY);
     }
   }
   if (saved.maximized === true) out.maximized = true;
@@ -1477,6 +1491,9 @@ let fileToOpen = null; // Store file path if app is opened with a file
 let stateViewerWindow = null; // Debug state viewer window
 let cartPlayerWindow = null;  // Detached cart player window
 let mixerWindow = null;       // Detached mixer window
+// Playlist tabs and cart pages in windows of their own (#74), one per tab,
+// keyed "playlist:<id>" / "cart:<id>".
+const tabWindows = new Map();
 
 // Minimum size for windows that host the full editing surface. Applied to the
 // main window and the detached mixer, both of which render the mixer's channel
@@ -1489,23 +1506,15 @@ let mixerWindow = null;       // Detached mixer window
 // CSS breakpoint and vh unit in the layout is measured against the page, not
 // the frame. With it, the numbers mean what the stylesheets assume.
 //
-// Sized so the app FITS a 1366x768 laptop panel, which is the smallest screen
-// it is expected to run on.
+// Keep the window usable beside another app on common laptop displays. The
+// workspace scrolls internally when its available height is below the preferred layout.
 //
-// These are CONTENT dimensions (useContentSize), which is the whole reason the
-// numbers look odd: on Windows the frame and title bar add roughly 15x64, so
-// 1350x690 content is about 1365x754 outer, and a 768px-tall screen leaves
-// roughly 720px once the taskbar is out. Setting the minimum to 1366x768
-// content — the obvious-looking choice, and what was briefly here — yields a
-// ~1381x832 window and locks that laptop out entirely. So does the 1280x720
-// this replaced, which measured ~1295x784.
-//
-// 690px of content height is below the channel view's comfortable three-column
-// height, and that is fine rather than an oversight: the work area scrolls and
-// the dynamics panel scrolls inside it, so a short window is cramped instead of
-// broken. The floor exists to keep the layout usable, not to guarantee every
-// panel its full height.
-const MIN_WINDOW = { minWidth: 1350, minHeight: 690, useContentSize: true };
+// These are CONTENT dimensions (useContentSize); on Windows the frame and title
+// bar add roughly 15x64. Keep the minimum width small enough for a half-screen
+// window on common displays. Below 1350px the mixer stacks and scrolls its
+// channel sections, which is less comfortable but still usable beside another
+// app. The 690px height floor keeps the main work area usable on short screens.
+const MIN_WINDOW = { minWidth: 600, minHeight: 690, useContentSize: true };
 
 // Flatten all audio items from a nested project items array
 function flattenAudioItems(items) {
@@ -1874,6 +1883,35 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
+// Every window of ours shows the app's own page and nothing else. A file or a
+// link let go where no drop target took it, or a link followed by accident,
+// used to replace the app with it: the show gone, and a main window whose close
+// veto asked a page that no longer listened (app:request-quit), so it could not
+// be closed. Reloading the same page (Ctrl+R, the connection-lost Reload) still
+// works, and so do mailto: and tel:, which go to the OS rather than replacing
+// the page (the About pane's contact links). No page opens windows of its own:
+// ours are opened here, over IPC.
+function isOwnPageNavigation(current, target) {
+  try {
+    const to = new URL(target);
+    if (to.protocol === 'mailto:' || to.protocol === 'tel:') return true;
+    const from = new URL(current);
+    // The same document, whatever the query or hash: a dev-server reload, or
+    // the packaged index.html loaded again.
+    return to.protocol === from.protocol && to.host === from.host && to.pathname === from.pathname;
+  } catch {
+    return false;
+  }
+}
+
+function guardWindowNavigation(win) {
+  const contents = win.webContents;
+  contents.on('will-navigate', (event, url) => {
+    if (!isOwnPageNavigation(contents.getURL(), event.url || url)) event.preventDefault();
+  });
+  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+}
+
 function createWindow() {
   // `useContentSize: true` rides in MIN_WINDOW, so these are CONTENT dimensions
   // and the saved size has to be a content size too — see trackWindowBounds.
@@ -1882,10 +1920,8 @@ function createWindow() {
   const { maximized, ...geom } = savedWindowBounds('main', { width: 1400, height: 900 });
   mainWindow = new BrowserWindow({
     ...geom,
-    // The floor the layouts are designed against. The mixer's channel view in
-    // particular assumes it can put a channel column, an EQ and a dynamics
-    // section side by side; below this it degrades to stacked, scrolling
-    // sections, which works but is not what anyone should be running a show on.
+    // Keep the window compact enough for side-by-side use. At narrower sizes,
+    // the mixer channel view stacks and scrolls its sections instead.
     ...MIN_WINDOW,
     icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
     webPreferences: {
@@ -1896,6 +1932,7 @@ function createWindow() {
     },
     show: false
   });
+  guardWindowNavigation(mainWindow);
   if (maximized) mainWindow.maximize();
   trackWindowBounds('main', mainWindow, { contentSize: true });
 
@@ -1948,6 +1985,7 @@ function createWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    closeAllTabWindows();
   });
 
   createMenu('en', isDevMode);
@@ -1977,6 +2015,7 @@ function createCartPlayerWindow() {
       webSecurity: false
     }
   });
+  guardWindowNavigation(cartPlayerWindow);
   if (maximized) cartPlayerWindow.maximize();
   trackWindowBounds('cart', cartPlayerWindow);
 
@@ -2006,6 +2045,70 @@ function createCartPlayerWindow() {
   });
 }
 
+function notifyTabWindowsChanged() {
+  if (mainWindow && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('tab-windows-changed', [...tabWindows.keys()]);
+  }
+}
+
+// One window per tab: asking again brings the existing one forward. Which tab
+// it shows is in its URL, so reloading it comes back to the same place.
+function createTabWindow(kind, id) {
+  if ((kind !== 'cart' && kind !== 'playlist') || !/^[\w-]{1,64}$/.test(String(id))) return;
+  const key = `${kind}:${id}`;
+  const existing = tabWindows.get(key);
+  if (existing && !existing.isDestroyed()) {
+    if (existing.isMinimized()) existing.restore();
+    existing.focus();
+    return;
+  }
+  // Each tab remembers where its own window was, like the cart and mixer
+  // windows do. Outer bounds: no useContentSize here.
+  const boundsKey = `tab:${key}`;
+  const { maximized, ...geom } = savedWindowBounds(boundsKey, { width: 900, height: 700 });
+  const win = new BrowserWindow({
+    ...geom,
+    minWidth: 380,
+    minHeight: 400,
+    // Only until the page loads: the renderer then titles the window with the
+    // tab's name, in the operator's language (useShowTabs).
+    title: 'LivePlay',
+    icon: path.join(__dirname, '../assets/icons/2x/app_icon_darkmode@2x.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false,
+    },
+  });
+  guardWindowNavigation(win);
+  if (maximized) win.maximize();
+  trackWindowBounds(boundsKey, win);
+  const query = kind === 'cart'
+    ? { cartWindow: '1', cartPage: id }
+    : { playlistWindow: '1', playlistTab: id };
+  if (isDevMode) {
+    win.loadURL(`http://localhost:3000/?${new URLSearchParams(query)}`);
+  } else {
+    win.loadFile(path.join(__dirname, '../.output/public/index.html'), { query });
+  }
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[TabWindow] Failed to load:', errorCode, errorDescription);
+  });
+  tabWindows.set(key, win);
+  win.on('closed', () => {
+    tabWindows.delete(key);
+    notifyTabWindowsChanged();
+  });
+  notifyTabWindowsChanged();
+}
+
+function closeAllTabWindows() {
+  for (const win of tabWindows.values()) {
+    if (!win.isDestroyed()) win.close();
+  }
+}
+
 // Create detached mixer window.
 //
 // Unlike the cart window this one needs almost nothing from us: buses, meters
@@ -2033,6 +2136,7 @@ function createMixerWindow() {
       webSecurity: false
     }
   });
+  guardWindowNavigation(mixerWindow);
   if (maximized) mixerWindow.maximize();
   trackWindowBounds('mixer', mixerWindow, { contentSize: true });
 
@@ -2083,6 +2187,7 @@ function createStateViewerWindow() {
       preload: path.join(__dirname, 'preload-state-viewer.js')
     }
   });
+  guardWindowNavigation(stateViewerWindow);
   if (maximized) stateViewerWindow.maximize();
   trackWindowBounds('stateViewer', stateViewerWindow);
 
@@ -2435,17 +2540,17 @@ const menuTranslations = Object.entries(localeFiles).reduce((acc, [code, data]) 
 // and here. The labels cannot drift (they are resolved from the same
 // `settings.section*` keys the rail uses), but the LIST can — and an id offered
 // here that the registry does not know opens the default pane instead, because
-// `useSettingsPage().open()` validates against the registry. Eleven panes as of
-// the Mixer pane; keep the order the same as the rail's so the menu reads like
-// the page.
+// `useSettingsPage().open()` validates against the registry. Eleven panes since
+// the Mixer pane folded into Appearance (2.6); keep the order the same as the
+// rail's so the menu reads like the page.
 const SETTINGS_MENU_SECTIONS = [
   { id: 'appearance', labelKey: 'sectionAppearance' },
   { id: 'playback',   labelKey: 'sectionPlayback'   },
   { id: 'audio',      labelKey: 'sectionAudio'      },
-  { id: 'mixer',      labelKey: 'sectionMixer'      },
   { id: 'outputs',    labelKey: 'sectionOutputs'    },
   { id: 'keyboard',   labelKey: 'sectionKeyboard'   },
   { id: 'surfaces',   labelKey: 'sectionSurfaces'   },
+  { id: 'connections', labelKey: 'sectionConnections' },
   { id: 'project',    labelKey: 'sectionProject'    },
   { id: 'server',     labelKey: 'sectionServer'     },
   { id: 'users',      labelKey: 'sectionUsers'      },
@@ -2719,7 +2824,8 @@ ipcMain.handle('select-audio-files', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openFile', 'multiSelections'],
     filters: [
-      { name: 'Audio Files', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a', 'aac'] }
+      // What the engine can decode; see audio_extensions() in control_server.cpp.
+      { name: 'Audio Files', extensions: ['wav', 'aiff', 'aif', 'flac', 'mp3'] }
     ]
   });
 
@@ -3199,14 +3305,16 @@ ipcMain.on('sync-project-data', (event, projectData) => {
     }
     // Forward project updates to the detached windows if open. The mixer
     // window takes only the theme and meter levels off this, but it is the
-    // same payload, so it rides the same channel.
-    if (projectData) {
-      for (const win of [cartPlayerWindow, mixerWindow]) {
-        if (win && !win.webContents.isDestroyed()) {
-          win.webContents.send('cart-window-project-update', projectData);
-        }
+    // same payload, so it rides the same channel. A closed show (null) goes
+    // too: the detached cart window otherwise kept showing the old show's
+    // carts, and the mixer its meter levels.
+    for (const win of [cartPlayerWindow, mixerWindow, ...tabWindows.values()]) {
+      if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send('cart-window-project-update', projectData);
       }
     }
+    // The show closed: a tab of it has nothing left to show.
+    if (!projectData) closeAllTabWindows();
   }
   // Silently ignore syncs from the cart window to prevent feedback loops
 });
@@ -3219,6 +3327,26 @@ ipcMain.handle('open-cart-player-window', () => {
 ipcMain.on('cart-player-window-attach', () => {
   if (cartPlayerWindow) {
     cartPlayerWindow.close();
+  }
+});
+
+ipcMain.handle('open-tab-window', (_event, kind, id) => {
+  createTabWindow(kind, id);
+});
+
+// A different show was opened (MainWorkspace watches for it). Tab ids can
+// repeat between shows (the first tab is always "default"), so a pop-out's own
+// "is my tab still there" check can't be relied on to catch this.
+ipcMain.on('tab-windows-close-all', (event) => {
+  if (event.sender === mainWindow?.webContents) closeAllTabWindows();
+});
+
+// A pop-out whose tab has gone (deleted here or by another operator) asks to
+// close rather than quietly falling back to the first tab (useShowTabs). Only
+// tab windows may: this is not a way to close the main window.
+ipcMain.on('tab-window-close-self', (event) => {
+  for (const win of tabWindows.values()) {
+    if (!win.isDestroyed() && win.webContents === event.sender) win.close();
   }
 });
 
@@ -3236,6 +3364,21 @@ ipcMain.on('mixer-window-attach', () => {
 // UI mode (edit / "show mode") sync across windows. Each renderer owns its
 // own state, so broadcast a change from any window to every other window so
 // the detached cart player stays in lockstep with the main window.
+// A window's view, relayed to the others (the main window keeps it for MIDI,
+// R2-05). Only the two ids travel; anything else in the message is dropped.
+ipcMain.on('view-focus-changed', (event, view) => {
+  const clean = {
+    cartPage: typeof view?.cartPage === 'string' ? view.cartPage : null,
+    playlistTab: typeof view?.playlistTab === 'string' ? view.playlistTab : null,
+  };
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.webContents.id === event.sender.id) continue;
+    if (win.webContents && !win.webContents.isDestroyed()) {
+      win.webContents.send('view-focus-set', clean);
+    }
+  }
+});
+
 ipcMain.on('ui-mode-changed', (event, mode) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.webContents.id === event.sender.id) continue;
@@ -3442,6 +3585,16 @@ ipcMain.handle('youtube-settings:set', (_e, incoming) => {
   return next;
 });
 
+// A file stem not yet used in `dir` for this extension: "Song", "Song (2)", ...
+// The same numbering the server gives imported files.
+function uniqueMediaStem(dir, stem, ext) {
+  for (let n = 1; n < 10000; n++) {
+    const candidate = n === 1 ? stem : `${stem} (${n})`;
+    if (!fs.existsSync(path.join(dir, `${candidate}.${ext}`))) return candidate;
+  }
+  throw new Error('Too many media files share this name.');
+}
+
 // YouTube Download Handler
 ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFolderPath) => {
   return new Promise(async (resolve, reject) => {
@@ -3459,9 +3612,12 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
     
     // Clean filename
     const sanitizedTitle = title.replace(/[<>:"/\\|?*]/g, '').substring(0, 200);
-    const fileName = `${sanitizedTitle}.${yt.format}`;
-    const outputTemplate = path.join(outputPath, sanitizedTitle);
-    
+    // Two videos can share a title. yt-dlp would see the first one's file and
+    // skip the download, leaving the new cue playing the wrong audio (#92).
+    const fileStem = uniqueMediaStem(outputPath, sanitizedTitle, yt.format);
+    const fileName = `${fileStem}.${yt.format}`;
+    const outputTemplate = path.join(outputPath, fileStem);
+
     console.log('YouTube download - Output template:', outputTemplate);
     
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
@@ -3636,12 +3792,15 @@ ipcMain.handle('download-youtube-audio', async (event, videoId, title, projectFo
         if (!fs.existsSync(expectedFile)) {
           // Try to find it with URL-encoded name or other variations
           const files = fs.readdirSync(outputPath);
-          const baseName = sanitizedTitle;
-          
-          // Look for files that match the base name (case-insensitive, with any encoding)
+          const wantedName = fileName.toLowerCase();
+
+          // Look for this exact name (case-insensitive, with any encoding). Not
+          // a prefix match: "Song (2).mp3" belongs to another cue, and the
+          // rename below would take it away from them.
           const matchingFile = files.find(f => {
-            const decoded = decodeURIComponent(f);
-            return decoded.toLowerCase().startsWith(baseName.toLowerCase()) && f.endsWith(`.${yt.format}`);
+            let decoded = f;
+            try { decoded = decodeURIComponent(f); } catch { /* a literal % in the name */ }
+            return decoded.toLowerCase() === wantedName;
           });
           
           if (matchingFile) {
@@ -3708,13 +3867,15 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient('liveplay');
 }
 
+const { getOpenableFileFromArgv, fileKindFor } = require('./open-file-args');
+
 // For Windows, we need to handle the protocol differently
 const gotTheLock = app.requestSingleInstanceLock();
 
 if (!gotTheLock) {
   app.quit();
 } else {
-  app.on('second-instance', (event, commandLine) => {
+  app.on('second-instance', (event, commandLine, workingDirectory) => {
     // Someone tried to run a second instance, we should focus our window
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
@@ -3723,7 +3884,7 @@ if (!gotTheLock) {
     // On Windows/Linux a double-clicked file while we're already running
     // arrives as an argument on the second instance's command line. Pick it
     // up and open it (or stash it if the window isn't ready yet).
-    const f = getOpenableFileFromArgv(commandLine);
+    const f = getOpenableFileFromArgv(commandLine, workingDirectory);
     if (f) {
       if (mainWindow && mainWindow.webContents) {
         openFile(f);
@@ -3776,20 +3937,6 @@ app.on('open-file', (event, filePath) => {
     fileToOpen = filePath;
   }
 });
-
-// Find the first openable project file (.liveplay / .lpa) in a command-line
-// argument vector. Used for cold start (process.argv) and Windows/Linux
-// warm start (second-instance commandLine).
-function getOpenableFileFromArgv(argv) {
-  if (!Array.isArray(argv)) return null;
-  return argv.find(arg => typeof arg === 'string' &&
-    (/\.liveplay$/i.test(arg) || /\.lpa$/i.test(arg))) || null;
-}
-
-// Classify a path by extension into the kind the renderer expects.
-function fileKindFor(filePath) {
-  return /\.lpa$/i.test(filePath) ? 'lpa' : 'liveplay';
-}
 
 // Handle command line arguments (Windows/Linux)
 if (process.platform === 'win32' || process.platform === 'linux') {

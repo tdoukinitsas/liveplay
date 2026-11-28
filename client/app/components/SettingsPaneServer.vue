@@ -3,6 +3,14 @@
     <h3 class="settings-pane-title">{{ t('settings.sectionServer') }}</h3>
     <p class="settings-pane-intro">{{ t('settings.sectionServerHelp') }}</p>
 
+    <!-- Sections 1 and 2 are this computer's (which server this app talks to,
+         and how often this connection is sent meters); section 3 is the
+         server's own. Each group heading says whose. -->
+    <h4 class="settings-group-title">
+      {{ t('settings.groupConnection') }}
+      <SettingsScope scope="computer" />
+    </h4>
+
     <!-- ================================================================
          1. This client's connection.
          Electron's own config, NOT liveplay.json: which server this app
@@ -36,6 +44,7 @@
         <label class="settings-label">{{ t('serverSettings.localPort') }}</label>
         <input class="settings-input" type="number" min="1" max="65535"
                v-model.number="draftLocalPort" />
+        <p class="settings-help">{{ t('serverSettings.localPortHelp') }}</p>
         <!-- Off by default on purpose: the console window is how an operator
              sees the server is still running after the app has quit or
              crashed. Silent mode keeps that promise with a tray icon owned by
@@ -96,7 +105,10 @@
     <!-- ================================================================
          3. The machine's own configuration (P3a).
          ================================================================ -->
-    <h4 class="settings-group-title">{{ t('serverConfig.title') }}</h4>
+    <h4 class="settings-group-title">
+      {{ t('serverConfig.title') }}
+      <SettingsScope scope="server" />
+    </h4>
 
     <p v-if="configError" class="settings-help settings-help--warn">{{ configError }}</p>
 
@@ -190,6 +202,7 @@
 </template>
 
 <script setup lang="ts">
+import SettingsScope from './SettingsScope.vue';
 // The Server pane (P3b).
 //
 // Two different owners live on this page, and keeping them apart is the point
@@ -412,13 +425,6 @@ watch(() => server.connected, (up) => { if (up) void load(); });
 </script>
 
 <style lang="scss" scoped>
-.settings-group-title {
-  margin: 32px 0 4px;
-  font-size: 15px;
-  font-weight: 600;
-  padding-top: 20px;
-  border-top: 1px solid var(--color-border, #333);
-}
 .settings-path {
   font-family: monospace;
   font-size: 12px;
@@ -459,7 +465,7 @@ watch(() => server.connected, (up) => { if (up) void load(); });
   &--primary {
     background: var(--color-accent-custom, #DA1E28);
     border-color: transparent;
-    color: #fff;
+    color: var(--color-on-accent, #fff);
   }
 }
 .settings-saved { font-size: 12px; opacity: 0.8; }

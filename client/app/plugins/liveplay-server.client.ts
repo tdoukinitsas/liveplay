@@ -12,6 +12,7 @@
 import { defineNuxtPlugin } from 'nuxt/app';
 import { useLiveplayServer } from '~/composables/useLiveplayServer';
 import { useShowControl } from '~/composables/useShowControl';
+import { useEvents } from '~/composables/useEvents';
 import { useConnectionGuard } from '~/composables/useConnectionGuard';
 
 export default defineNuxtPlugin(async () => {
@@ -27,6 +28,11 @@ export default defineNuxtPlugin(async () => {
   // missed. Wiring it here rather than in a component means it stays live
   // even in windows that never mount the playlist (the detached cart player).
   useShowControl();
+
+  // Event feedback (#84) and the plugin schemas. Here rather than in the
+  // Events tab so an event that failed mid-show is already on record when
+  // someone opens the tab to find out why.
+  useEvents();
 
   // Electron exposes window.electronAPI.liveplayServer via the preload
   // bridge. In a non-Electron / pure-web context we just fall back to

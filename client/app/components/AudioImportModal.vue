@@ -113,6 +113,7 @@ const emit  = defineEmits<{
 const server = useLiveplayServer();
 const { currentProject } = useProject();
 const { t }  = useLocalization();
+const { keepPlayable } = useImportNotice();
 // When the server is on this same machine, "Upload from this computer" is
 // meaningless — we just want the server file browser.
 const tab    = ref<'server' | 'upload'>('server');
@@ -137,7 +138,8 @@ function basename(p: string): string { return p.split(/[\\/]/).pop() || p; }
 
 // Server file browser emits a batch of already-on-server paths.
 function onServerPick(serverPaths: string[]) {
-  if (serverPaths.length) emit('pick', serverPaths);
+  const playable = keepPlayable(serverPaths, p => p);
+  if (playable.length) emit('pick', playable);
 }
 
 function importLocalSelected() {
@@ -186,13 +188,12 @@ async function pickLocal() {
   if (!api?.selectAudioFiles) return;
   pickingLocal.value = true;
   try {
-    const paths: string[] | null = await api.selectAudioFiles();
-    if (paths?.length) {
-      for (const p of paths) {
-        if (!localPicked.value.includes(p)) {
-          localPicked.value.push(p);
-          selectedLocal.value.push(p);   // pre-select newly picked files
-        }
+    // A native dialog's filter can be bypassed by typing a file name.
+    const picked: string[] | null = await api.selectAudioFiles();
+    for (const p of keepPlayable(picked ?? [], path => path)) {
+      if (!localPicked.value.includes(p)) {
+        localPicked.value.push(p);
+        selectedLocal.value.push(p);   // pre-select newly picked files
       }
     }
   } finally {
@@ -209,8 +210,9 @@ async function pickAndUpload() {
     return;
   }
 
-  const localPaths: string[] | null = await api.selectAudioFiles();
-  if (!localPaths || localPaths.length === 0) return;
+  const picked: string[] | null = await api.selectAudioFiles();
+  const localPaths = keepPlayable(picked ?? [], path => path);
+  if (localPaths.length === 0) return;
 
   uploading.value = true;
   try {
@@ -234,8 +236,14 @@ async function pickAndUpload() {
       const out = await server.uploadFile(file, basename(lp));
       if (out?.saved?.length) {
         for (const savedPath of out.saved) {
-          uploadedThisSession.value.push(savedPath);
-          selectedUploaded.value.push(savedPath);   // pre-select for one-click import
+          // An identical file comes back as the path already on the server,
+          // which may be in this list from an earlier upload.
+          if (!uploadedThisSession.value.includes(savedPath)) {
+            uploadedThisSession.value.push(savedPath);
+          }
+          if (!selectedUploaded.value.includes(savedPath)) {
+            selectedUploaded.value.push(savedPath);   // pre-select for one-click import
+          }
         }
       }
     }
@@ -294,7 +302,7 @@ async function pickAndUpload() {
     display: inline-flex; align-items: center; gap: 4px;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    &.primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent, #fff); }
     &.small   { padding: 2px 8px; font-size: 12px; }
   }
   .row { display: flex; gap: 10px; align-items: center; }
@@ -308,7 +316,7 @@ async function pickAndUpload() {
       display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center;
       padding: 6px 10px; border-bottom: 1px solid #222; cursor: pointer;
       &:hover { background: #202020; }
-      &.selected { background: var(--color-accent); .name, .icon { color: #fff; } }
+      &.selected { background: var(--color-accent); .name, .icon { color: var(--color-on-accent, #fff); } }
       .icon { font-size: 18px; color: var(--color-accent); }
       .name { color: #fff; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     }

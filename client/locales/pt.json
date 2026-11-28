@@ -108,6 +108,10 @@
     "disableSilenceWarningHelp": "Oculta a contagem decrescente «Silêncio em» no cabeçalho.",
     "transitionMode": "Modo de transição predefinido",
     "transitionModeHelp": "Como as faixas recém-importadas passam para a seguinte. Pode alterá-lo faixa a faixa nas Propriedades.",
+    "goContinuesFrom": "GO com vários cues a tocar",
+    "goContinuesFromEarliest": "Continuar a partir do cue iniciado primeiro",
+    "goContinuesFromLatest": "Continuar a partir do cue iniciado por último",
+    "goContinuesFromHelp": "Com mais de um cue a tocar e nada definido como Seguinte, a partir de qual GO e Seguinte continuam. As superfícies de controlo e o MIDI seguem a mesma escolha.",
     "transitionModeCrossfade": "Crossfade para a seguinte",
     "transitionModeStartNext": "Iniciar a seguinte no marcador",
     "autoCueNext": "Marcar sempre o item seguinte como «A seguir»",
@@ -153,6 +157,8 @@
     "sectionServerHelp": "O servidor a que esta aplicação está ligada e, para os administradores, a sua configuração.",
     "sectionUsers": "Contas",
     "sectionUsersHelp": "Quem pode usar este servidor e o que pode alterar.",
+    "stopAllFiresEvents": "«Parar tudo» dispara os eventos «Ao terminar»",
+    "stopAllFiresEventsHelp": "Quando desligado, as deixas que «Parar tudo» para não disparam eventos «Ao terminar». Quando ligado, disparam-nos, mas nenhum pode iniciar outra deixa. Premir «Parar tudo» outra vez antes de terminar é um pânico: tudo para de imediato e nenhum evento é disparado.",
     "stopAllStopsPreview": "«Parar tudo» também para a pré-escuta",
     "stopAllStopsPreviewHelp": "Quando desligado, «Parar tudo» não para uma deixa que esteja a pré-escutar.",
     "sectionAppearance": "Aparência",
@@ -169,13 +175,30 @@
     "accentColorHelp": "Usada nas seleções, nas deixas em reprodução e nos destaques.",
     "accentColorSwatch": "Cor de destaque {color}",
     "sectionAbout": "Acerca de",
-    "sectionAboutHelp": "Versão, créditos e licença."
+    "sectionAboutHelp": "Versão, créditos e licença.",
+    "sectionConnections": "Ligações",
+    "stopAllUsesItemFade": "Cues parados usam o seu próprio fade do botão Stop",
+    "stopAllUsesItemFadeHelp": "Ativado, o Stop All e o modo de ducking «Parar todos os outros» fazem cada cue sair com o seu próprio fade do botão Stop. Cues sem um usam o fade do Stop All. Premir Stop All duas vezes continua a parar tudo de imediato.",
+    "thisComputer": "Este computador",
+    "scopeYou": "Pessoal",
+    "scopeShow": "Este espetáculo",
+    "scopeServer": "Servidor",
+    "groupLanguageLayout": "Idioma e disposição",
+    "groupDisplay": "Visualização",
+    "groupGoUpNext": "GO e «A seguir»",
+    "groupNewCues": "Novas deixas",
+    "groupLoudness": "Loudness e medição",
+    "groupRouting": "Encaminhamento e timecode",
+    "groupConnection": "Ligação",
+    "sectionPlaybackIntro": "Como as deixas começam, param e passam de uma para a outra, e com que definições começam as novas deixas.",
+    "disableAutoVolumeAndTrimHelp": "As novas deixas mantêm o nível e a duração do ficheiro. Pode sempre nivelar ou aparar qualquer deixa no separador Reprodução."
   },
   "common": {
     "default": "predefinição",
     "loading": "A carregar…",
     "error": "Erro",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "moreInfo": "Mais informações"
   },
   "project": {
     "enterName": "Nome do projeto",
@@ -202,8 +225,59 @@
     "busRoutedMissing": "Encaminhado para um bus em falta",
     "newGroup": "Novo grupo"
   },
+  "tabs": {
+    "playlistLabel": "Separadores de listas de reprodução",
+    "cartLabel": "Páginas de cartuchos",
+    "add_playlist": "Adicionar separador de lista de reprodução",
+    "add_cart": "Adicionar página de cartuchos",
+    "limitReached": "Atingiu o número máximo de separadores.",
+    "defaultPlaylist": "Lista de reprodução {n}",
+    "defaultPage": "Página {n}",
+    "edit": "Editar separador",
+    "name": "Nome",
+    "colour": "Cor",
+    "noColour": "Sem cor",
+    "cartCount": "Número de cartuchos",
+    "fewer": "Menos cartuchos",
+    "more": "Mais cartuchos",
+    "cartCountFloor": "Não pode descer abaixo de {n}: há um cartucho nessa posição.",
+    "atEnd": "Depois da última deixa",
+    "atEndWrap": "Voltar ao início deste separador",
+    "atEndContinue": "Continuar no separador seguinte",
+    "atEndStop": "Parar",
+    "popOut": "Abrir numa nova janela",
+    "delete": "Eliminar separador",
+    "deleteYes": "Eliminar",
+    "deleteEmpty": "Eliminar «{name}»?",
+    "deleteConfirm_playlist": "Eliminar «{name}» e os seus itens ({count})?",
+    "deleteConfirm_cart": "Eliminar «{name}» e os seus cartuchos ({count})?",
+    "deletePlaying": "Há algo a reproduzir neste separador. Pare-o primeiro.",
+    "upNextOn": "A seguir: {name}",
+    "following": "A acompanhar {name}",
+    "followLost": "{name} está offline",
+    "followStop": "Deixar de acompanhar",
+    "followSetting": "Acompanhar os separadores de outro operador",
+    "followOff": "Desligado",
+    "followOffline": "offline",
+    "followHelp": "Esta janela mostra o mesmo separador de lista de reprodução e a mesma página de cartuchos do operador que escolher. Se clicar num separador, deixa de o acompanhar.",
+    "followThisComputer": "Guardado apenas neste computador.",
+    "followSession": "{name} (sessão {n})",
+    "editPage": "Editar página",
+    "deletePage": "Eliminar página",
+    "limitReachedPages": "Atingiu o número máximo de páginas.",
+    "deletePlayingPage": "Há algo a reproduzir nesta página. Pare-o primeiro.",
+    "deleteConfirmCue": "Eliminar «{name}» e a sua deixa?",
+    "deleteConfirmCues": "Eliminar «{name}» e as suas {count} deixas?",
+    "deleteConfirmCart": "Eliminar «{name}» e o seu cartucho?",
+    "deleteConfirmCarts": "Eliminar «{name}» e os seus {count} cartuchos?",
+    "colourN": "Cor {n}",
+    "pageFull": "«{name}» está cheia"
+  },
   "cart": {
     "title": "Leitor de cartuchos",
+    "clickToImportOrPlaylist": "Clique para importar ou arraste para aqui um item, um grupo ou um separador de lista de reprodução",
+    "startPlaylist": "Fazer este cartucho iniciar uma lista de reprodução",
+    "playlistSlot": "Este cartucho inicia um separador de lista de reprodução inteiro",
     "emptySlot": "Clique para importar ou arraste um item para aqui",
     "clickToImport": "Clique para importar ou arraste um item para aqui",
     "configureHotkeys": "Configurar atalhos de teclado",
@@ -217,7 +291,8 @@
     "conflict": "Já atribuído ao slot {slot}",
     "reserved": "Esta combinação de teclas está reservada",
     "resetDefaults": "Repor predefinições",
-    "groupSlot": "Grupo da lista de reprodução: reproduz o grupo inteiro a partir deste slot"
+    "groupSlot": "Grupo da lista de reprodução: reproduz o grupo inteiro a partir deste slot",
+    "choosePlaylist": "Que lista de reprodução iniciar?"
   },
   "behaviors": {
     "startPlayNext": "Início: reproduzir seguinte",
@@ -239,6 +314,21 @@
     "startNextTitle": "Iniciar seguinte: {time}",
     "loadingWaveform": "A carregar a forma de onda…"
   },
+  "automation": {
+    "enable": "Automação de volume",
+    "enableHint": "Desenhe um envelope de volume na forma de onda. Desmarcar ignora-o e mantém os pontos.",
+    "addKeyframe": "Adicionar ponto",
+    "addKeyframeHint": "Adiciona um ponto no cursor, ou na cabeça de leitura enquanto o cue toca.",
+    "removeKeyframe": "Remover ponto",
+    "removeKeyframeHint": "Remove o ponto selecionado ou o que está no cursor. Clique direito num ponto ou a tecla Delete fazem o mesmo.",
+    "clear": "Limpar",
+    "clearHint": "Remove todos os pontos.",
+    "clearConfirm": "Remover todos os pontos de automação de volume deste cue?",
+    "previewFromCursor": "Pré-escuta a partir do cursor",
+    "previewFromCursorHint": "Toca este cue a partir do cursor no bus de pré-escuta, com a automação. Clique na forma de onda para colocar o cursor.",
+    "previewUnavailable": "Precisa de um bus de pré-escuta encaminhado para uma saída. Configure-o no mixer.",
+    "stopPreview": "Parar pré-escuta"
+  },
   "properties": {
     "title": "Propriedades",
     "resize": "Redimensionar o painel de propriedades",
@@ -255,8 +345,8 @@
     "startBehavior": "Comportamento no início",
     "duckingBehavior": "Comportamento de ducking",
     "fadeOutDuration": "Duração do fade de saída",
-    "duckFadeIn": "Fade de entrada do ducking",
-    "duckFadeOut": "Fade de saída do ducking",
+    "duckFadeIn": "Baixar em (segundos)",
+    "duckFadeOut": "Voltar em (segundos)",
     "children": "Itens filhos",
     "seconds": "segundos",
     "uuid": "UUID",
@@ -311,7 +401,19 @@
     "loopCrossfadeHint": "Faz crossfade do fim do loop para o seu início ao longo destes segundos. 0 repete o loop sem crossfade.",
     "loopCrossfadeNeedsLoop": "Defina o comportamento no fim desta deixa como «Loop» para usar um crossfade do loop.",
     "advanceDelay": "Esperar antes da seguinte (segundos)",
-    "advanceDelayHint": "Depois de esta deixa terminar, esperar este tempo antes de o comportamento no fim iniciar a deixa seguinte. Ignorado quando há um crossfade ou «Iniciar seguinte» definido."
+    "advanceDelayHint": "Depois de esta deixa terminar, esperar este tempo antes de o comportamento no fim iniciar a deixa seguinte. Ignorado quando há um crossfade ou «Iniciar seguinte» definido.",
+    "duckTimesHint": "Quanto tempo os outros cues levam a baixar quando este cue começa, e a voltar quando termina.",
+    "volumeHelp": "O nível desta deixa. Arraste o fader ou escreva um nível em dB, como -6.5 (-inf para silêncio).",
+    "playFadeHelp": "Faz o fade de entrada da deixa durante estes segundos sempre que ela começa. 0 começa no nível total.",
+    "stopFadeHelp": "Faz o fade de saída da deixa durante estes segundos antes do ponto de saída. 0 toca até ao fim no nível total.",
+    "crossFadeHelp": "Nestes segundos antes do ponto de saída, esta deixa sai em fade enquanto a seguinte entra por cima. 0 passa sem sobreposição.",
+    "startNextHelp": "Quando a reprodução chega ao marcador, a deixa seguinte começa enquanto esta continua a tocar: uma transição ao estilo do rádio.",
+    "duckModeHelp": "O que o início desta deixa faz às outras que estão a tocar: pará-las, deixá-las como estão ou baixá-las ao nível de ducking até ela terminar.",
+    "apiTriggerUrlHelp": "Envie um pedido GET ou POST para este endereço para tocar a deixa a partir de outro sistema, de um script ou de um navegador.",
+    "groupTrim": "Corte",
+    "groupFades": "Fades",
+    "groupStopLoop": "Parar e loop",
+    "groupTransition": "Transição"
   },
   "playback": {
     "panic": "Parar todas as deixas",
@@ -449,7 +551,8 @@
     "noDevices": "Nenhum dispositivo de saída encontrado",
     "silentServer": "Executar o servidor discretamente na bandeja do sistema",
     "silentServerHelp": "Inicia o servidor sem janela de console. Um ícone na bandeja do sistema (a barra de menus no macOS) mostra que ele está em execução, mesmo depois de fechar o LivePlay, e seu menu pode mostrar o console, abrir os logs ou parar o servidor. Vale a partir da próxima vez que o servidor iniciar.",
-    "silentServerForced": "Ativado nesta sessão porque o LivePlay foi iniciado com --silent."
+    "silentServerForced": "Ativado nesta sessão porque o LivePlay foi iniciado com --silent.",
+    "localPortHelp": "A porta em que o motor de áudio deste computador escuta. Altere-a apenas se outro programa já a estiver a usar."
   },
   "serverConfig": {
     "title": "Configuração do servidor",
@@ -647,6 +750,7 @@
     "currentVersion": "Versão atual",
     "newVersion": "Nova versão",
     "whatsNew": "Novidades",
+    "seeWhatsNew": "Veja as novidades da {version}",
     "updatePrompt": "Está disponível uma nova versão do LivePlay. Pretende transferi-la e instalá-la agora?",
     "manualUpdatePrompt": "Está disponível uma nova versão do LivePlay. Clique abaixo para visitar a página de transferência.",
     "downloading": "A transferir a atualização",
@@ -689,6 +793,9 @@
     "title": "Configurar controlos",
     "tabKeyboard": "Teclado",
     "tabMidi": "MIDI",
+    "sectionPinnedCarts": "Teclas fixadas a um cartucho",
+    "pinnedCartsHelp": "Uma tecla fixada dispara esse cartucho a partir de qualquer página. As teclas acima disparam uma posição da página apresentada.",
+    "keyInUse": "Essa tecla já está em uso.",
     "sectionCartSlots": "Slots de cartuchos",
     "sectionPlayback": "Reprodução",
     "sectionVolume": "Volume",
@@ -697,6 +804,7 @@
     "toggleLoop": "Alternar loop",
     "cueToContinue": "Avançar à deixa",
     "jumpCue": "Jump Cue",
+    "stopCurrentCue": "Parar cue atual",
     "stopAll": "Parar tudo",
     "selectUp": "Selecionar acima",
     "selectDown": "Selecionar abaixo",
@@ -721,7 +829,9 @@
     "playNext": "Reproduzir seguinte",
     "volumeMultiplier": "Multiplicador de volume",
     "volumeMultiplierHint": "dB por passo MIDI. Aumente-o para encoders ou rodas que avançam em passos pequenos.",
-    "nextIn": "Seguinte em {seconds}s"
+    "nextIn": "Seguinte em {seconds}s",
+    "conflictPinned": "Já fixado a {cart}",
+    "midiDeviceHelp": "O controlador que o LivePlay escuta. «Todos os dispositivos» escuta todos os controladores ligados."
   },
   "selectProject": {
     "title": "Selecionar projeto",
@@ -755,6 +865,7 @@
   },
   "importAudio": {
     "title": "Importar áudio",
+    "notPlayable": "Não importado: {files}. O LivePlay reproduz ficheiros WAV, AIFF, FLAC e MP3.",
     "tabServer": "No servidor",
     "tabUpload": "Enviar a partir deste computador",
     "serverHint": "Ficheiros no servidor. Faça duplo clique numa pasta para a abrir. Selecione ficheiros (Shift ou Ctrl/Cmd-clique para vários) e depois clique em «Importar seleção».",
@@ -809,6 +920,15 @@
     "serverCloseServer": "Fechar servidor",
     "serverCloseClient": "Fechar apenas o cliente",
     "return": "Voltar ao projeto"
+  },
+  "openFileModal": {
+    "title": "Abrir este ficheiro?",
+    "message": "Abrir {file} fecha o espetáculo atual.",
+    "liveTitle": "Há um espetáculo a reproduzir",
+    "liveMessage": "A reproduzir agora: {cues}. Abrir {file} fecha este espetáculo e para o seu áudio.",
+    "andMore": "{cues} e mais {count}",
+    "keep": "Manter o espetáculo atual",
+    "open": "Fechar espetáculo e abrir"
   },
   "deleteSelection": {
     "title": "Eliminar itens",
@@ -1088,5 +1208,540 @@
     "barHint": "{pane}: clique ou arraste para abrir",
     "emptyTitle": "Todos os painéis estão recolhidos",
     "emptyHint": "Clique ou arraste uma barra na margem, ou use os botões no topo, para abrir um painel."
+  },
+  "missingMedia": {
+    "badge": "Ficheiro multimédia em falta. Substitua-o nas Propriedades ou use «Localizar multimédia em falta».",
+    "banner": "Não é possível encontrar {count} ficheiro(s) multimédia.",
+    "locate": "Localizar…",
+    "locateHint": "Escolha uma pasta onde procurar os ficheiros em falta pelo nome. Os ficheiros fora do projeto são copiados para a pasta multimédia do projeto.",
+    "locateResult": "{relinked} item(ns) revinculado(s). {missing} ainda em falta.",
+    "locateFailed": "Não foi possível procurar nessa pasta: {error}",
+    "replace": "Substituir ficheiro multimédia",
+    "replaceFailed": "Não foi possível substituir o ficheiro multimédia: {error}",
+    "propertiesHint": "O servidor não encontra este ficheiro. Use o botão de substituir para o escolher novamente."
+  },
+  "events": {
+    "tab": "Eventos",
+    "addEvent": "Adicionar evento",
+    "addEventHint": "Adiciona um evento no cursor. Clique na forma de onda para posicionar o cursor.",
+    "addTriggerEvent": "Adicionar em…",
+    "cursor": "Cursor",
+    "cursorHint": "Clique ou arraste na forma de onda para mover o cursor, ou escreva um tempo como m:ss.mmm ou em segundos.",
+    "manageConnections": "Gerir ligações…",
+    "multiSelect": "Selecione um único item para editar os seus eventos.",
+    "noEvents": "Ainda não há eventos. Clique na forma de onda para posicionar o cursor e depois prima «Adicionar evento».",
+    "selectEvent": "Selecione um evento para o editar.",
+    "unsupported": "Este servidor não suporta eventos. Atualize o servidor LivePlay para os usar.",
+    "noPlugins": "O servidor não tem plugins de eventos.",
+    "loadFailed": "Não foi possível carregar os plugins de eventos do servidor.",
+    "loading": "A carregar plugins de eventos…",
+    "retry": "Tentar novamente",
+    "trigger": {
+      "label": "Acionamento",
+      "time": "Num momento definido",
+      "start": "Ao iniciar",
+      "end": "Ao terminar",
+      "pause": "Ao pausar",
+      "resume": "Ao retomar"
+    },
+    "name": "Nome",
+    "enabled": "Ativado",
+    "time": "Tempo",
+    "timeHint": "Posição no ficheiro, como m:ss.mmm ou em segundos. Fora da região aparada, o evento nunca é disparado.",
+    "useCursor": "Mover para o cursor",
+    "plugin": "Plugin",
+    "connection": "Ligação",
+    "noConnection": "Sem ligação",
+    "connectionMissing": "Ligação não encontrada",
+    "connectionDisabled": "Esta ligação está desativada, por isso o evento não será disparado.",
+    "noConnectionsForPlugin": "Ainda não há ligações {plugin}.",
+    "action": "Ação",
+    "preset": "Predefinição",
+    "presetNone": "Nenhuma (personalizada)",
+    "presetSave": "Guardar estas definições como predefinição",
+    "presetSaveConfirm": "Guardar predefinição",
+    "presetMissing": "Predefinição não encontrada",
+    "presetMissingHelp": "A predefinição deste evento já não existe, por isso não será disparado. Escolha outra predefinição ou Nenhuma.",
+    "presetInUse": "Usa a predefinição «{name}»",
+    "presetEdit": "Editar predefinição",
+    "presetDetach": "Tornar personalizado",
+    "unknownPlugin": "Este evento usa o plugin «{plugin}», que este servidor não tem. Não será disparado.",
+    "outsideTrim": "Fora da região aparada: este evento não será disparado.",
+    "placeholdersHelp": "Os campos de texto podem usar {item.name}, {item.uuid}, {trigger} e {time}; o servidor preenche-os quando o evento é disparado.",
+    "test": "Testar",
+    "testing": "A testar…",
+    "testOk": "Enviado.",
+    "testFailed": "Falha: {error}",
+    "duplicate": "Duplicar",
+    "delete": "Eliminar",
+    "lastOk": "Último disparo às {time}: OK",
+    "lastError": "Último disparo às {time}: falhou: {error}",
+    "form": {
+      "none": "—",
+      "missingItem": "(item não encontrado)",
+      "cartItem": "Cartucho {slot} · {name}",
+      "addRow": "Adicionar",
+      "removeRow": "Remover",
+      "moveUp": "Mover para cima",
+      "moveDown": "Mover para baixo",
+      "refreshOptions": "Voltar a ler a lista do dispositivo"
+    },
+    "connections": {
+      "intro": "Para onde os eventos são enviados: uma mesa de luz, uma porta MIDI, um webhook. Cada ligação é configurada uma vez para o espetáculo e pode ser usada por qualquer número de eventos.",
+      "noProject": "Abra um projeto para gerir as suas ligações.",
+      "empty": "Ainda não há ligações.",
+      "add": "Adicionar ligação",
+      "defaultName": "{plugin} {n}",
+      "newTitle": "Nova ligação {plugin}",
+      "editTitle": "Editar «{name}»",
+      "name": "Nome",
+      "enabled": "Ativada",
+      "disabled": "desativada",
+      "edit": "Editar",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "delete": "Eliminar",
+      "deleteConfirm": "Eliminar «{name}»?",
+      "deleteInUse": "{count} evento(s) usam «{name}». Não serão disparados até lhes ser atribuída outra ligação. Eliminá-la mesmo assim?",
+      "usage": "{count} evento(s)",
+      "unused": "Não usada",
+      "unknownPlugin": "Tipo desconhecido «{plugin}»",
+      "noFields": "Este tipo não tem nada para configurar.",
+      "addressDropsCredentials": "Guardar este novo endereço remove as credenciais guardadas desta ligação e dos eventos que a usam. Ser-lhe-á pedido que as introduza novamente.",
+      "testWith": "Testar com",
+      "saveFailed": "Não foi possível guardar as ligações: {error}",
+      "discover": "Procurar na rede",
+      "discoverNone": "Nada encontrado. Verifique se o dispositivo está ligado e na mesma rede que o servidor.",
+      "discoverFailed": "Não foi possível procurar na rede: {error}",
+      "discoverUsed": "A usar {device}.",
+      "presets": "Predefinições",
+      "presetsHelp": "Definições a reutilizar entre eventos. Altere uma predefinição e todos os eventos que a usam acompanham.",
+      "presetAdd": "Adicionar predefinição",
+      "presetName": "Nome da predefinição",
+      "presetDone": "Concluído",
+      "presetDelete": "Eliminar predefinição (os seus eventos mantêm estas definições)",
+      "enabledFor": "{name} ativada",
+      "editNamed": "Editar {name}",
+      "deleteNamed": "Eliminar {name}",
+      "authRejected": "Credenciais recusadas",
+      "authMissing": "Faltam as credenciais",
+      "signIn": "Iniciar sessão",
+      "signInRejectedHelp": "O dispositivo recusou estas credenciais. Introduza-as novamente em Cabeçalhos; as guardadas aparecem como pontos.",
+      "signInMissingHelp": "As credenciais deste espetáculo foram cifradas noutra máquina, por isso esta não as pode usar. Introduza-as novamente em Cabeçalhos.",
+      "signInMany": "É preciso introduzir novamente as credenciais de {count} ligações.",
+      "signInRejected": "«{name}» recusou as suas credenciais. Inicie sessão novamente para que os seus eventos continuem a funcionar.",
+      "signInMissing": "É preciso introduzir as credenciais de «{name}» nesta máquina.",
+      "signInWaiting": "«{name}» precisa de iniciar sessão. Abre aqui assim que guardar ou cancelar as alterações a esta ligação.",
+      "signInLater": "Agora não",
+      "signInDiscard": "Descartar alterações e iniciar sessão",
+      "nameHelp": "O nome com que esta ligação aparece quando escolhe uma para um evento.",
+      "enabledHelp": "Desativada, nada é enviado para esta ligação e os seus eventos não são disparados."
+    },
+    "zoom": "Zoom",
+    "zoomIn": "Aumentar zoom",
+    "zoomOut": "Diminuir zoom",
+    "zoomFit": "Mostrar o ficheiro inteiro",
+    "scroll": "Deslocar a linha temporal",
+    "navHint": "Roda para fazer zoom · Shift+roda ou arraste com o botão do meio para deslocar",
+    "deleted": "«{name}» eliminado.",
+    "undo": "Desfazer",
+    "deviceTimeout": "O dispositivo não respondeu a tempo.",
+    "headers": {
+      "name": "Nome",
+      "value": "Valor",
+      "valueFor": "Valor de {name}",
+      "secret": "Cifrado, apresentado como pontos",
+      "secretPlaceholder": "Palavra-passe, token ou chave",
+      "remove": "Remover cabeçalho",
+      "add": "Adicionar cabeçalho",
+      "rawLine": "Linha de cabeçalho"
+    },
+    "groupWhen": "Quando",
+    "groupCommand": "Comando",
+    "triggerHelp": "Quando o evento dispara: num instante do ficheiro, ou quando a deixa começa, pausa, retoma ou termina."
+  },
+  "eventPlugins": {
+    "osc": {
+      "label": "OSC",
+      "description": "Open Sound Control via UDP: mesas de luz, QLab, Companion e muito mais.",
+      "actions": {
+        "message": "Enviar mensagem"
+      },
+      "connection": {
+        "host": {
+          "label": "Host"
+        },
+        "port": {
+          "label": "Porta"
+        }
+      },
+      "fields": {
+        "address": {
+          "label": "Endereço"
+        },
+        "args": {
+          "label": "Argumentos",
+          "help": "Os valores de texto podem usar {item.name}, {item.uuid}, {trigger} e {time}."
+        },
+        "type": {
+          "label": "Tipo"
+        },
+        "value": {
+          "label": "Valor"
+        }
+      },
+      "options": {
+        "type": {
+          "i": "Inteiro",
+          "f": "Vírgula flutuante",
+          "s": "Texto",
+          "T": "Verdadeiro",
+          "F": "Falso",
+          "N": "Nil"
+        }
+      }
+    },
+    "midi": {
+      "label": "MIDI",
+      "description": "Saída MIDI a partir do computador do servidor: notas, CC, mudanças de programa, MIDI Show Control, SysEx.",
+      "actions": {
+        "note-on": "Note On",
+        "note-off": "Note Off",
+        "control-change": "Control Change",
+        "program-change": "Mudança de programa",
+        "msc": "MIDI Show Control",
+        "sysex": "SysEx (em bruto)"
+      },
+      "summaries": {
+        "note-on": "can {channel} nota {note}",
+        "note-off": "can {channel} nota {note}",
+        "control-change": "can {channel} CC {controller} = {value}",
+        "program-change": "can {channel} programa {program}"
+      },
+      "connection": {
+        "port": {
+          "label": "Porta de saída",
+          "help": "Portas do computador onde corre o servidor LivePlay, associadas pelo nome."
+        }
+      },
+      "fields": {
+        "channel": {
+          "label": "Canal"
+        },
+        "note": {
+          "label": "Nota"
+        },
+        "velocity": {
+          "label": "Velocidade"
+        },
+        "controller": {
+          "label": "Controlador"
+        },
+        "value": {
+          "label": "Valor"
+        },
+        "program": {
+          "label": "Programa"
+        },
+        "deviceId": {
+          "label": "ID do dispositivo",
+          "help": "127 endereça todos os dispositivos."
+        },
+        "commandFormat": {
+          "label": "Formato de comando"
+        },
+        "command": {
+          "label": "Comando"
+        },
+        "cue": {
+          "label": "Deixa"
+        },
+        "list": {
+          "label": "Lista de deixas"
+        },
+        "path": {
+          "label": "Caminho da deixa"
+        },
+        "data": {
+          "label": "Bytes (hex)"
+        }
+      },
+      "options": {
+        "commandFormat": {
+          "lighting": "Iluminação (geral)",
+          "moving-lights": "Cabeças móveis",
+          "sound": "Som (geral)",
+          "video": "Vídeo (geral)",
+          "all": "Todos os tipos"
+        }
+      }
+    },
+    "http": {
+      "label": "HTTP",
+      "description": "Pedidos HTTP para tudo o que tenha uma API web: Companion, servidores multimédia, domótica.",
+      "actions": {
+        "request": "Pedido"
+      },
+      "connection": {
+        "baseUrl": {
+          "label": "URL base",
+          "help": "Apenas http://; o HTTPS ainda não é suportado."
+        },
+        "headers": {
+          "label": "Cabeçalhos",
+          "help": "Enviados com cada pedido. Palavras-passe, tokens e chaves são guardados cifrados e apresentados como pontos."
+        },
+        "timeoutMs": {
+          "label": "Tempo limite (ms)"
+        }
+      },
+      "fields": {
+        "method": {
+          "label": "Método"
+        },
+        "path": {
+          "label": "Caminho"
+        },
+        "headers": {
+          "label": "Cabeçalhos",
+          "help": "Acrescentados aos cabeçalhos da ligação."
+        },
+        "contentType": {
+          "label": "Tipo de corpo"
+        },
+        "body": {
+          "label": "Corpo",
+          "help": "Pode usar {item.name}, {item.uuid}, {trigger} e {time}."
+        }
+      },
+      "options": {
+        "contentType": {
+          "none": "Nenhum",
+          "application/x-www-form-urlencoded": "Formulário",
+          "text/plain": "Texto"
+        }
+      }
+    },
+    "liveplay": {
+      "label": "LivePlay",
+      "description": "Este espetáculo: iniciar, parar e atenuar deixas, e operar o misturador interno.",
+      "actions": {
+        "play-item": "Reproduzir deixa",
+        "stop-item": "Parar deixa",
+        "stop-all": "Parar tudo",
+        "pause-item": "Pausar deixa",
+        "resume-item": "Retomar deixa",
+        "arm-next": "Definir «A seguir»",
+        "duck-item": "Atenuar uma deixa",
+        "bus-level": "Definir fader do bus",
+        "bus-mute": "Ativar/desativar mute de um bus",
+        "bus-send": "Definir nível de envio",
+        "bus-route": "Encaminhar um bus",
+        "bus-dsp": "Definir processamento do bus",
+        "master-level": "Definir nível master",
+        "stop-fade-mode": "Definir o modo de fade do Stop All"
+      },
+      "fields": {
+        "item": {
+          "label": "Deixa"
+        },
+        "level": {
+          "label": "Nível",
+          "help": "Relativo ao volume da própria deixa: 0 repõe-o, -90 silencia-a. Só a deixa em reprodução; o volume guardado não muda."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 altera de imediato; tempos maiores fazem fade a partir do valor atual."
+        },
+        "bus": {
+          "label": "Bus"
+        },
+        "state": {
+          "label": "Estado"
+        },
+        "send": {
+          "label": "Para",
+          "help": "Os envios existentes do bus; adicione primeiro um no misturador."
+        },
+        "to": {
+          "label": "Vai para"
+        },
+        "param": {
+          "label": "Definição"
+        },
+        "value": {
+          "label": "Valor",
+          "help": "Na unidade da própria definição; os interruptores são 0 (desligado) ou 1 (ligado)."
+        },
+        "mode": {
+          "label": "Cues parados desvanecem com",
+          "help": "Definições > Reprodução: com que fade saem o Stop All e o ducking «parar todos os outros». Um pânico corta sempre."
+        },
+        "stopFade": {
+          "label": "Cues parados desvanecem com"
+        }
+      },
+      "summaries": {
+        "duck-item": "{level} dB",
+        "bus-level": "{bus} → {level} dB",
+        "bus-send": "{bus} → {send}: {level} dB",
+        "master-level": "{level} dB"
+      },
+      "options": {
+        "state": {
+          "mute": "Ativar mute",
+          "unmute": "Desativar mute"
+        },
+        "param": {
+          "eqEnabled": "EQ ligado (0/1)",
+          "dynEnabled": "Dinâmica ligada (0/1)",
+          "hpf_freq": "Frequência do passa-alto (20–2000 Hz)",
+          "lpf_freq": "Frequência do passa-baixo (1000–24000 Hz)",
+          "gate_on": "Gate ligado (0/1)",
+          "gate_threshold": "Limiar do gate (-80–0 dB)",
+          "gate_range": "Range do gate (-80–0 dB)",
+          "comp_on": "Compressor ligado (0/1)",
+          "comp_threshold": "Limiar do compressor (-60–0 dB)",
+          "comp_ratio": "Ratio do compressor (1–60 :1)",
+          "comp_makeup": "Compensação do compressor (-12–24 dB)",
+          "width_width": "Largura estéreo (0–2 ×)"
+        },
+        "mode": {
+          "item": "O fade do botão Stop de cada cue",
+          "global": "O fade do Stop All",
+          "toggle": "Alternar entre os dois"
+        },
+        "stopFade": {
+          "show": "O fade do Stop All",
+          "cue": "O fade do botão Stop de cada cue, ou de imediato"
+        }
+      }
+    },
+    "xair": {
+      "label": "Behringer X Air",
+      "description": "Misturadores XR12, XR16, XR18 e Midas MR: snapshots, faders, envios, FX, encaminhamento e gravador USB.",
+      "actions": {
+        "snapshot": "Recuperar snapshot",
+        "fader": "Definir fader",
+        "send": "Definir nível de envio",
+        "mute": "Ativar/desativar mute",
+        "recorder": "Gravador USB",
+        "fx-type": "Definir tipo de FX",
+        "fx-param": "Definir parâmetro de FX",
+        "route-output": "Encaminhar uma saída",
+        "route-main": "Encaminhar a saída principal",
+        "check": "Verificar ligação"
+      },
+      "summaries": {
+        "fader": "{strip} → {level} dB",
+        "send": "{strip} → {send}: {level} dB",
+        "fx-type": "{slot} → {type}",
+        "fx-param": "{slot} #{param} = {value}"
+      },
+      "connection": {
+        "host": {
+          "label": "Endereço do misturador"
+        },
+        "port": {
+          "label": "Porta"
+        },
+        "maxLevelDb": {
+          "label": "Nível máximo",
+          "help": "Nenhum fader ou envio definido por um evento ultrapassa este valor."
+        }
+      },
+      "fields": {
+        "snapshot": {
+          "label": "Snapshot"
+        },
+        "strip": {
+          "label": "Canal"
+        },
+        "level": {
+          "label": "Nível",
+          "help": "-90 é desligado (-inf). Limitado pelo nível máximo da ligação."
+        },
+        "fade": {
+          "label": "Crossfade",
+          "help": "0 altera de imediato; tempos maiores fazem fade a partir do valor atual."
+        },
+        "send": {
+          "label": "Para"
+        },
+        "state": {
+          "label": "Estado"
+        },
+        "command": {
+          "label": "Comando",
+          "help": "Grava na pen USB do misturador."
+        },
+        "slot": {
+          "label": "Slot FX"
+        },
+        "type": {
+          "label": "Efeito"
+        },
+        "param": {
+          "label": "Parâmetro"
+        },
+        "value": {
+          "label": "Valor",
+          "help": "Na unidade do próprio parâmetro (indicada ao lado); os interruptores são 0/1 e as opções contam a partir de 0."
+        },
+        "output": {
+          "label": "Saída"
+        },
+        "source": {
+          "label": "Fonte",
+          "help": "Os envios USB não podem receber retornos USB."
+        },
+        "tap": {
+          "label": "Ponto de captação"
+        },
+        "assign": {
+          "label": "A saída principal leva"
+        }
+      },
+      "options": {
+        "state": {
+          "mute": "Ativar mute",
+          "unmute": "Desativar mute"
+        },
+        "command": {
+          "record": "Gravar",
+          "stop": "Parar",
+          "record-pause": "Pausar gravação",
+          "play": "Reproduzir",
+          "play-pause": "Pausar reprodução"
+        },
+        "tap": {
+          "keep": "Não alterar",
+          "0": "Entrada analógica",
+          "1": "Entrada analógica + mute",
+          "2": "Entrada",
+          "3": "Entrada + mute",
+          "4": "Pré-EQ",
+          "5": "Pré-EQ + mute",
+          "6": "Pós-EQ",
+          "7": "Pós-EQ + mute",
+          "8": "Pré-fader",
+          "9": "Pré-fader + mute",
+          "10": "Pós-fader"
+        },
+        "assign": {
+          "0": "Main LR",
+          "1": "Monitor",
+          "2": "USB 1/2",
+          "3": "USB 3/4",
+          "4": "USB 5/6",
+          "5": "USB 7/8",
+          "6": "USB 9/10",
+          "7": "USB 11/12",
+          "8": "USB 13/14",
+          "9": "USB 15/16",
+          "10": "USB 17/18"
+        }
+      }
+    }
   }
 }

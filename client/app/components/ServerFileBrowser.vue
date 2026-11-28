@@ -222,7 +222,7 @@ watch(() => props.startPath, p => goTo(p));
     display: inline-flex; align-items: center; gap: 4px;
     &:hover:not(:disabled) { background: #353535; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
-    &.primary  { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+    &.primary  { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent, #fff); }
     &.small    { padding: 2px 8px; font-size: 12px; }
   }
 
@@ -258,7 +258,7 @@ watch(() => props.startPath, p => goTo(p));
       // Selected file rows: accent fill, white glyphs for contrast.
       &.selected {
         background: var(--color-accent);
-        .name, .icon, .size { color: #fff; }
+        .name, .icon, .size { color: var(--color-on-accent, #fff); }
       }
     }
     .empty {
