@@ -28,6 +28,7 @@
     "2-6": {
       "path": "whats-new/2-6/",
       "og": "release-2-6",
+      "published": "2026-11-28",
       "title": "LivePlay 2.6: Show Control Events, Playlist Tabs, Cart Pages",
       "socialTitle": "LivePlay 2.6: cue the whole room",
       "description": "LivePlay 2.6 fires lights, mixers and video from the cue timeline over OSC, MIDI and HTTP, and adds playlist tabs, cart pages and volume automation.",
