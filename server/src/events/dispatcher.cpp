@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <limits>
 #include <optional>
+#include <system_error>
 
 namespace liveplay::events {
 
@@ -286,6 +287,7 @@ void Dispatcher::cancel_queued() {
     {
         std::lock_guard lock{mutex_};
         for (auto& [_, lane] : lanes_) lanes.push_back(lane.get());
+        for (auto& lane : retired_) lanes.push_back(lane.get());
     }
     for (auto* lane : lanes) {
         std::lock_guard lk{lane->mutex};
@@ -332,6 +334,14 @@ void Dispatcher::stop() {
     cv_.notify_all();
     if (scheduler_.joinable()) scheduler_.join();
     for (auto& [_, lane] : lanes_) {
+        {
+            std::lock_guard lk{lane->mutex};
+            lane->jobs.clear();
+        }
+        lane->cv.notify_all();
+        if (lane->thread.joinable()) lane->thread.join();
+    }
+    for (auto& lane : retired_) {
         {
             std::lock_guard lk{lane->mutex};
             lane->jobs.clear();
@@ -388,9 +398,37 @@ void Dispatcher::scheduler_loop() {
 
 void Dispatcher::hand_to_lane(Job job, Clock::time_point due) {
     Lane* lane = nullptr;
+    bool  no_thread = false;
+    std::vector<Lane*> to_retire;
     {
         std::lock_guard lock{mutex_};
         if (stop_) return;
+        const auto now = Clock::now();
+        // Now and then: lanes that have gone, joined (their threads have
+        // returned, so this doesn't wait); connection lanes idle for ten
+        // minutes, retired (N-S9). A lane handed a job since is never idle:
+        // last_used is stamped here, under mutex_, before any push.
+        if (now - last_sweep_ > std::chrono::seconds{60}) {
+            last_sweep_ = now;
+            for (auto it = retired_.begin(); it != retired_.end();) {
+                if ((*it)->done.load(std::memory_order_acquire)) {
+                    if ((*it)->thread.joinable()) (*it)->thread.join();
+                    it = retired_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            for (auto it = lanes_.begin(); it != lanes_.end();) {
+                const bool connection_lane = it->first.find('\x1f') != std::string::npos;
+                if (connection_lane && now - it->second->last_used > std::chrono::minutes{10}) {
+                    to_retire.push_back(it->second.get());
+                    retired_.push_back(std::move(it->second));
+                    it = lanes_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
         const auto plugin = plugins_.find(job.plugin);
         if (plugin != plugins_.end()) {
             std::string key = job.plugin;
@@ -403,11 +441,31 @@ void Dispatcher::hand_to_lane(Job job, Clock::time_point due) {
                 auto made = std::make_unique<Lane>();
                 Lane& l = *made;
                 Plugin& p = *plugin->second;
-                l.thread = std::thread([this, &l, &p] { lane_loop(l, p); });
-                it = lanes_.emplace(std::move(key), std::move(made)).first;
+                try {
+                    l.thread = std::thread([this, &l, &p] { lane_loop(l, p); });
+                    it = lanes_.emplace(std::move(key), std::move(made)).first;
+                } catch (const std::system_error&) {
+                    // No thread to be had: this job fails, not the sequencer.
+                    no_thread = true;
+                }
             }
-            lane = it->second.get();
+            if (!no_thread) {
+                it->second->last_used = now;
+                lane = it->second.get();
+            }
         }
+    }
+    // Not nested (lane_loop takes its lane's lock and then mutex_).
+    for (auto* old : to_retire) {
+        {
+            std::lock_guard lk{old->mutex};
+            old->retire = true;
+        }
+        old->cv.notify_all();
+    }
+    if (no_thread) {
+        report(job, Result::fail("no thread available to run this event"));
+        return;
     }
     if (!lane) {
         report(job, Result::fail("unknown plugin '" + job.plugin + "'"));
@@ -428,11 +486,15 @@ void Dispatcher::lane_loop(Lane& lane, Plugin& plugin) {
             std::unique_lock lk{lane.mutex};
             lane.cv.wait(lk, [&] {
                 std::lock_guard g{mutex_};
-                return stop_ || !lane.jobs.empty();
+                return stop_ || !lane.jobs.empty() || lane.retire;
             });
             {
                 std::lock_guard g{mutex_};
-                if (stop_) return;
+                if (stop_) { lane.done.store(true, std::memory_order_release); return; }
+            }
+            if (lane.jobs.empty()) {   // retired, and nothing left to run
+                lane.done.store(true, std::memory_order_release);
+                return;
             }
             Queued next = std::move(lane.jobs.front());
             lane.jobs.pop_front();

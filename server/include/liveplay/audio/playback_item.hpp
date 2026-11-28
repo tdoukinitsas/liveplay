@@ -311,6 +311,14 @@ private:
     std::atomic<std::uint32_t>  gain_seq_{0};
     std::uint32_t               ramp_seen_seq_ = 0;
     bool                        ramp_active_   = false;
+    // Each play() bumps play_seq_, after recording which ramp requests came
+    // before it (play_gain_seq_). The audio thread drops a ramp left over
+    // from the previous play even when it never saw the cue Stopped in
+    // between (a stop and a play inside one block, N-S7); requests made after
+    // the play still ramp.
+    std::atomic<std::uint32_t>  play_seq_{0};
+    std::atomic<std::uint32_t>  play_gain_seq_{0};
+    std::uint32_t               play_seen_seq_ = 0;
     float                       ramp_from_lin_ = 1.0f;
     float                       ramp_to_lin_   = 1.0f;
     long long                   ramp_total_    = 0;
