@@ -60,6 +60,7 @@ The `debug` preset writes to `server/build-debug`. The root `server:configure` c
 | Opening files from the OS | `node client/tests/open-file-args-tests.js` |
 | Accent palette | `node client/tests/accent-palette-tests.mjs` |
 | Playable formats agree (server, renderer, Electron dialog) | `node client/tests/audio-formats-tests.js` |
+| Which keys reach the transport from a focused control | `node client/tests/hotkey-guard-tests.js` |
 | Server unit suites | Configure with `-DLIVEPLAY_BUILD_TESTS=ON`, build, then run CTest |
 | Audio integration | [E2E guide](../server/tests/e2e/README.md); many suites require an audio device |
 | Documentation site | `npm run generate` from `docs-site/` |
@@ -73,7 +74,7 @@ cmake --build --preset vs2022
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-Use `default` instead of `vs2022` for the Ninja build. There are thirteen registered CTest suites: meter, device_name, media_names, show_tabs, secret_headers, mixer, biquad, dynamics, stereo, drift, topo, envelope and waveform.
+Use `default` instead of `vs2022` for the Ninja build. There are fourteen registered CTest suites: meter, device_name, media_names, show_tabs, secret_headers, secrets, mixer, biquad, dynamics, stereo, drift, topo, envelope and waveform.
 
 ## Repository map
 

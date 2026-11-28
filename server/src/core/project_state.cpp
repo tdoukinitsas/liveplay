@@ -86,32 +86,121 @@ void for_each_http_headers(json& doc,
     if (auto it = doc.find("cartOnlyItems"); it != doc.end()) items(*it);
 }
 
-// An HTTP connection's base URL, as compared for "still the same destination":
-// trimmed, scheme and host in lower case, no trailing slash.
+// An HTTP connection's base URL, as compared for "still the same destination"
+// (secrets::normalise_base_url): "host:80", "http://host" and "HTTP://Host/"
+// are one destination, as the HTTP plugin sends them.
 std::string base_url_of(const json& c) {
     if (!c.is_object()) return {};
     const auto config = c.find("config");
     if (config == c.end() || !config->is_object()) return {};
     const auto b = config->find("baseUrl");
     if (b == config->end() || !b->is_string()) return {};
-    std::string url = secrets::trim(b->get<std::string>());
-    while (!url.empty() && url.back() == '/') url.pop_back();
-    const auto scheme = url.find("://");
-    const auto host_end = url.find('/', scheme == std::string::npos ? 0 : scheme + 3);
-    std::transform(url.begin(), host_end == std::string::npos ? url.end() : url.begin() + host_end,
-                   url.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    return url;
+    return secrets::normalise_base_url(b->get<std::string>());
+}
+
+// Where each connection in `doc` goes: id → {plugin, normalised base URL}.
+std::unordered_map<std::string, std::pair<std::string, std::string>> destinations_of(const json& doc) {
+    std::unordered_map<std::string, std::pair<std::string, std::string>> out;
+    const auto conns = doc.is_object() ? doc.find("eventConnections") : doc.end();
+    if (!doc.is_object() || conns == doc.end() || !conns->is_array()) return out;
+    for (const auto& c : *conns) {
+        const std::string id = str_of(c, "id");
+        if (!id.empty()) out[id] = {str_of(c, "plugin"), base_url_of(c)};
+    }
+    return out;
+}
+
+// Every sealed value anywhere under `j` (a document, an item, a connection
+// list, an event) turned into the mask. A sealed value only ever comes from a
+// show file; one that arrives in a request body was copied out of one, and is
+// never opened (R2-02): as a mask it means "as stored", which the
+// destination-checked restore then decides.
+void neutralise_sealed(json& j) {
+    if (j.is_array()) { for (auto& x : j) neutralise_sealed(x); return; }
+    if (!j.is_object()) return;
+    for (auto it = j.begin(); it != j.end(); ++it) {
+        json& v = it.value();
+        if (it.key() == "headers" && v.is_string()) {
+            const std::string text = v.get<std::string>();
+            if (text.find(secrets::kSealedFamily) == std::string::npos) continue;
+            v = secrets::map_secret_values(text, [](const std::string& value) {
+                return secrets::is_sealed(value) ? std::string{secrets::kMask} : value;
+            });
+        } else if (v.is_structured()) {
+            neutralise_sealed(v);
+        }
+    }
+}
+
+// The stored secrets of every HTTP event bound to a connection whose
+// destination changed or that is gone, turned into masks (R2-01). An event's
+// own credential was given for that connection's address; when someone points
+// the connection elsewhere (or deletes it and makes another with the same id)
+// it must not follow. The event then asks for a sign-in, as on another machine.
+// Returns how many header texts changed.
+int mask_moved_event_secrets(json& doc, const json& before_connections, const json& after_connections) {
+    const auto before = destinations_of(json{{"eventConnections", before_connections}});
+    const auto after  = destinations_of(json{{"eventConnections", after_connections}});
+    std::unordered_set<std::string> moved;
+    for (const auto& [id, dest] : before) {
+        const auto now = after.find(id);
+        if (now == after.end() || now->second != dest) moved.insert(id);
+    }
+    if (moved.empty()) return 0;
+    int changed = 0;
+    std::function<void(json&)> items = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+                for (auto& ev : *evs) {
+                    if (!ev.is_object() || str_of(ev, "plugin") != "http" ||
+                        !moved.count(str_of(ev, "connectionId")))
+                        continue;
+                    auto o = ev.find("options");
+                    if (o == ev.end() || !o->is_object()) continue;
+                    auto h = o->find("headers");
+                    if (h == o->end() || !h->is_string()) continue;
+                    const std::string text = h->get<std::string>();
+                    const std::string masked = secrets::map_secret_values(text, [](const std::string&) {
+                        return std::string{secrets::kMask};
+                    });
+                    if (masked != text) { *h = masked; ++changed; }
+                }
+            }
+            if (auto ch = it.find("children"); ch != it.end()) items(*ch);
+        }
+    };
+    if (doc.contains("items")) items(doc["items"]);
+    if (doc.contains("cartOnlyItems")) items(doc["cartOnlyItems"]);
+    return changed;
 }
 
 // Masked event headers in `items` (an item list, or one item) put back from
-// what `stored_doc` holds: the same event by id first, else another HTTP
-// event on the same connection that has that header. An item a client
-// pasted or duplicated carries only what it was shown. Only onto an event on
-// the same connection, and only while that connection goes where it went
-// (`new_doc`'s connections against `stored_doc`'s): a secret never follows an
-// event to another destination.
-void restore_item_secrets(json& items, const json& stored_doc, const json& new_doc) {
-    if (items.dump().find(secrets::kMask) == std::string::npos) return;
+// what `stored_doc` holds, in this order:
+//   1. the same event, by id;
+//   2. the event it was copied from (`copiedFrom`, sent by paste and
+//      duplicate, and always removed here);
+//   3. its own value from a moment ago (`recent`: an event deleted and then
+//      put back by Undo, R2-19);
+//   4. another HTTP event or preset on the same connection, but only where
+//      they all agree on that header's value: two principals on one connection
+//      leave the mask (and a sign-in) rather than lend one the other's.
+// Only onto an event on the same connection, and only while that connection
+// goes where it went (`new_doc`'s connections against `stored_doc`'s): a
+// secret never follows an event to another destination.
+void restore_item_secrets(json& items, const json& stored_doc, const json& new_doc,
+                          const std::unordered_map<std::string, RecentEventSecret>* recent = nullptr) {
+    const bool has_mask = items.dump().find(secrets::kMask) != std::string::npos;
+    // copiedFrom is an instruction, never part of the show.
+    std::function<void(json&)> strip = [&](json& it) {
+        if (it.is_array()) { for (auto& x : it) strip(x); return; }
+        if (!it.is_object()) return;
+        if (auto evs = it.find("events"); evs != it.end() && evs->is_array())
+            for (auto& ev : *evs) if (ev.is_object()) ev.erase("copiedFrom");
+        if (auto ch = it.find("children"); ch != it.end()) strip(*ch);
+    };
+    if (!has_mask) { strip(items); return; }
     const auto base_url_in = [](const json& doc, const std::string& id) {
         const auto conns = doc.find("eventConnections");
         if (conns == doc.end() || !conns->is_array()) return std::string{"\x1f"};
@@ -161,7 +250,10 @@ void restore_item_secrets(json& items, const json& stored_doc, const json& new_d
         if (!it.is_object()) return;
         if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
             for (auto& ev : *evs) {
-                if (!ev.is_object() || str_of(ev, "plugin") != "http") continue;
+                if (!ev.is_object()) continue;
+                const std::string copied_from = str_of(ev, "copiedFrom");
+                ev.erase("copiedFrom");
+                if (str_of(ev, "plugin") != "http") continue;
                 auto o = ev.find("options");
                 if (o == ev.end() || !o->is_object()) continue;
                 auto h = o->find("headers");
@@ -169,12 +261,25 @@ void restore_item_secrets(json& items, const json& stored_doc, const json& new_d
                 std::string text = h->get<std::string>();
                 if (text.find(secrets::kMask) == std::string::npos) continue;
                 const std::string conn = str_of(ev, "connectionId");
-                if (conn.empty() || base_url_in(stored_doc, conn) != base_url_in(new_doc, conn)) continue;
-                if (auto s = by_event.find(str_of(ev, "id")); s != by_event.end() && s->second.first == conn)
-                    text = secrets::restore_headers(text, s->second.second);
+                const std::string dest = base_url_in(new_doc, conn);
+                // No such connection (on either side) is never "the same place".
+                if (conn.empty() || dest == "\x1f" || base_url_in(stored_doc, conn) != dest) continue;
+                for (const std::string& source : {str_of(ev, "id"), copied_from}) {
+                    if (source.empty() || text.find(secrets::kMask) == std::string::npos) continue;
+                    if (auto s = by_event.find(source); s != by_event.end() && s->second.first == conn)
+                        text = secrets::restore_headers(text, s->second.second);
+                }
+                if (recent && text.find(secrets::kMask) != std::string::npos) {
+                    for (const std::string& source : {str_of(ev, "id"), copied_from}) {
+                        if (source.empty()) continue;
+                        const auto r = recent->find(source);
+                        if (r != recent->end() && r->second.connection == conn && r->second.base_url == dest)
+                            text = secrets::restore_headers(text, r->second.headers);
+                    }
+                }
                 if (text.find(secrets::kMask) != std::string::npos) {
                     if (auto c = by_connection.find(conn); c != by_connection.end())
-                        for (const auto& other : c->second) text = secrets::restore_headers(text, other);
+                        text = secrets::restore_headers_unique(text, c->second);
                 }
                 *h = text;
             }
@@ -182,6 +287,43 @@ void restore_item_secrets(json& items, const json& stored_doc, const json& new_d
         if (auto ch = it.find("children"); ch != it.end()) visit(*ch);
     };
     visit(items);
+}
+
+// What each HTTP event in `doc` holds now, for restore_item_secrets' step 3:
+// remembered for a few minutes after every change, so an event deleted and
+// put back (Undo) gets its own credential back rather than a neighbour's.
+void remember_event_secrets(const json& doc,
+                            std::unordered_map<std::string, RecentEventSecret>& recent) {
+    const auto now  = std::chrono::steady_clock::now();
+    const auto keep = std::chrono::minutes{5};
+    for (auto it = recent.begin(); it != recent.end();)
+        it = now - it->second.at > keep ? recent.erase(it) : std::next(it);
+    const auto dests = destinations_of(doc);
+    std::function<void(const json&)> index = [&](const json& arr) {
+        if (!arr.is_array()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (auto evs = it.find("events"); evs != it.end() && evs->is_array()) {
+                for (const auto& ev : *evs) {
+                    if (!ev.is_object() || str_of(ev, "plugin") != "http") continue;
+                    const std::string id = str_of(ev, "id"), conn = str_of(ev, "connectionId");
+                    const auto o = ev.find("options");
+                    if (id.empty() || conn.empty() || o == ev.end() || !o->is_object()) continue;
+                    const std::string h = str_of(*o, "headers");
+                    if (h.empty() || h.find(secrets::kMask) != std::string::npos) continue;
+                    const auto d = dests.find(conn);
+                    recent[id] = RecentEventSecret{conn, d == dests.end() ? std::string{"\x1f"} : d->second.second,
+                                                   h, now};
+                }
+            }
+            if (auto ch = it.find("children"); ch != it.end()) index(*ch);
+        }
+    };
+    if (doc.is_object()) {
+        if (auto it = doc.find("items"); it != doc.end()) index(*it);
+        if (auto it = doc.find("cartOnlyItems"); it != doc.end()) index(*it);
+    }
+    while (recent.size() > 2000) recent.erase(recent.begin());
 }
 
 // The tab run a trigger_item() call on this thread belongs to (see
@@ -870,11 +1012,46 @@ std::pair<int, int> document_version_of(const json& doc) {
     return {major, minor};
 }
 
+// True when `doc` already uses something only 2.6 writes: tabs, pages,
+// connections, pinned cart keys, or a cue's events, automation or tab. A 2.6
+// pre-release (RC1 and earlier dev builds) still stamped "2.0.0", and its
+// shows must not be treated as 2.5 (R2-11).
+bool document_uses_2_6(const json& doc) {
+    if (!doc.is_object()) return false;
+    // Something, not an empty placeholder: a script may send "events": [].
+    const auto has = [](const json& o, const char* key) {
+        const auto it = o.find(key);
+        if (it == o.end() || it->is_null()) return false;
+        if (it->is_array() || it->is_object()) return !it->empty();
+        if (it->is_string()) return !it->get<std::string>().empty();
+        return true;
+    };
+    for (const char* key : {"playlistTabs", "cartPages", "eventConnections", "cartPinnedKeys", "showId"})
+        if (has(doc, key)) return true;
+    bool found = false;
+    std::function<void(const json&)> visit = [&](const json& arr) {
+        if (!arr.is_array() || found) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (has(it, "events") || has(it, "volumeAutomation") || has(it, "tabId")) {
+                found = true;
+                return;
+            }
+            if (it.contains("children")) visit(it["children"]);
+        }
+    };
+    if (doc.contains("items")) visit(doc["items"]);
+    if (!found && doc.contains("cartOnlyItems")) visit(doc["cartOnlyItems"]);
+    return found;
+}
+
 // A show saved by LivePlay before 2.6 says so: every one of them carries a
 // "version" ("2.0.0"). A document with none was made by hand or by a script
-// against the API, and gets today's behaviour.
+// against the API, and gets today's behaviour; so does one that already uses
+// 2.6 features whatever its version says.
 bool document_predates_2_6(const json& doc) {
     if (json_get_or(doc, "version", std::string{}).empty()) return false;
+    if (document_uses_2_6(doc)) return false;
     return document_version_of(doc) < std::make_pair(2, 6);
 }
 
@@ -882,9 +1059,11 @@ bool document_predates_2_6(const json& doc) {
 // 1 s) but never used them: every duck and its release took 50 ms. 2.6 honours
 // them (#78), which would have slowed every existing duck. A show from before
 // 2.6 keeps the timing it had (F-07); a show made in 2.6 gets the new one.
-void migrate_legacy_duck_times(json& doc) {
+// Cues whose stored times this changes are reported to the operator.
+void migrate_legacy_duck_times(json& doc, std::vector<std::string>* notes = nullptr) {
     if (!document_predates_2_6(doc)) return;
     const double legacy = static_cast<double>(audio::PlaybackItem::kDefaultGainRamp.count()) / 1000.0;
+    int changed = 0;
     const std::function<void(json&)> visit = [&](json& arr) {
         if (!arr.is_array()) return;
         for (auto& item : arr) {
@@ -892,12 +1071,39 @@ void migrate_legacy_duck_times(json& doc) {
             if (item.contains("children")) visit(item["children"]);
             auto dk = item.find("duckingBehavior");
             if (dk == item.end() || !dk->is_object()) continue;
+            const bool ducks = json_get_or(*dk, "mode", std::string{}) == "duck-others";
+            const auto differs = [&](const char* key) {
+                const auto v = dk->find(key);
+                return v != dk->end() && v->is_number() && std::abs(v->get<double>() - legacy) > 1e-9;
+            };
+            if (ducks && (differs("duckFadeIn") || differs("duckFadeOut"))) ++changed;
             (*dk)["duckFadeIn"]  = legacy;
             (*dk)["duckFadeOut"] = legacy;
         }
     };
     if (doc.contains("items")) visit(doc["items"]);
     if (doc.contains("cartOnlyItems")) visit(doc["cartOnlyItems"]);
+    if (changed && notes)
+        notes->push_back(std::to_string(changed) + " ducking cue(s) keep the 50 ms dip and return "
+                         "they always had; set their times in the cue's Ducking settings to change it");
+}
+
+// A show from before 2.6 with no pages has the one implicit page of 16 carts.
+// 2.5 let the API bind slots up to 63, and those fired; a page of 16 would
+// hide them (R2-10). Such a show gets a first page big enough to show every
+// binding it has, so its control-surface buttons keep working.
+void migrate_legacy_cart_page(json& doc) {
+    if (!doc.is_object() || doc.contains("cartPages") || !document_predates_2_6(doc)) return;
+    int max_slot = -1;
+    if (doc.contains("cartItems") && doc["cartItems"].is_array())
+        for (const auto& c : doc["cartItems"])
+            if (c.is_object() && c.contains("slot") && c["slot"].is_number_integer())
+                max_slot = std::max(max_slot, c["slot"].get<int>());
+    if (max_slot < tabs::kDefaultCartsPerPage || max_slot >= tabs::kCartSlotsPerPage) return;
+    const int size = std::clamp(((max_slot + 1 + 3) / 4) * 4, tabs::kDefaultCartsPerPage,
+                                tabs::kMaxCartsPerPage);
+    doc["cartPages"] = json::array({json{{"id", "default"}, {"name", ""},
+                                         {"size", size}, {"slotBase", 0}}});
 }
 
 // Every format upgrade a document gets on its way in, then the version that
@@ -906,9 +1112,16 @@ void migrate_legacy_duck_times(json& doc) {
 // events. Returns notes for the operator.
 std::vector<std::string> upgrade_document(json& doc) {
     std::vector<std::string> notes;
+    // Pages first: tabs::normalise would otherwise see none and keep none.
+    migrate_legacy_cart_page(doc);
     tabs::normalise(doc);
+    migrate_legacy_duck_times(doc, &notes);
+    // Last of the "is this from before 2.6?" questions: the actions migration
+    // adds events and connections, which say "2.6".
     migrate_custom_actions(doc, &notes);
-    migrate_legacy_duck_times(doc);
+    // Every show is known by an id of its own (R2-12), not by where it is.
+    if (doc.is_object() && json_get_or(doc, "showId", std::string{}).empty())
+        doc["showId"] = random_event_id();
     if (doc.contains("cartSlotKeys")) doc["cartSlotKeys"] = clean_slot_keys(doc["cartSlotKeys"]);
     if (doc.contains("cartPinnedKeys"))
         doc["cartPinnedKeys"] = clean_pinned_keys(doc["cartPinnedKeys"],
@@ -1114,6 +1327,11 @@ static const std::unordered_map<std::string, SettingSpec>& settings_registry() {
         // --- Playback ----------------------------------------------------
         {"defaultTransitionMode",         {SettingKind::Enum, 0, 0,
                                            {"crossfade", "start-next"}}},
+        // With two or more cues on air and no Up Next armed, which one GO
+        // and Up Next continue from: the one fired first (absent; 2.5 and
+        // the desktop always did) or the one fired last (R2-08).
+        {"goContinuesFrom",               {SettingKind::Enum, 0, 0,
+                                           {"earliest", "latest"}}},
         {"autoCueNextWithoutEndBehavior", {SettingKind::Bool}},
         // 60 s is well past any musical fade and still finite, so a typo'd
         // value cannot wedge Stop-All into an unstoppable ramp.
@@ -2227,6 +2445,7 @@ json ProjectState::default_empty_document() {
         {"cartSlotKeys",  json::object()},
         {"playbackKeys",  json::object()},
         {"cartOnlyItems", json::array()},
+        {"showId",        random_event_id()},
         // No "theme" (U4): a colour scheme belongs to whoever is looking at
         // the screen, so a blank document has nothing to say about one.
         // No device names at all: where audio goes is the master bus's
@@ -2819,8 +3038,6 @@ bool ProjectState::save(const std::filesystem::path& path) const {
                     }
                 }
             }
-            // Credentials go to disk sealed with this machine's key (F-23).
-            seal_secrets(doc);
             // Settings an event changed are saved as the operator left them
             // (F-22), as bus changes are.
             if (!event_settings_overrides_.empty() && doc.contains("settings") &&
@@ -2831,6 +3048,14 @@ bool ProjectState::save(const std::filesystem::path& path) const {
                 }
             }
         }
+        // Credentials go to disk sealed with this machine's key (F-23), on
+        // the copy and outside mutex_: reading a key file a scanner holds
+        // must never hold up GO (R2-03). Without a key they are left out.
+        secrets::ensure_key(/*create=*/false);   // seal() makes one only if a secret needs it
+        if (const int n = seal_secrets(doc))
+            Logger::error("Save: {} credential(s) could not be sealed (no usable key file) and were "
+                          "left out of the show file; the connections will ask for them when it "
+                          "is next opened", n);
         // The folder we are saving INTO is the project folder, whatever the
         // in-memory document says — the same rule load() applies in reverse.
         // relativize_media_paths() measures against this, so on a Save As the
@@ -2992,6 +3217,7 @@ json ProjectState::header_document() const {
     return json{
         {"name",         document_.value("name", "")},
         {"version",      document_.value("version", "")},
+        {"showId",       document_.value("showId", "")},
         {"folderPath",   document_.value("folderPath", "")},
         {"createdAt",    document_.value("createdAt", "")},
         {"lastModified", read_last_modified(document_)},
@@ -3061,9 +3287,91 @@ int bus_schema_of(const json& doc) {
 
 }  // namespace
 
-bool ProjectState::replace_full_document(const json& doc, bool keep_live_parts,
+namespace {
+
+// Whether `doc` is the show `current` is (R2-12). Every 2.6 show carries a
+// showId; a document from a client that predates it (2.5) is the same show
+// only with the same saved folder AND the same name. An unsaved show (no
+// folder) is never "the same" as another unsaved one.
+bool same_show_docs(const json& doc, const json& current) {
+    const std::string a = json_get_or(doc, "showId", std::string{});
+    const std::string b = json_get_or(current, "showId", std::string{});
+    if (!a.empty() && !b.empty()) return a == b;
+    if (bus_schema_of(doc) < 1) return false;
+    const std::string fa = json_get_or(doc, "folderPath", std::string{});
+    if (fa.empty() || fa != json_get_or(current, "folderPath", std::string{})) return false;
+    return json_get_or(doc, "name", std::string{}) == json_get_or(current, "name", std::string{});
+}
+
+// Every cue's events as `stored` has them, by uuid: a principal that may not
+// change what the show's cues send (an API token, R2-09) keeps them whatever
+// its document says, and a cue it adds brings none.
+void keep_stored_events(json& doc, const json& stored) {
+    std::unordered_map<std::string, json> events;
+    std::function<void(const json&)> index = [&](const json& arr) {
+        if (!arr.is_array()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            const std::string uuid = json_get_or(it, "uuid", std::string{});
+            if (!uuid.empty() && it.contains("events")) events[uuid] = it["events"];
+            if (it.contains("children")) index(it["children"]);
+        }
+    };
+    std::function<void(json&)> apply = [&](json& arr) {
+        if (!arr.is_array()) return;
+        for (auto& it : arr) {
+            if (!it.is_object()) continue;
+            const auto e = events.find(json_get_or(it, "uuid", std::string{}));
+            if (e != events.end()) it["events"] = e->second;
+            else it.erase("events");
+            if (it.contains("children")) apply(it["children"]);
+        }
+    };
+    for (const char* key : {"items", "cartOnlyItems"}) {
+        if (stored.contains(key)) index(stored[key]);
+    }
+    for (const char* key : {"items", "cartOnlyItems"}) {
+        if (doc.contains(key)) apply(doc[key]);
+    }
+}
+
+}  // namespace
+
+bool ProjectState::is_same_show(const json& doc) const {
+    std::lock_guard lock{mutex_};
+    return same_show_docs(doc, document_);
+}
+
+json ProjectState::item_events_for_token(const std::string& uuid) const {
+    std::lock_guard lock{mutex_};
+    json found;
+    std::function<void(const json&)> walk = [&](const json& arr) {
+        if (!arr.is_array() || !found.is_null()) return;
+        for (const auto& it : arr) {
+            if (!it.is_object()) continue;
+            if (json_get_or(it, "uuid", std::string{}) == uuid) {
+                found = it.contains("events") ? it["events"] : json::array();
+                return;
+            }
+            if (it.contains("children")) walk(it["children"]);
+        }
+    };
+    for (const char* key : {"items", "cartOnlyItems"})
+        if (document_.contains(key)) walk(document_[key]);
+    if (!found.is_null()) {
+        json wrapped = json{{"events", found}};
+        mask_secrets(wrapped, /*all_values=*/true);
+        found = wrapped["events"];
+    }
+    return found;
+}
+
+bool ProjectState::replace_full_document(const json& doc_in, bool keep_live_parts,
                                          bool may_edit_connections) {
-    if (!doc.is_object()) return false;
+    if (!doc_in.is_object()) return false;
+    // A sealed value in a request body is never opened (R2-02).
+    json doc = doc_in;
+    neutralise_sealed(doc);
     bool buses_unchanged = false;
     std::vector<std::string> upgrade_notes;
     {
@@ -3091,6 +3399,7 @@ bool ProjectState::replace_full_document(const json& doc, bool keep_live_parts,
             bus_schema_of(doc) >= 1) {
             carried_buses = document_["buses"];
         }
+        std::vector<std::pair<std::string, json>> carried;
         // Parts of the show that have their own endpoints: tabs and pages
         // (PUT /api/project/tabs), connections (PUT /api/events/connections),
         // cart keys (PUT /api/project/cart-keys). They are carried over from
@@ -3105,15 +3414,16 @@ bool ProjectState::replace_full_document(const json& doc, bool keep_live_parts,
         //     (F-03, F-24). A wholesale replace (a new show, a client putting
         //     back a show the server forgot) takes the document's.
         //
-        // "This same show" is the same folder from the bus era, the rule tabs
-        // always had. Connections used to be carried into ANY document that
-        // left them out, so a 2.5 client pushing another show inherited this
-        // one's connections, credentials included (audit Q8).
-        const bool same_show = bus_schema_of(doc) >= 1 &&
-            json_get_or(doc, "folderPath", std::string{}) ==
-                json_get_or(document_, "folderPath", std::string{});
+        // "This same show" is the same showId; for a client that predates
+        // showIds, the same saved folder and name (same_show_docs, R2-12).
+        // Connections used to be carried into ANY document that left them
+        // out, so a 2.5 client pushing another show inherited this one's
+        // connections, credentials included (audit Q8).
+        const bool same_show = same_show_docs(doc, document_);
         const json previous_connections = document_.value("eventConnections", json::array());
-        std::vector<std::pair<std::string, json>> carried;
+        if (same_show && !doc.contains("showId") && document_.contains("showId"))
+            carried.emplace_back("showId", document_["showId"]);
+        remember_event_secrets(document_, recent_event_secrets_);
         if (same_show) {
             for (const char* key : {"eventConnections", "playlistTabs", "cartPages",
                                     "cartPinnedKeys", "cartSlotKeys"}) {
@@ -3124,21 +3434,30 @@ bool ProjectState::replace_full_document(const json& doc, bool keep_live_parts,
             }
         }
         const json previous_doc = std::move(document_);
-        document_ = doc;
+        document_ = std::move(doc);
         // A principal that may not change connections (an API token, F-30)
-        // doesn't bring any into another show either.
+        // doesn't bring any into another show either, and doesn't change what
+        // the show's cues send (R2-09).
         if (!may_edit_connections && !same_show) document_.erase("eventConnections");
+        if (!may_edit_connections) keep_stored_events(document_, previous_doc);
         if (!carried_buses.is_null()) document_["buses"] = std::move(carried_buses);
         for (auto& [key, value] : carried) document_[key] = std::move(value);
         if (document_.contains("eventConnections"))
             document_["eventConnections"] = clean_event_connections(document_["eventConnections"],
                                                                     previous_connections);
         // What a client sends back is what it was shown: masked secrets on its
-        // HTTP events mean "as stored" (F-01). Sealed ones (a file read
-        // straight off disk) are opened here.
-        if (document_.contains("items"))         restore_item_secrets(document_["items"], previous_doc, document_);
-        if (document_.contains("cartOnlyItems")) restore_item_secrets(document_["cartOnlyItems"], previous_doc, document_);
-        open_secrets(document_);
+        // HTTP events mean "as stored" (F-01), and only while their connection
+        // still goes where it went. Sealed values sent by a client were turned
+        // into masks above and are never opened here (R2-02).
+        if (document_.contains("items"))
+            restore_item_secrets(document_["items"], previous_doc, document_, &recent_event_secrets_);
+        if (document_.contains("cartOnlyItems"))
+            restore_item_secrets(document_["cartOnlyItems"], previous_doc, document_, &recent_event_secrets_);
+        // A connection this document moved or dropped takes its events' own
+        // credentials with it (R2-01), as through PUT /api/events/connections.
+        if (same_show && may_edit_connections)
+            mask_moved_event_secrets(document_, previous_connections,
+                                     document_.value("eventConnections", json::array()));
         // What events changed belonged to the show that was here (a different
         // one's buses and settings must not be saved with its values).
         if (!same_show) {
@@ -3272,7 +3591,8 @@ audio::CueId ProjectState::add_item(const json& item_in, const std::string& pare
         // A pasted or duplicated item carries the masked secrets its client
         // was shown: put the stored values back (F-01).
         json item = item_in;
-        restore_item_secrets(item, document_, document_);
+        neutralise_sealed(item);
+        restore_item_secrets(item, document_, document_, &recent_event_secrets_);
 
         // Reject duplicates — the same UUID must not appear twice in the document.
         bool already_exists = false;
@@ -3375,6 +3695,10 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
     std::string  seq_end_action;
     {
         std::lock_guard lock{mutex_};
+        // An events edit can delete an event that Undo puts back a moment
+        // later: what each held is remembered first (R2-19).
+        const bool touches_events = patch.contains("events");
+        if (touches_events) remember_event_secrets(document_, recent_event_secrets_);
         for_each_item(document_,
             [&](json& it, const std::string& /*parent*/) {
                 if (it.value("uuid", std::string{}) != uuid) return;
@@ -3396,7 +3720,8 @@ bool ProjectState::update_item(const std::string& uuid, const json& patch) {
                     if (k == "events" && v.is_array()) {
                         // Masked secrets mean "as stored" (F-01).
                         json item_events{{"events", v}};
-                        restore_item_secrets(item_events, document_, document_);
+                        neutralise_sealed(item_events);
+                        restore_item_secrets(item_events, document_, document_, &recent_event_secrets_);
                         it[k] = item_events["events"];
                         continue;
                     }
@@ -3631,6 +3956,9 @@ bool ProjectState::remove_item(const std::string& uuid) {
     };
     {
         std::lock_guard lock{mutex_};
+        // Undo puts a deleted cue back with what its client was shown: its
+        // events' own credentials are remembered for that (R2-19).
+        remember_event_secrets(document_, recent_event_secrets_);
         if (document_.contains("items")) {
             removed = erase_from(document_["items"]);
         }
@@ -4083,8 +4411,15 @@ bool ProjectState::play_item(const std::string& uuid,
         if (cm_it != cues_.end()) file_duration = cm_it->second.duration_seconds;
     }
 
+    // Pressing a cue that is already sounding doesn't start it again
+    // (PlaybackItem::play returns early), so it doesn't move it in the firing
+    // order either: GO, Up Next and Stop Current ask who was fired when (R2-08).
+    bool already_sounding = false;
     // Prime the target around the configured in-point.
     if (auto* pi = engine_.find_cue(target_cue)) {
+        const auto was = pi->stats().transport;
+        already_sounding = was == audio::TransportState::Playing ||
+                           was == audio::TransportState::FadingIn;
         pi->set_out_point_seconds(out_point > 0.0 ? out_point : 0.0);
         // Configure engine-level seamless looping based on endBehavior. Doing
         // the loop inside the audio thread (decoder seek + playhead reset on
@@ -4115,7 +4450,7 @@ bool ProjectState::play_item(const std::string& uuid,
     // this back from the state summary to answer "what did the operator fire
     // LAST?" — with several cues on air (a bed under a stinger, say), document
     // order is the wrong answer for a "currently playing" display.
-    {
+    if (!already_sounding) {
         std::lock_guard lock{mutex_};
         item_trigger_seq_[uuid] = ++trigger_seq_counter_;
     }
@@ -4277,6 +4612,8 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
         }
         const std::unordered_set<std::string> on_tab(targets.begin(), targets.end());
         bool cancelled = false;
+        std::string still_waiting;
+        long long   still_waiting_ms = 0;
         {
             std::lock_guard slock{sequencer_mutex_};
             for (const auto& si : sequenced_items_) {
@@ -4290,8 +4627,16 @@ bool ProjectState::stop_item(const std::string& uuid, std::optional<long long> f
                                }),
                 delayed_advances_.end());
             cancelled = delayed_advances_.size() != before;
+            // Another run still waiting keeps its countdown (N-S5), as in
+            // fire_due_advances.
+            if (cancelled && !delayed_advances_.empty()) {
+                const auto& next = delayed_advances_.front();
+                still_waiting    = next.item.uuid;
+                still_waiting_ms = std::max<long long>(0, std::chrono::duration_cast<std::chrono::milliseconds>(
+                                       next.due - std::chrono::steady_clock::now()).count());
+            }
         }
-        if (cancelled) broadcast_advance_pending({}, 0);
+        if (cancelled) broadcast_advance_pending(still_waiting, still_waiting_ms);
         bool stopped = cancelled;
         for (const auto& u : targets) {
             if (item_on_air(u)) stopped = stop_item(u, fade_ms) || stopped;
@@ -4400,7 +4745,11 @@ void ProjectState::stop_all_cues(std::optional<long long> fade_ms, bool panic, b
         }
         for (const auto& cue : cues) {
             auto* pi = engine_.find_cue(cue);
-            if (!pi || pi->stats().transport == audio::TransportState::Stopped) continue;
+            if (!pi) continue;
+            // A paused cue is cut at once by a stop, so its fade starts nothing
+            // a second press could be meant to catch (N-S11).
+            const auto t = pi->stats().transport;
+            if (t == audio::TransportState::Stopped || t == audio::TransportState::Paused) continue;
             const long long own = pi->stop_fade().count();
             window_ms = std::max(window_ms, own > 0 ? own : resolved_ms);
         }
@@ -4679,6 +5028,7 @@ json ProjectState::state_summary() const {
     bool        show_mode_now = false;
     std::string locale_now;
     std::unordered_map<std::string, long long> trigger_seq;
+    bool go_from_latest = false;
     json project_block;
     json cart_bindings = json::array();
     // Cart pages in tab order, and what a cart bound to a whole playlist tab
@@ -4766,6 +5116,8 @@ json ProjectState::state_summary() const {
         show_mode_now = show_mode_;
         locale_now    = default_ui_locale_;
         trigger_seq   = item_trigger_seq_;
+        if (document_.contains("settings") && document_["settings"].is_object())
+            go_from_latest = json_get_or(document_["settings"], "goContinuesFrom", std::string{}) == "latest";
 
         if (document_.contains("cartItems") && document_["cartItems"].is_array()) {
             for (const auto& c : document_["cartItems"]) {
@@ -4853,7 +5205,8 @@ json ProjectState::state_summary() const {
     std::string next_uuid   = override_uuid;
     std::string next_source = next_uuid.empty() ? "" : "override";
     if (next_uuid.empty() && !on_air.empty()) {
-        // The cue fired last decides, as it does for GO (F-19).
+        // The same cue decides as for GO (on_air_for_go): the one fired first,
+        // or with goContinuesFrom "latest" the one fired last (R2-08).
         std::vector<const OnAir*> by_recency;
         for (const auto& e : on_air) by_recency.push_back(&e);
         const auto seq_of = [&](const std::string& u) {
@@ -4861,7 +5214,8 @@ json ProjectState::state_summary() const {
             return it != trigger_seq.end() ? it->second : 0LL;
         };
         std::stable_sort(by_recency.begin(), by_recency.end(), [&](const OnAir* a, const OnAir* b) {
-            return seq_of(a->uuid) > seq_of(b->uuid);
+            return go_from_latest ? seq_of(a->uuid) > seq_of(b->uuid)
+                                  : seq_of(a->uuid) < seq_of(b->uuid);
         });
         std::lock_guard lock{mutex_};
         for (const auto* e : by_recency) {
@@ -5019,9 +5373,11 @@ std::string ProjectState::go() {
     if (target.empty()) {
         // No override armed — derive from the currently-playing item's
         // endBehavior, the same fallback the client's GO button uses. With
-        // several on air (two tabs running, say) the one fired last decides,
-        // not whichever an unordered map happened to list first (F-19).
-        const auto on_air = on_air_by_recency();
+        // several on air the show's goContinuesFrom decides: the one fired
+        // first (the default, as 2.5 and the desktop's Up Next behave) or the
+        // one fired last — never whichever an unordered map listed first
+        // (F-19, R2-08).
+        const auto on_air = on_air_for_go();
         std::lock_guard lock{mutex_};
         for (const auto& u : on_air) {
             const auto n = resolve_next_item_locked(u);
@@ -5062,11 +5418,43 @@ std::vector<std::string> ProjectState::on_air_by_recency() const {
     return on_air;
 }
 
+std::vector<std::string> ProjectState::on_air_for_go() const {
+    bool latest = false;
+    {
+        std::lock_guard lock{mutex_};
+        if (document_.contains("settings") && document_["settings"].is_object())
+            latest = json_get_or(document_["settings"], "goContinuesFrom", std::string{}) == "latest";
+    }
+    auto on_air = on_air_by_recency();
+    if (!latest) std::reverse(on_air.begin(), on_air.end());
+    return on_air;
+}
+
 std::string ProjectState::stop_current_cue(std::optional<long long> fade_ms) {
-    const auto on_air = on_air_by_recency();
-    if (on_air.empty()) return {};
-    stop_item(on_air.front(), fade_ms);
-    return on_air.front();
+    // The cue fired most recently that is still going. One already leaving
+    // over its stop fade has been stopped: a second press moves on to the one
+    // before it rather than cutting it (R2-13). A paused cue counts only when
+    // nothing is sounding.
+    std::vector<std::pair<std::string, audio::TransportState>> on_air;
+    for (const auto& u : on_air_by_recency()) {
+        audio::CueId cue;
+        {
+            std::lock_guard lock{mutex_};
+            const auto it = item_uuid_to_cue_.find(u);
+            if (it == item_uuid_to_cue_.end()) continue;
+            cue = it->second;
+        }
+        if (auto* pi = engine_.find_cue(cue)) on_air.emplace_back(u, pi->stats().transport);
+    }
+    std::string target;
+    for (const auto& [u, t] : on_air)
+        if (t == audio::TransportState::Playing || t == audio::TransportState::FadingIn) { target = u; break; }
+    if (target.empty())
+        for (const auto& [u, t] : on_air)
+            if (t == audio::TransportState::Paused) { target = u; break; }
+    if (target.empty()) return {};
+    stop_item(target, fade_ms);
+    return target;
 }
 
 std::string ProjectState::cart_slot_item_uuid(int slot) const {
@@ -8235,6 +8623,11 @@ audio::CueId ProjectState::current_preview_cue_id() const {
 // ---------------------------------------------------------------------------
 // Cart slot bindings
 // ---------------------------------------------------------------------------
+bool ProjectState::cart_slot_is_shown(int slot) const {
+    std::lock_guard lock{mutex_};
+    return tabs::slot_is_shown(document_, slot);
+}
+
 bool ProjectState::set_cart_slot(int slot, const std::string& item_uuid) {
     if (slot < 0 || slot >= tabs::kCartSlotCount) return false;
     std::lock_guard lock{mutex_};
@@ -8640,7 +9033,7 @@ json ProjectState::upgrade_legacy_document(const json& legacy) const {
     return out;
 }
 
-bool ProjectState::load_from_json(const json& doc_in) {
+bool ProjectState::load_from_json(const json& doc_in, bool from_disk) {
     // The .liveplay format the Electron client writes today is camelCase and
     // hierarchical (items → groups → audio items). Detect that flavour and
     // store the full document for the client to read back via /api/project.
@@ -8664,9 +9057,17 @@ bool ProjectState::load_from_json(const json& doc_in) {
             for (const auto& issue : repair.issues)
                 Logger::warn("  - {}", issue);
         }
-        // Credentials were sealed for disk with this machine's key; what was
-        // sealed elsewhere stays sealed and asks for a sign-in.
-        open_secrets(doc_repaired);
+        // Credentials were sealed for disk with this machine's key, bound to
+        // where they go; what was sealed elsewhere, or for another address,
+        // stays sealed and asks for a sign-in. A document from a request body
+        // was copied out of a file at best: its sealed values are never opened
+        // (R2-02), only shown as missing.
+        if (from_disk) {
+            secrets::ensure_key(/*create=*/false);
+            open_secrets(doc_repaired);
+        } else {
+            neutralise_sealed(doc_repaired);
+        }
 
         forget_sequenced_items();
         if (events_) {
@@ -8889,7 +9290,7 @@ bool ProjectState::load(const std::filesystem::path& path) {
         if (path.has_parent_path() && doc.is_object()) {
             doc["folderPath"] = util::path_to_utf8(path.parent_path());
         }
-        const bool ok = load_from_json(doc);
+        const bool ok = load_from_json(doc, /*from_disk=*/true);
         if (ok) {
             // Adopting the path re-anchors folderPath and media_root_ onto the
             // file's real location (see set_project_file_path).
@@ -9721,8 +10122,14 @@ std::optional<events::Job> ProjectState::make_event_job_locked(
             return std::nullopt;
         }
         job.connection_id = conn->value("id", std::string{});
-        if (conn->contains("config") && (*conn)["config"].is_object())
+        if (conn->contains("config") && (*conn)["config"].is_object()) {
             job.connection = events::substitute((*conn)["config"], ctx);
+            // Where a connection goes is the connection's, never a cue's: a
+            // placeholder in its address would let whoever names a cue steer
+            // the connection's credentials (R2-21).
+            if ((*conn)["config"].contains("baseUrl"))
+                job.connection["baseUrl"] = (*conn)["config"]["baseUrl"];
+        }
         if (!ev.preset_id.empty()) {
             const json* preset = nullptr;
             if (conn->contains("presets") && (*conn)["presets"].is_array()) {
@@ -9882,21 +10289,37 @@ void ProjectState::refresh_connection_auth_locked(const json& before) {
     for (const auto& id : unusable) connection_auth_[id] = "missing";
 }
 
-void ProjectState::seal_secrets(json& doc) {
-    for_each_http_headers(doc, [](json& text, const std::string&) {
-        text = secrets::map_secret_values(text.get<std::string>(), [](const std::string& v) {
+int ProjectState::seal_secrets(json& doc) {
+    // Each value is bound to its connection, that connection's address and
+    // its header name (R2-02), so a sealed value copied anywhere else is
+    // useless. One that can't be sealed is left out (a mask), never written in
+    // plain text (R2-03): the show then asks for it when it is next opened.
+    const auto dests = destinations_of(doc);
+    int unsealed = 0;
+    for_each_http_headers(doc, [&](json& text, const std::string& id) {
+        const auto d = dests.find(id);
+        const std::string base = d == dests.end() ? std::string{} : d->second.second;
+        text = secrets::map_secret_values(text.get<std::string>(),
+                                          [&](const std::string& v, const std::string& name) {
             if (secrets::is_sealed(v)) return v;
-            const auto sealed = secrets::seal(v);
-            return sealed ? *sealed : v;
+            const auto sealed = secrets::seal(v, secrets::seal_binding(id, base, name));
+            if (sealed) return *sealed;
+            ++unsealed;
+            return std::string{secrets::kMask};
         });
     });
+    return unsealed;
 }
 
 void ProjectState::open_secrets(json& doc) {
-    for_each_http_headers(doc, [](json& text, const std::string&) {
-        text = secrets::map_secret_values(text.get<std::string>(), [](const std::string& v) {
+    const auto dests = destinations_of(doc);
+    for_each_http_headers(doc, [&](json& text, const std::string& id) {
+        const auto d = dests.find(id);
+        const std::string base = d == dests.end() ? std::string{} : d->second.second;
+        text = secrets::map_secret_values(text.get<std::string>(),
+                                          [&](const std::string& v, const std::string& name) {
             if (!secrets::is_sealed(v)) return v;
-            const auto plain = secrets::open(v);
+            const auto plain = secrets::open(v, secrets::seal_binding(id, base, name));
             return plain ? *plain : v;
         });
     });
@@ -9955,8 +10378,11 @@ bool ProjectState::may_hold_secrets(const std::string& serialized) {
     return serialized.find("\"headers\"") != std::string::npos;
 }
 
-json ProjectState::set_event_connections(const json& connections) {
+json ProjectState::set_event_connections(const json& connections_in) {
+    json connections = connections_in;
+    neutralise_sealed(connections);
     std::lock_guard lock{mutex_};
+    remember_event_secrets(document_, recent_event_secrets_);
     json clean = clean_event_connections(
         connections, document_.value("eventConnections", json::array()));
     // A preset made from an event ("Save as preset") carries the masked
@@ -9991,6 +10417,12 @@ json ProjectState::set_event_connections(const json& connections) {
         }
     }
     const json before = json{{"eventConnections", document_.value("eventConnections", json::array())}};
+    // A connection pointed somewhere else, removed, or made into another
+    // plugin takes its events' own credentials with it (R2-01): those events
+    // ask for a sign-in, as they would on another machine.
+    if (const int n = mask_moved_event_secrets(document_, before["eventConnections"], clean))
+        Logger::info("Events: {} event header set(s) need their credentials again: their "
+                     "connection's address changed or it was removed", n);
     document_["eventConnections"] = clean;
     // New credentials for a connection that was asking for them clear its
     // sign-in prompt; one still missing keeps it.
@@ -10004,6 +10436,8 @@ events::Result ProjectState::test_event(const json& event, const json& draft_in,
     // the stored values, for the connection and for the event alike.
     json draft_connection = draft_in;
     json event_in = json{{"events", json::array({event})}};
+    neutralise_sealed(draft_connection);
+    neutralise_sealed(event_in);
     {
         std::lock_guard lock{mutex_};
         if (draft_connection.is_object()) {
@@ -10018,7 +10452,7 @@ events::Result ProjectState::test_event(const json& event, const json& draft_in,
             for (auto& c : new_doc["eventConnections"])
                 if (str_of(c, "id") == str_of(draft_connection, "id")) c = draft_connection;
         }
-        restore_item_secrets(event_in, document_, new_doc);
+        restore_item_secrets(event_in, document_, new_doc, &recent_event_secrets_);
     }
     json wrapped = json::array({event_in["events"][0]});
     if (wrapped[0].is_object()) {

@@ -13,11 +13,18 @@
 //     credentials are entered again;
 //   * a device that answers 401 flags the connection "rejected", and new
 //     credentials clear it;
-//   * an API token can't change connections;
-//   * another show pushed without connections doesn't inherit these.
+//   * an API token can't change connections, replace the show, or rewire a
+//     cue's events, and isn't listed as an operator to follow (R2-09, S-9);
+//   * another show pushed without connections doesn't inherit these, nor one
+//     in the same folder (R2-12);
+//   * a cue's own credential never follows its connection to a new address,
+//     or to a connection recreated under the same id (R2-01);
+//   * a sealed value copied onto another connection opens nowhere (R2-02);
+//   * a pasted copy gets its original's own credential (R2-19);
+//   * without a usable key, nothing is written in plain text (R2-03).
 //
 // usage: node credentials-e2e.js <port> [serverExe]
-//        (uses <port> and <port>+1; never 4480: that may be the live app)
+//        (uses <port>, <port>+1 and <port>+2; never 4480: that may be the live app)
 const fs   = require('fs');
 const os   = require('os');
 const path = require('path');
@@ -25,8 +32,8 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 const PORT = Number(process.argv[2]);
-if (!PORT || PORT === 4480 || PORT + 1 === 4480) {
-  console.error('usage: node credentials-e2e.js <port: it and the next must not be 4480> [serverExe]');
+if (!PORT || [PORT, PORT + 1, PORT + 2].includes(4480)) {
+  console.error('usage: node credentials-e2e.js <port: it and the next two must not be 4480> [serverExe]');
   process.exit(2);
 }
 const EXE = path.resolve(process.argv[3] || path.join(__dirname, '../../build/Release/liveplay-server.exe'));
@@ -217,11 +224,42 @@ const watchPatches = (port) => {
     await sleep(100);
     ok('moving a connection to a new address drops its credential instead of sending it there',
        r.body.ok === false && r.body.auth === 'missing' && !seen.some(s => s.elsewhere), JSON.stringify({ r: r.body, seen }));
+    // R2-01: the cue's OWN stored credential doesn't follow the connection
+    // either, even with the connection's own headers cleared (so nothing of
+    // the connection's blocks the send).
+    moved = (await a.req('/api/events/connections')).body.connections;
+    moved[0].config.headers = '';
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: moved } });
+    const cueAsShown = (await a.req('/api/project')).body.items.find(i => i.uuid === 'cue-1');
+    seen.length = 0;
+    const elsewhereSeen = [];
+    elsewhere.removeAllListeners('request');
+    elsewhere.on('request', (rq, rs) => { elsewhereSeen.push({ key: rq.headers['x-api-key'] }); rs.end('ok'); });
+    r = await a.req('/api/events/test', { method: 'POST', body: { itemUuid: 'cue-1', event: cueAsShown.events[0] } });
+    await a.req('/api/project/items/cue-1/play', { method: 'POST', body: {} });
+    await sleep(400);
+    await a.req('/api/transport/stop_all', { method: 'POST', body: { fade_ms: 0 } });
+    ok("a cue's own credential doesn't follow its connection to a new address (R2-01)",
+       !elsewhereSeen.some(s => s.key === 'k123'), JSON.stringify({ r: r.body, elsewhereSeen }));
+    ok('...it asks for a sign-in instead', r.body.ok === false && r.body.auth === 'missing', JSON.stringify(r.body));
+    // Deleting the connection and making another with the same id elsewhere
+    // doesn't hand it over either.
+    const kept = (await a.req('/api/events/connections')).body.connections;
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: [] } });
+    await a.req('/api/events/connections', { method: 'PUT', body: { connections: kept } });
+    elsewhereSeen.length = 0;
+    r = await a.req('/api/events/test', { method: 'POST', body: { itemUuid: 'cue-1', event: cueAsShown.events[0] } });
+    ok('...nor to a connection recreated under the same id (R2-01)',
+       !elsewhereSeen.some(s => s.key === 'k123'), JSON.stringify({ r: r.body, elsewhereSeen }));
     moved = (await a.req('/api/events/connections')).body.connections;
     moved[0].config.baseUrl = `http://127.0.0.1:${devicePort}`;
     moved[0].config.headers = 'Authorization: Bearer good\nAccept: text/plain';
     await a.req('/api/events/connections', { method: 'PUT', body: { connections: moved } });
     elsewhere.close();
+    // Back at the device, the cue's own credential is entered again.
+    const reentered = structuredClone(cueAsShown.events);
+    reentered[0].options.headers = 'X-Api-Key: k123';
+    await a.req('/api/project/items/cue-1', { method: 'PATCH', body: { events: reentered } });
 
     // ---- On disk ------------------------------------------------------------
     r = await a.req('/api/project/save', { method: 'POST', body: { path: showFile } });
@@ -229,7 +267,7 @@ const watchPatches = (port) => {
     const onDisk = fs.readFileSync(showFile, 'utf8');
     ok('the file holds no credential in plain text',
        !onDisk.includes('Bearer good') && !onDisk.includes('k123'), '');
-    ok('...but sealed ones', (onDisk.match(/lpenc:v1:/g) || []).length >= 2);
+    ok('...but sealed ones, bound to where they go (v2)', (onDisk.match(/lpenc:v2:/g) || []).length >= 2);
     ok('...and the key stays in the data folder', fs.existsSync(path.join(dataA, 'secret.key')));
     r = await a.req('/api/project/load', { method: 'POST', body: { path: showFile } });
     await sleep(700);
@@ -335,6 +373,120 @@ const watchPatches = (port) => {
       event: { plugin: 'osc', action: 'message', options: { address: '/x', args: [] } },
       connection: { id: 'd', plugin: 'osc', config: { host: '127.0.0.1', port: 9 } } } });
     ok("...and can't test any unsaved connection", r.status === 403, `HTTP ${r.status}`);
+
+    // ---- R2-09: a token runs the show, it doesn't replace or rewire it --------
+    r = await a.req('/api/project/document', { method: 'PUT', as: apiToken, body: {
+      name: 'another', showId: 'another-show', version: '2.6.0', busSchema: 2, folderPath: folder + '/x', items: [] } });
+    ok("a token can't put another show in place of this one (R2-09)", r.status === 403, `HTTP ${r.status}`);
+    r = await a.req('/api/project/load', { method: 'POST', as: apiToken, body: { document: { name: 'x', items: [] } } });
+    ok("...nor load one from a request body", r.status === 403, `HTTP ${r.status}`);
+    r = await a.req('/api/project', { as: apiToken });
+    const asToken = (r.body.project || r.body).items.find(i => i.uuid === 'cue-1');
+    r = await a.req('/api/project/items/cue-1', { method: 'PATCH', as: apiToken, body: { events: asToken.events } });
+    ok('a token sending back the events it was shown is fine', r.status === 200, `HTTP ${r.status}`);
+    const rewired = structuredClone(asToken.events);
+    rewired[0].options.path = '/somewhere-else';
+    r = await a.req('/api/project/items/cue-1', { method: 'PATCH', as: apiToken, body: { events: rewired } });
+    ok("...changing them is refused (R2-09)", r.status === 403, `HTTP ${r.status}`);
+    r = await a.req('/api/project/items', { method: 'POST', as: apiToken, body: { item: {
+      ...cue, uuid: 'tok-cue', events: [{ ...cue.events[0], id: 'tok-ev' }] } } });
+    ok("...and so is adding a cue with events", r.status === 403, `HTTP ${r.status}`);
+    r = await a.req('/api/events/connections');
+    ok('the connections are all still there', (r.body.connections || []).length >= 1, JSON.stringify(r.body.connections?.length));
+
+    // ---- S-9: a token's socket isn't an operator to follow ---------------------
+    {
+      const views = [];
+      const opWs = new WebSocket(`ws://127.0.0.1:${PORT}/ws?access_token=${encodeURIComponent(admin)}`);
+      opWs.addEventListener('message', (e) => {
+        try { const m = JSON.parse(e.data); if (m.op === 'client_views') views.push(m.views); } catch { /* meters */ }
+      });
+      const tokWs = new WebSocket(`ws://127.0.0.1:${PORT}/ws?access_token=${encodeURIComponent(apiToken)}`);
+      await Promise.all([new Promise(res => opWs.addEventListener('open', res)),
+                         new Promise(res => tokWs.addEventListener('open', res))]);
+      opWs.send(JSON.stringify({ type: 'set_view', playlistTab: 't', cartPage: 'p' }));
+      tokWs.send(JSON.stringify({ type: 'set_view', playlistTab: 't', cartPage: 'p' }));
+      await sleep(400);
+      const lastViews = views[views.length - 1] || [];
+      ok("a control surface on a token isn't listed as an operator (S-9)",
+         lastViews.length >= 1 && !lastViews.some(v => v.label === 'cred-test'), JSON.stringify(lastViews));
+      opWs.close(); tokWs.close();
+    }
+
+    // ---- R2-02: a sealed value copied out of a file opens nowhere else ----------
+    {
+      const sealed = (onDisk.match(/lpenc:v2:[A-Za-z0-9_-]+/g) || [])[0];
+      const thief = [];
+      const listener = http.createServer((rq, rs) => { thief.push(rq.headers.authorization || ''); rs.end('ok'); });
+      await new Promise(res => listener.listen(0, '127.0.0.1', res));
+      const conns2 = (await a.req('/api/events/connections')).body.connections;
+      conns2.push({ id: 'h9', name: 'Mine', plugin: 'http', enabled: true,
+                    config: { baseUrl: `http://127.0.0.1:${listener.address().port}`, headers: `Authorization: ${sealed}` } });
+      await a.req('/api/events/connections', { method: 'PUT', body: { connections: conns2 } });
+      r = await a.req('/api/events/test', { method: 'POST', body: {
+        event: { plugin: 'http', action: 'request', connectionId: 'h9',
+                 options: { method: 'GET', path: '/steal', headers: '', contentType: 'none' } } } });
+      await sleep(150);
+      ok("a sealed value put on another connection isn't opened (R2-02)",
+         !!sealed && !thief.some(v => v.includes('Bearer')), JSON.stringify({ r: r.body, thief }));
+      ok('...that connection asks for a sign-in instead', r.body.auth === 'missing', JSON.stringify(r.body));
+      listener.close();
+      await a.req('/api/events/connections', { method: 'PUT', body: { connections: conns2.filter(c => c.id !== 'h9') } });
+    }
+
+    // ---- R2-19: a copy gets its original's credential, not a neighbour's --------
+    {
+      const other = { ...cue, uuid: 'cue-3', displayName: 'Other',
+        events: [{ ...cue.events[0], id: 'ev-3', options: { ...cue.events[0].options, headers: 'X-Api-Key: other-key' } }] };
+      await a.req('/api/project/items', { method: 'POST', body: { item: other } });
+      const copy = (uuid, evId, copiedFrom) => ({ ...cue, uuid, displayName: uuid,
+        events: [{ ...cue.events[0], id: evId, ...(copiedFrom ? { copiedFrom } : {}),
+                   options: { ...cue.events[0].options, headers: `X-Api-Key: ${MASK}` } }] });
+      await a.req('/api/project/items', { method: 'POST', body: { item: copy('cue-3b', 'ev-3b', 'ev-3') } });
+      await a.req('/api/project/items', { method: 'POST', body: { item: copy('cue-3c', 'ev-3c', null) } });
+      await sleep(600);
+      const fire = async (uuid) => {
+        seen.length = 0;
+        await a.req(`/api/project/items/${uuid}/play`, { method: 'POST', body: {} });
+        await sleep(400);
+        await a.req('/api/transport/stop_all', { method: 'POST', body: { fade_ms: 0 } });
+        await sleep(150);
+        return seen.map(s => s.key);
+      };
+      let keys = await fire('cue-3b');
+      ok("a pasted copy gets its original's own credential (R2-19)", keys.includes('other-key') && !keys.includes('k123'),
+         JSON.stringify(keys));
+      keys = await fire('cue-3c');
+      ok("...one that doesn't say where it came from gets none when two differ", !keys.some(Boolean),
+         JSON.stringify(keys));
+      r = await a.req('/api/project');
+      const stored = JSON.stringify((r.body.project || r.body).items);
+      ok("copiedFrom isn't kept in the show", !stored.includes('copiedFrom'), '');
+    }
+
+    // ---- R2-12: another show in the same folder inherits nothing ----------------
+    r = await a.req('/api/project/document', { method: 'PUT', body: {
+      name: 'twin', showId: 'twin-show', version: '2.6.0', busSchema: 2, folderPath: folder, items: [] } });
+    r = await a.req('/api/events/connections');
+    ok("another show in the same folder doesn't inherit the connections (R2-12)",
+       (r.body.connections || []).length === 0, JSON.stringify(r.body.connections));
+
+    // ---- R2-03: no usable key: credentials are left out, never written plain ----
+    {
+      const dataC = path.join(root, 'data-c');
+      fs.mkdirSync(path.join(dataC, 'secret.key'), { recursive: true });   // a directory, not a key
+      procs.push(await startServer(PORT + 2, dataC));
+      const c = client(PORT + 2);
+      await c.req('/api/project/document', { method: 'PUT', body: {
+        name: 'nokey', showId: 'nokey', version: '2.6.0', busSchema: 2, folderPath: folder,
+        eventConnections: [connection('Authorization: Bearer good')], items: [] } });
+      const noKeyFile = path.join(showDir, 'nokey.liveplay').replace(/\\/g, '/');
+      r = await c.req('/api/project/save', { method: 'POST', body: { path: noKeyFile } });
+      const written = fs.existsSync(noKeyFile) ? fs.readFileSync(noKeyFile, 'utf8') : '';
+      ok('without a usable key the show still saves', r.status === 200, `HTTP ${r.status}`);
+      ok('...but never with a credential in plain text (R2-03)', !!written && !written.includes('Bearer good'),
+         written.slice(0, 200));
+    }
   } catch (e) {
     ok('the suite ran to the end', false, e?.stack ?? String(e));
   } finally {

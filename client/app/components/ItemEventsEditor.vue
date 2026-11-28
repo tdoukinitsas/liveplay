@@ -385,8 +385,9 @@
                 :placeholder="t('events.connections.presetName')"
                 @keydown.esc.stop.prevent="cancelSavePreset"
               />
-              <Btn icon="check" :text="t('events.presetSaveConfirm')" :disabled="!presetName.trim()" @click="savePreset(selected)" />
+              <!-- Cancel first, as in every other confirm (F-44, N-C11). -->
               <Btn icon="close" :text="t('events.connections.cancel')" @click="cancelSavePreset" />
+              <Btn icon="check" :text="t('events.presetSaveConfirm')" :disabled="!presetName.trim()" @click="savePreset(selected)" />
               <span v-if="presetError" class="ev-result error">{{ presetError }}</span>
             </form>
 
@@ -2056,7 +2057,7 @@ onBeforeUnmount(() => {
 }
 
 .ev-help--warn {
-  color: #ffb020;
+  color: var(--color-warning);
 }
 
 .ev-editor-footer {

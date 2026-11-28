@@ -46,7 +46,13 @@ export interface ActiveCueView {
   inPoint?: number;
   outPoint?: number;
   serverCueId?: string | null;
+  // When this window first saw it on air, as a running count: the firing
+  // order that GO and Up Next follow (settings.goContinuesFrom, R2-08).
+  startedSeq?: number;
 }
+
+// Renderer-wide counter for ActiveCueView.startedSeq.
+let _cueStartSeq = 0;
 
 export interface ActiveGroupView {
   uuid: string;
@@ -197,6 +203,7 @@ export const useAudioEngine = () => {
       inPoint: item.inPoint,
       outPoint: item.outPoint,
       serverCueId: cueId,
+      startedSeq: ++_cueStartSeq,
     };
     view.displayName = item.displayName;
     view.duration    = trimmedDuration(item);
@@ -395,7 +402,14 @@ export const useAudioEngine = () => {
 
   const autoNextItemUuid = computed((): string | null => {
     if (!currentProject.value) return null;
-    for (const [uuid] of activeCues.value.entries()) {
+    // With several cues on air, the one fired first decides, or with
+    // goContinuesFrom "latest" the one fired last: the same rule the server's
+    // GO and summary.next use, so Space, Up Next and a control surface's GO
+    // agree (R2-08). The Map keeps first-seen order; "latest" reverses it.
+    const latest = (currentProject.value as any)?.settings?.goContinuesFrom === 'latest';
+    const onAir = Array.from(activeCues.value.entries());
+    if (latest) onAir.sort((a, b) => (b[1].startedSeq ?? 0) - (a[1].startedSeq ?? 0));
+    for (const [uuid] of onAir) {
       const item = findItemByUuid(uuid);
       if (!item || item.type !== 'audio') continue;
       const audioItem = item as AudioItem;

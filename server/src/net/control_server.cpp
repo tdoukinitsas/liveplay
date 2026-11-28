@@ -1517,7 +1517,9 @@ void ControlServer::broadcast_client_views() {
     {
         std::lock_guard lock{impl_->ws_mutex};
         for (const auto& [conn, s] : impl_->ws_clients) {
-            if (!s.has_view) continue;
+            // A control surface on an API token isn't an operator anyone can
+            // follow (S-9).
+            if (!s.has_view || s.is_api) continue;
             // Who is looking: the signed-in user's name, or a number. Never the
             // address: every socket gets this frame, API tokens included, and
             // who is connected from where is the Admin-only /api/clients (F-14).
@@ -5050,7 +5052,12 @@ void ControlServer::install_routes() {
                 } else if (j.contains("document")) {
                     Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/load (from document)",
                                         req.remote_ip_address, impl_->server_addr);
-                    if (!state_.load_from_json(j["document"])) {
+                    // A token runs the show it is given; it doesn't bring its
+                    // own (R2-09). Opening a show file stays open to it.
+                    if (impl_->app.get_context<AuthGuard>(req).principal.is_api())
+                        return json_err(403, "API tokens can open a show file, not send a show");
+                    // Never from_disk: a sealed value in a body is not opened.
+                    if (!state_.load_from_json(j["document"], /*from_disk=*/false)) {
                         Logger::error("POST /api/project/load FAILED — document rejected");
                         return json_err(400, "load failed");
                     }
@@ -5409,6 +5416,8 @@ void ControlServer::install_routes() {
                     // An ordinary save: tabs, pages, connections and cart keys
                     // stay as the server has them (F-03, F-24).
                     const bool token = impl_->app.get_context<AuthGuard>(req).principal.is_api();
+                    if (token && !state_.is_same_show(j["document"]))
+                        return json_err(403, "API tokens can save the open show, not replace it");
                     if (!state_.replace_full_document(j["document"], /*keep_live_parts=*/true,
                                                       /*may_edit_connections=*/!token)) {
                         Logger::warn("POST /api/project/save — embedded document "
@@ -5463,8 +5472,12 @@ void ControlServer::install_routes() {
                 Logger::api_request("Client ({}) -> Server ({}) : PUT /api/project/document name='{}'",
                                     req.remote_ip_address, impl_->server_addr, proj_name);
                 // An API token can't change event connections (F-30), here
-                // any more than through PUT /api/events/connections.
+                // any more than through PUT /api/events/connections, nor put
+                // another show in place of this one (R2-09): that would take
+                // the show's connections away.
                 const bool token = impl_->app.get_context<AuthGuard>(req).principal.is_api();
+                if (token && !state_.is_same_show(doc))
+                    return json_err(403, "API tokens can update the open show, not replace it");
                 if (!state_.replace_full_document(doc, /*keep_live_parts=*/false,
                                                   /*may_edit_connections=*/!token)) {
                     Logger::error("PUT /api/project/document — document not accepted");
@@ -5510,6 +5523,12 @@ void ControlServer::install_routes() {
                 const std::string item_name  = j["item"].value("displayName", std::string{});
                 const std::string parent_uuid = j.value("parentUuid", std::string{});
                 const bool cart_only = j.value("cartOnly", false);
+                // What a cue sends, and with which credentials, is the show's
+                // wiring: a token runs cues, it doesn't add events (R2-09).
+                if (impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    j["item"].contains("events") && !(j["item"]["events"].is_array() &&
+                                                      j["item"]["events"].empty()))
+                    return json_err(403, "API tokens can't add a cue's events");
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/items uuid='{}' name='{}'{}{}",
                                     req.remote_ip_address, impl_->server_addr, item_uuid,
                                     item_name, parent_uuid.empty() ? "" : " parent='" + parent_uuid + "'",
@@ -5545,6 +5564,13 @@ void ControlServer::install_routes() {
                 auto patch = json::parse(req.body);
                 Logger::api_request("Client ({}) -> Server ({}) : PATCH /api/project/items/{}",
                                     req.remote_ip_address, impl_->server_addr, uuid);
+                // A token may send back what it was shown, not new events
+                // (R2-09): those would reach a saved connection's device with
+                // its credentials.
+                if (patch.is_object() && patch.contains("events") &&
+                    impl_->app.get_context<AuthGuard>(req).principal.is_api() &&
+                    patch["events"] != state_.item_events_for_token(uuid))
+                    return json_err(403, "API tokens can't change a cue's events");
                 if (!state_.update_item(uuid, patch)) {
                     Logger::warn("PATCH /api/project/items/{} — item not found", uuid);
                     return json_err(404, "item not found");
@@ -5772,7 +5798,10 @@ void ControlServer::install_routes() {
                 Logger::api_request("Client ({}) -> Server ({}) : POST /api/project/cart slot={} itemUuid='{}'",
                                     req.remote_ip_address, impl_->server_addr, slot, uuid);
                 // A refused slot (out of range) was answered 200 and broadcast
-                // as if it had been bound (F-42).
+                // as if it had been bound (F-42). So was one no page shows,
+                // which then couldn't be fired (R2-10).
+                if (!state_.cart_slot_is_shown(slot))
+                    return json_err(400, "no cart page shows that slot");
                 if (!state_.set_cart_slot(slot, uuid))
                     return json_err(400, "slot out of range");
                 Logger::api_response("Client ({}) <- Server ({}) : POST /api/project/cart OK — slot={} uuid='{}'",

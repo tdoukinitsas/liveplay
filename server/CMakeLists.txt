@@ -310,6 +310,23 @@ if(LIVEPLAY_BUILD_TESTS)
     target_link_libraries(liveplay-secret-headers-tests PRIVATE nlohmann_json::nlohmann_json)
     add_test(NAME secret_headers COMMAND liveplay-secret-headers-tests)
 
+    # Sealing for disk: bound to where a value goes, v1 still opened, nothing
+    # sealed without a key, the key file this account's only (R2-02/03/20).
+    add_executable(liveplay-secrets-tests
+        tests/secrets_test.cpp
+        src/core/secrets.cpp
+        src/logger.cpp
+    )
+    target_include_directories(liveplay-secrets-tests
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
+    )
+    if(TARGET unofficial-sodium::sodium)
+        target_link_libraries(liveplay-secrets-tests PRIVATE unofficial-sodium::sodium Threads::Threads)
+    elseif(TARGET sodium)
+        target_link_libraries(liveplay-secrets-tests PRIVATE sodium Threads::Threads)
+    endif()
+    add_test(NAME secrets COMMAND liveplay-secrets-tests)
+
     # Mixer strip gain / fade envelope (peek vs. advance).
     # Also covers the PFL monitor taps, which is why limiter.cpp is here: it
     # carries db_to_linear_precise, and the tap gain has to be the same number

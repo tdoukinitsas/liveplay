@@ -155,7 +155,10 @@ ChannelCount PlaybackItem::source_channel_count() const noexcept {
 
 PlaybackItemStats PlaybackItem::stats() const noexcept {
     PlaybackItemStats s;
-    s.transport       = transport_.load(std::memory_order_relaxed);
+    // Acquire: the sequencer reads the transport and then take_fade_out_completed();
+    // the audio thread stores the flag before the transport, so on a weakly
+    // ordered CPU a relaxed load could see Stopped without the flag (N-S6).
+    s.transport       = transport_.load(std::memory_order_acquire);
     s.playhead_frame  = playhead_frames_.load(std::memory_order_relaxed);
     s.playhead_seconds =
         static_cast<double>(s.playhead_frame) / static_cast<double>(desc_.mix_sample_rate);
@@ -197,6 +200,11 @@ void PlaybackItem::play() {
             if (ltc_) ltc_->reset(std::chrono::nanoseconds{ltc_offset_ns_.load()});
         }
     }
+
+    // A new play: the level ramp of the last one (if a stop and this play
+    // landed between two audio blocks) is dropped by the audio thread.
+    play_gain_seq_.store(gain_seq_.load(std::memory_order_acquire), std::memory_order_release);
+    play_seq_.fetch_add(1, std::memory_order_acq_rel);
 
     // Reset natural-end flags so take_natural_end() doesn't fire for a
     // stale previous play on this same item.
@@ -734,7 +742,15 @@ std::size_t PlaybackItem::render_block(Sample* const* out_channel_buffers,
         // request made up to now is settled; the next play starts clean.
         ramp_active_   = false;
         ramp_seen_seq_ = gain_seq_.load(std::memory_order_acquire);
+        play_seen_seq_ = play_seq_.load(std::memory_order_acquire);
         return 0;
+    }
+    // A play this thread never saw start from Stopped (stop and play inside
+    // one block): the previous play's ramp ends here as well (N-S7).
+    if (const auto ps = play_seq_.load(std::memory_order_acquire); ps != play_seen_seq_) {
+        play_seen_seq_ = ps;
+        ramp_active_   = false;
+        ramp_seen_seq_ = play_gain_seq_.load(std::memory_order_acquire);
     }
     if (st == TransportState::Paused) return 0;
     if (!decoder_ready_) return 0;

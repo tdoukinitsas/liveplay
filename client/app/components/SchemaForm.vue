@@ -396,7 +396,7 @@ function moveRow(f: FieldSchema, i: number, delta: number) {
 @keyframes sf-spin { to { transform: rotate(360deg); } }
 .sf-warn {
   display: flex; align-items: center; gap: 4px; margin: 4px 0 0;
-  font-size: 12px; color: #ffb020;
+  font-size: 12px; color: var(--color-warning);
 }
 .sf-warn .material-symbols-rounded { font-size: 14px; }
 

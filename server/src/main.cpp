@@ -598,7 +598,9 @@ std::filesystem::path choose_data_dir(int argc, char** argv,
     // A file an administrator placed beside the executable is still the
     // installation's intent; carry it over once rather than ignore it. Never
     // overwrite: after the first run the copy here is the one being edited.
-    for (const char* name : {"liveplay.json", "users.json", "outputs.json"}) {
+    // secret.key too: every show this installation sealed depends on it, so a
+    // data folder that moves without it strands their credentials (R2-20).
+    for (const char* name : {"liveplay.json", "users.json", "outputs.json", "secret.key"}) {
         std::error_code ec;
         const fs::path from = exe_dir / name, to = user_dir / name;
         if (fs::exists(from, ec) && !fs::exists(to, ec)) {

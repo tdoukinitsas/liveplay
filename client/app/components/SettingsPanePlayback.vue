@@ -21,6 +21,24 @@
       <p class="settings-help">{{ t('settings.transitionModeHelp') }}</p>
     </section>
 
+    <!-- R2-08: with several cues on air, which one GO and Up Next follow. The
+         server's GO (control surfaces, MIDI) uses the same setting. -->
+    <section class="settings-field">
+      <label class="settings-label">
+        <span class="material-symbols-rounded">skip_next</span>
+        {{ t('settings.goContinuesFrom') }}
+      </label>
+      <select
+        class="settings-select"
+        :value="goContinuesFrom"
+        @change="onGoContinuesFromChange"
+      >
+        <option value="earliest">{{ t('settings.goContinuesFromEarliest') }}</option>
+        <option value="latest">{{ t('settings.goContinuesFromLatest') }}</option>
+      </select>
+      <p class="settings-help">{{ t('settings.goContinuesFromHelp') }}</p>
+    </section>
+
     <section class="settings-field">
       <label class="settings-label settings-label--checkbox">
         <input
@@ -123,6 +141,8 @@ const { t } = useLocalization();
 const { settings, applyPatch } = useProjectSettings();
 
 const defaultTransitionMode = computed(() => settings.value.defaultTransitionMode || 'crossfade');
+// Absent = the cue fired first, as 2.5 behaved (R2-08).
+const goContinuesFrom = computed(() => settings.value.goContinuesFrom === 'latest' ? 'latest' : 'earliest');
 const disableAutoVolumeAndTrim = computed(() => !!settings.value.disableAutoVolumeAndTrim);
 const disableSilenceWarning = computed(() => !!settings.value.disableSilenceWarning);
 // Defaults ON (undefined → true) so legacy and new projects both arm the next
@@ -143,6 +163,9 @@ const stopAllFadeSeconds = computed(() => {
 
 function onDefaultTransitionModeChange(e: Event) {
   applyPatch({ defaultTransitionMode: (e.target as HTMLSelectElement).value });
+}
+function onGoContinuesFromChange(e: Event) {
+  applyPatch({ goContinuesFrom: (e.target as HTMLSelectElement).value as 'earliest' | 'latest' });
 }
 function onAutoCueNextChange(e: Event) {
   applyPatch({ autoCueNextWithoutEndBehavior: (e.target as HTMLInputElement).checked });

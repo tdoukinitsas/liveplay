@@ -351,6 +351,16 @@ struct MasterAssignment {
 };
 
 // Describes issues detected and fixed when loading a corrupt project.
+// An HTTP event's headers as they were a moment ago (ProjectState::
+// recent_event_secrets_): the connection and normalised address they were
+// given for, and when.
+struct RecentEventSecret {
+    std::string connection;
+    std::string base_url;
+    std::string headers;
+    std::chrono::steady_clock::time_point at;
+};
+
 struct RepairInfo {
     bool repaired = false;
     std::vector<std::string> issues;
@@ -446,7 +456,15 @@ public:
     bool save(const std::filesystem::path& path) const;
 
     // Replace state from an in-memory JSON document. Same semantics as load.
-    bool load_from_json(const json& doc);
+    // `from_disk`: the document was read from a show file on this machine, so
+    // its sealed credentials are opened. A document from a request body never
+    // has them opened (R2-02): they ask for a sign-in instead.
+    bool load_from_json(const json& doc, bool from_disk = false);
+
+    // Whether `doc` is the show that is open (same showId; for a document
+    // from a client that doesn't know showIds, the same saved folder and the
+    // same name). Tokens may not replace the open show with another (R2-09).
+    bool is_same_show(const json& doc) const;
 
     // Returns and clears any repair info recorded during the last load /
     // load_from_json call. The repair has already been applied in memory;
@@ -514,10 +532,17 @@ public:
     // (tabs, pages, connections, cart keys) stay as the server has them, since
     // the saving client's copy may predate another client's change.
     //
-    // `may_edit_connections` false (an API token, F-30): the document's
-    // eventConnections are ignored, the show's own kept.
+    // `may_edit_connections` false (an API token, F-30, R2-09): the
+    // document's eventConnections are ignored, the show's own kept, and so are
+    // the events on its cues (a token runs the show; it doesn't rewire what
+    // the show's cues send, or where).
     bool replace_full_document(const json& doc, bool keep_live_parts = false,
                                bool may_edit_connections = true);
+
+    // An item's events as an API token would see them (every header value
+    // masked), or null for no such item. The item routes refuse a token's
+    // change to them (R2-09).
+    json item_events_for_token(const std::string& uuid) const;
 
     // Path to the open project file (.liveplay), if any. Empty if the project
     // is in-memory only.
@@ -624,11 +649,17 @@ public:
     // — and no stopped cue fires an end event, whatever the settings say.
     void panic() { stop_all_cues(0, true); }
     // Stop Current Cue (#87, F-36): the cue fired most recently that is still
-    // on air, playlist or cart, with its own stop fade unless `fade_ms` says
-    // otherwise. Returns its uuid, or empty when nothing is playing.
+    // sounding, playlist or cart, with its own stop fade unless `fade_ms` says
+    // otherwise. One already fading out is skipped (R2-13); a paused one is
+    // taken only when nothing sounds. Returns its uuid, or empty when nothing
+    // is playing.
     std::string stop_current_cue(std::optional<long long> fade_ms = std::nullopt);
     // On-air item uuids, the one fired most recently first.
     std::vector<std::string> on_air_by_recency() const;
+    // On-air item uuids in the order GO and Up Next consider them: the one
+    // fired first first, or with settings.goContinuesFrom "latest" the one
+    // fired last first (R2-08).
+    std::vector<std::string> on_air_for_go() const;
 
     // Trigger an item by uuid: audio items go through play_item; group items
     // are dispatched per their startBehavior (play-first / play-all),
@@ -875,6 +906,8 @@ public:
 
     // Cart slot binding (slot → item uuid). Slot < 0 clears.
     bool set_cart_slot(int slot, const std::string& item_uuid);
+    // Whether some cart page shows `slot` (show_tabs.hpp slot_is_shown).
+    bool cart_slot_is_shown(int slot) const;
     bool clear_cart_slot(int slot);
 
     // patch_theme() was removed in U4 along with PATCH /api/project/theme —
@@ -1773,10 +1806,17 @@ private:
     // Re-derives "missing" from the document, and drops "rejected" for any
     // connection whose secrets `before` shows were changed. Under mutex_.
     void refresh_connection_auth_locked(const json& before = json());
-    // Seals every secret in `doc` for disk / opens every sealed one (what
-    // can't be opened stays sealed and its connection asks for a sign-in).
-    static void seal_secrets(json& doc);
+    // Seals every secret in `doc` for disk, bound to its connection, address
+    // and header / opens every sealed one (what can't be opened stays sealed
+    // and its connection asks for a sign-in). A secret that can't be sealed
+    // (no usable key) is written as a mask, never as plain text (R2-03); the
+    // return value counts them.
+    static int seal_secrets(json& doc);
     static void open_secrets(json& doc);
+    // Each HTTP event's own headers as they were a moment ago, by event id,
+    // so Undo of a delete gets the event's own credential back (R2-19).
+    // Under mutex_.
+    std::unordered_map<std::string, RecentEventSecret> recent_event_secrets_;
     std::function<void(const std::string&)> next_item_broadcaster_;
     std::function<void(const json&)> ui_state_broadcaster_;
 

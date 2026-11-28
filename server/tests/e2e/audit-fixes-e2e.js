@@ -18,6 +18,14 @@
 //   F-22  an event's stop-fade-mode change is live, not saved;
 //   F-14  client views name a client, never its address;
 //   F-20  a view name cut mid-character doesn't silence them.
+// And the RC2 audit's:
+//   R2-08 with two on air, GO and Up Next follow the cue fired first, or with
+//         goContinuesFrom "latest" the one fired last; a re-press changes
+//         nothing;
+//   R2-13 a second Stop Current during a fade moves on, it doesn't cut;
+//   R2-10 a 2.5 show's carts bound past slot 16 still show and fire, and a
+//         slot no page shows can't be bound;
+//   R2-11 a show saved by a 2.6 pre-release keeps its duck times.
 //
 // usage: node audit-fixes-e2e.js <port> [serverExe]   (never 4480)
 const fs    = require('fs');
@@ -364,6 +372,80 @@ async function waitLoaded() {
     ok('a client is named, never by its address (F-14)', /^Client \d+$/.test(label) && !label.includes('127.'),
        label);
     ws.close();
+
+    // ---- R2-08: with two on air, GO follows a setting (default: fired first) ---------
+    const plain = (uuid, extra = {}) => ({ ...cue(uuid, null, { end: 'next', extra }), events: [] });
+    await put('/api/project/document', {
+      name: 'go', version: '2.6.0', busSchema: 2, folderPath: folder,
+      items: ['g1', 'g2', 'g3', 'g4', 'g5', 'g6', 'g7'].map(u => plain(u)),
+    });
+    await waitLoaded();
+    await post('/api/project/items/g1/play'); await sleep(250);
+    await post('/api/project/items/g5/play'); await sleep(250);
+    s = await summary();
+    ok('with two on air, Up Next follows the cue fired first, as in 2.5 (R2-08)', s.next?.itemUuid === 'g2',
+       JSON.stringify(s.next));
+    await post('/api/project/items/g1/play'); await sleep(150);   // already playing: changes nothing
+    ok("...pressing it again while it plays doesn't move it in the firing order",
+       (await summary()).next?.itemUuid === 'g2', JSON.stringify((await summary()).next));
+    await rest('/api/project/settings', { method: 'PATCH', body: JSON.stringify({ goContinuesFrom: 'latest' }) });
+    s = await summary();
+    ok('...with goContinuesFrom "latest", the cue fired last', s.next?.itemUuid === 'g6', JSON.stringify(s.next));
+    r = await post('/api/transport/go'); await sleep(250);
+    ok('...and GO plays the same one', (await onAir()).includes('g6'), JSON.stringify(await onAir()));
+    // The settings route drops a value its registry refuses (the response is
+    // the settings map, so a refusal is the value not being there).
+    r = await rest('/api/project/settings', { method: 'PATCH', body: JSON.stringify({ goContinuesFrom: 'sideways' }) });
+    ok('an unknown choice is not stored', r.body?.goContinuesFrom === 'latest', JSON.stringify(r.body?.goContinuesFrom));
+    await post('/api/transport/panic'); await sleep(300);
+
+    // ---- R2-13: a second Stop Current moves on rather than cutting -------------------
+    await put('/api/project/document', {
+      name: 'stop-current', version: '2.6.0', busSchema: 2, folderPath: folder,
+      items: ['s1', 's2'].map(u => ({ ...plain(u), endBehavior: { action: 'nothing' }, stopFade: 2, manualStopFade: 2 })),
+    });
+    await waitLoaded();
+    await post('/api/project/items/s1/play'); await sleep(250);
+    await post('/api/project/items/s2/play'); await sleep(250);
+    r = await post('/api/transport/stop_current');
+    ok('Stop Current stops the cue fired last', r.body?.uuid === 's2', JSON.stringify(r.body));
+    await sleep(200);
+    r = await post('/api/transport/stop_current');
+    await sleep(150);
+    const states = Object.fromEntries(((await summary()).playing || []).map(p => [p.itemUuid, p.transport]));
+    ok("...pressed again during its fade, it moves on to the one before (R2-13)",
+       r.body?.uuid === 's1' && states.s2 === 'fading_out', JSON.stringify({ r: r.body, states }));
+    await post('/api/transport/panic'); await sleep(300);
+
+    // ---- R2-10: a 2.5 show's API-bound carts past 16 keep working --------------------
+    await put('/api/project/document', {
+      name: 'old-carts', version: '2.0.0', busSchema: 2, folderPath: folder,
+      items: [], cartOnlyItems: [plain('c20'), plain('c5')].map(c => ({ ...c, endBehavior: { action: 'nothing' } })),
+      cartItems: [{ slot: 5, itemUuid: 'c5', index: [-1, 5] }, { slot: 20, itemUuid: 'c20', index: [-1, 20] }],
+    });
+    await waitLoaded();
+    s = await summary();
+    ok('a 2.5 show with a cart bound past 16 gets a page that shows it (R2-10)',
+       (s.cart || []).some(c => c.slot === 20), JSON.stringify((s.cart || []).map(c => c.slot)));
+    r = await post('/api/transport/cart/20/play');
+    ok('...and it fires, as in 2.5', r.status === 200 && r.body.uuid === 'c20', JSON.stringify(r.body));
+    await post('/api/transport/panic'); await sleep(200);
+    r = await post('/api/project/cart', { slot: 60, itemUuid: 'c5' });
+    ok("binding a slot no page shows is refused, not stored unseen (R2-10)", r.status === 400, `HTTP ${r.status}`);
+
+    // ---- R2-11: a show saved by 2.6 RC1 ("2.0.0", but with 2.6 parts) ------------------
+    await put('/api/project/document', {
+      name: 'rc1', version: '2.0.0', busSchema: 2, folderPath: folder,
+      playlistTabs: [{ id: 'ta', name: 'Act 1' }],
+      items: [{ ...plain('r1'), tabId: 'ta',
+                duckingBehavior: { mode: 'duck-others', duckLevel: 0.2, duckFadeIn: 3, duckFadeOut: 3 } }],
+    });
+    await waitLoaded();
+    doc = await project();
+    const r1 = doc.items.find(i => i.uuid === 'r1');
+    ok('a show saved by a 2.6 pre-release keeps its duck times (R2-11)',
+       r1?.duckingBehavior?.duckFadeIn === 3 && r1?.duckingBehavior?.duckFadeOut === 3,
+       JSON.stringify(r1?.duckingBehavior));
   } catch (e) {
     ok('the suite ran to the end', false, e?.stack ?? String(e));
   } finally {
