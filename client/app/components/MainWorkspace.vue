@@ -798,13 +798,20 @@ if (import.meta.client) {
 // the windows alone, hence comparing where the show lives. The folder, as the
 // server reports it every time; a pop-out whose tab isn't in the new show
 // closes itself anyway (useShowTabs).
-let shownFolder = currentProject.value?.folderPath ?? '';
+// Which show, by its id (R2-12); by the folder only for a server that sends
+// none. Two shows in one folder are two shows: a pop-out of the first one's
+// "default" tab used to survive a switch to the other (N-C13).
+const shownShowKey = () => {
+  const p = currentProject.value as any;
+  return p?.showId ? `id:${p.showId}` : `path:${p?.folderPath ?? ''}`;
+};
+let shownShow = shownShowKey();
 watch(projectEpoch, () => {
-  const folder = currentProject.value?.folderPath ?? '';
-  if (folder !== shownFolder && import.meta.client && !isCartWindowMode) {
+  const key = shownShowKey();
+  if (key !== shownShow && import.meta.client && !isCartWindowMode) {
     (window as any).electronAPI?.closeTabWindows?.();
   }
-  shownFolder = folder;
+  shownShow = key;
 });
 
 watch([currentProject, poppedOutPlaylistTabs], ([project]) => {

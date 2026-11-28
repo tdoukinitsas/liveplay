@@ -1208,17 +1208,15 @@ const handleCanvasContextMenu = (event: MouseEvent) => {
 
 // Delete on the waveform is about the waveform: it removes the selected
 // keyframe, and never falls through to the workspace's "delete this cue".
-// Escape clears a selection; only when there was one does it stop there, so
-// with nothing selected it is still Stop All.
+// Escape clears a selection AND goes on to Stop All: a selection is state the
+// operator may have forgotten, and the first Esc of a panic must never be
+// spent on it (R2-15).
 const handleCanvasKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Delete' || event.key === 'Backspace') {
     event.preventDefault();
     event.stopPropagation();
     if (selectedKeyframe.value !== null) removeKeyframeAt(selectedKeyframe.value);
   } else if (event.key === 'Escape') {
-    if (selection.value === null && selectedKeyframe.value === null) return;
-    event.preventDefault();
-    event.stopPropagation();
     selection.value = null;
     selectedKeyframe.value = null;
   }

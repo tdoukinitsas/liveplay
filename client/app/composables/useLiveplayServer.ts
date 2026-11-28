@@ -1121,6 +1121,9 @@ function createClient() {
 
   // The position keys and the keys pinned to carts (F-03). The server answers
   // every client with cart_keys_changed.
+  async function fetchCartKeys() {
+    return rest<{ cartSlotKeys?: Record<string, any>; cartPinnedKeys?: Record<string, any> }>('/api/project/cart-keys');
+  }
   async function saveCartKeys(body: { cartSlotKeys?: Record<string, unknown>; cartPinnedKeys?: Record<string, unknown> }) {
     return rest<any>('/api/project/cart-keys', { method: 'PUT', body: JSON.stringify(body) });
   }
@@ -2037,6 +2040,7 @@ function createClient() {
     // cart bindings
     saveProjectTabs,
     saveCartKeys,
+    fetchCartKeys,
     setClientView,
     setCartSlot,
     clearCartSlot,

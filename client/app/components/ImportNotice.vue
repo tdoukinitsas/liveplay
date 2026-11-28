@@ -36,7 +36,7 @@ const files = computed(() => {
   max-width: 640px;
   padding: 10px 12px 10px 16px;
   background: var(--color-surface);
-  border: 1px solid #ffb020;
+  border: 1px solid var(--color-warning);
   border-radius: 8px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
   color: var(--color-text-primary);
@@ -46,7 +46,7 @@ const files = computed(() => {
 
 .import-notice > .material-symbols-rounded {
   flex-shrink: 0;
-  color: #ffb020;
+  color: var(--color-warning);
   font-size: 20px;
 }
 

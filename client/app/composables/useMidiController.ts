@@ -141,9 +141,11 @@ export const useMidiController = () => {
    */
   const dispatchDiscrete = (actionId: MidiActionId) => {
     if (actionId.startsWith('trigger-slot-')) {
-      // A position on the page this window is showing, as the slot keys are.
+      // A position on the page the operator is looking at: this window's, or
+      // the detached cart window's or a page window's when that was looked at
+      // last. Only this (main) window handles MIDI (R2-05).
       const position = parseInt(actionId.replace('trigger-slot-', ''), 10);
-      const page = useShowTabs().activeCartPage.value;
+      const page = useShowTabs().midiCartPage.value;
       if (position >= page.size) return;
       const item = getCartItem(page.slotBase + position);
       if (!item) return;
@@ -252,7 +254,7 @@ export const useMidiController = () => {
     if (actionId === 'select-up' || actionId === 'select-down') {
       const project = currentProject.value;
       if (!project) return;
-      if (useShowControl().selectStepInView(actionId === 'select-up' ? -1 : 1)) return;
+      if (useShowControl().selectStepInView(actionId === 'select-up' ? -1 : 1, /*fromMidi=*/true)) return;
       // No server to ask: step locally through the visible tab's rows.
       const all = getAllItemsFlat(useShowTabs().itemsOnActiveTab.value);
       if (all.length === 0) return;

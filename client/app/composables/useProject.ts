@@ -73,6 +73,9 @@ let _refreshItemsBaselineAfterHydrate: () => void = () => {};
 let _captureBaselinesFn: () => void = () => {};
 // The item stream that is current; see streamItemPages.
 let _itemStreamSeq = 0;
+// The stream still filling the project (its seq), or 0 when none is: while
+// one is open this window holds only part of the show (R2-07).
+let _itemStreamOpen = 0;
 // Bridges endItemBatch (outer composable scope) to syncItemsDiff (defined
 // inside the one-time sync-watcher init block) — see endItemBatch's comment
 // for why calling this directly, not just captureBaselines, matters.
@@ -101,6 +104,9 @@ let _uninstallItemsWatcherFn: null | (() => void) = null;
 // ---------------------------------------------------------------------------
 let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 let _saveDebounceWaiters: Array<(ok: boolean) => void> = [];
+// Which show the pending save was asked for (see showIdentity): a save
+// scheduled for one show never goes out once another is open (R2-07).
+let _saveDebounceShow = '';
 
 // UUIDs of items that were just added in this session and are waiting for
 // their first waveform so that auto-process (trim + normalise) can run.
@@ -454,8 +460,17 @@ export const useProject = () => {
       it.uuid = uuidv4();
       delete it.waveform;
       // Event ids too: firing feedback is keyed by event id, so a copy sharing
-      // its original's ids would flash and report errors for both.
-      if (Array.isArray(it.events)) for (const ev of it.events) if (ev) ev.id = uuidv4();
+      // its original's ids would flash and report errors for both. The copy
+      // says where it came from, so the server gives it the original's own
+      // stored credential, not another event's on the same connection (R2-19);
+      // the server takes `copiedFrom` off again.
+      if (Array.isArray(it.events)) {
+        for (const ev of it.events) {
+          if (!ev) continue;
+          if (ev.id) ev.copiedFrom = ev.id;
+          ev.id = uuidv4();
+        }
+      }
       if (it.type === 'group' && Array.isArray(it.children)) it.children.forEach(reassign);
     };
     reassign(clone);
@@ -629,6 +644,9 @@ export const useProject = () => {
         // The show-file format (F-08): a 2.6 show, so the server doesn't take
         // it for an older one to upgrade (legacy duck timing, F-07).
         version: '2.6.0',
+        // A new show is a new show, wherever it is saved (R2-12): nothing of
+        // another show's is carried into it on the server.
+        showId: uuidv4(),
         folderPath,
         items: [],
         cartItems: [],
@@ -810,6 +828,9 @@ export const useProject = () => {
     // stream from the project_changed handler and another from the rejoin,
     // and two streams pushing into one project listed every cue twice.
     const mySeq = ++_itemStreamSeq;
+    // Until the last page lands, this window holds part of a show: no save
+    // may send it (R2-07).
+    _itemStreamOpen = mySeq;
     const PAGE = 100;
     let offset = 0;
     try {
@@ -902,6 +923,8 @@ export const useProject = () => {
       void totalHint; // currently informational only
     } catch (e) {
       console.warn('[useProject] streamItemPages crashed:', e);
+    } finally {
+      if (_itemStreamOpen === mySeq) _itemStreamOpen = 0;
     }
   }
 
@@ -932,6 +955,8 @@ export const useProject = () => {
     const project: Project = {
       name:           header.name ?? 'Untitled',
       version:        header.version ?? '2.6.0',
+      // The show's identity, as the server holds it (R2-12).
+      showId:         typeof header.showId === 'string' && header.showId ? header.showId : undefined,
       folderPath:     header.folderPath ?? '',
       // Passed through, not asserted: whatever the server says the loaded
       // document is at comes back out on the next save.
@@ -1041,6 +1066,9 @@ export const useProject = () => {
     return {
       name:          currentProject.value.name,
       version:       currentProject.value.version,
+      // Which show this is (R2-12): the server tells "this show saved again"
+      // from "another show" by it, not by the folder it is in.
+      ...(currentProject.value.showId ? { showId: currentProject.value.showId } : {}),
       folderPath:    currentProject.value.folderPath,
       // Declares which routing era this document comes from. Without it the
       // server cannot tell this save from a pre-bus project being pushed over
@@ -1140,6 +1168,13 @@ export const useProject = () => {
   const doSaveProjectNow = async (): Promise<boolean> => {
     try {
       if (!currentProject.value) return false;
+      // Half a show is still arriving (another client just opened one, or
+      // this window is resuming): saving now would write the part that has
+      // arrived over the whole show's file (R2-07).
+      if (_itemStreamOpen !== 0) {
+        console.warn('[useProject] save skipped: the show is still loading');
+        return false;
+      }
       currentProject.value.lastModified = new Date().toISOString();
 
       const server = useLiveplayServer();
@@ -1177,9 +1212,27 @@ export const useProject = () => {
     _saveDebounceTimer = null;
     const waiters = _saveDebounceWaiters;
     _saveDebounceWaiters = [];
-    const ok = await doSaveProjectNow();
+    const ok = _saveDebounceShow === showIdentity() ? await doSaveProjectNow() : false;
     for (const w of waiters) w(ok);
     return ok;
+  };
+
+  // Drop the save that is waiting, without sending it: the show it was for
+  // has gone (another client opened or closed one). Its callers hear false.
+  const cancelPendingSave = () => {
+    if (_saveDebounceTimer !== null) clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = null;
+    const waiters = _saveDebounceWaiters;
+    _saveDebounceWaiters = [];
+    for (const w of waiters) w(false);
+  };
+
+  // Which show this window holds: its showId, or (from a server that
+  // predates showIds) its folder and name.
+  const showIdentity = (): string => {
+    const p = currentProject.value as any;
+    if (!p) return '';
+    return p.showId ? `id:${p.showId}` : `path:${p.folderPath ?? ''}|${p.name ?? ''}`;
   };
 
   // Apply an item change the server already made (an item_updated doc_patch,
@@ -1267,10 +1320,13 @@ export const useProject = () => {
 
     if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
     const result = new Promise<boolean>((resolve) => { _saveDebounceWaiters.push(resolve); });
+    _saveDebounceShow = showIdentity();
     _saveDebounceTimer = setTimeout(() => {
       _saveDebounceTimer = null;
       const waiters = _saveDebounceWaiters;
       _saveDebounceWaiters = [];
+      // Another show arrived in the meantime: this save was for the old one.
+      if (_saveDebounceShow !== showIdentity()) { for (const w of waiters) w(false); return; }
       void doSaveProjectNow().then(ok => { for (const w of waiters) w(ok); });
     }, 300);
     return result;
@@ -1324,6 +1380,8 @@ export const useProject = () => {
     // project is opened.
     uninstallItemsWatcherFn();
     _itemStreamSeq++;   // any stream still running belongs to the old show
+    _itemStreamOpen = 0;
+    cancelPendingSave();   // and so does any save still waiting (R2-07)
 
     currentProject.value = null;
     selectedItem.value = null;
@@ -1605,20 +1663,24 @@ export const useProject = () => {
 
     const item = findItemByIndex(fromIndex);
     if (!item) return;
+    const project = currentProject.value;
 
-    removeItem(item.uuid);
-
-    if (toIndex.length === 1) {
-      currentProject.value.items.splice(toIndex[0], 0, item);
-      updateIndices(currentProject.value.items);
-    } else {
-      const parentIndex = toIndex.slice(0, -1);
-      const parent = findItemByIndex(parentIndex);
-      if (parent && parent.type === 'group') {
-        parent.children.splice(toIndex[toIndex.length - 1], 0, item);
-        updateIndices(parent.children, parentIndex);
+    // Out and back in as one change: every "go to index" follows its cue
+    // (R2-04). removeItem's own remap is overwritten by this one.
+    keepingGotoTargets(project.items, findItemByIndex, () => {
+      removeItemNow(item.uuid);
+      if (toIndex.length === 1) {
+        project.items.splice(toIndex[0], 0, item);
+        updateIndices(project.items);
+      } else {
+        const parentIndex = toIndex.slice(0, -1);
+        const parent = findItemByIndex(parentIndex);
+        if (parent && parent.type === 'group') {
+          parent.children.splice(toIndex[toIndex.length - 1], 0, item);
+          updateIndices(parent.children, parentIndex);
+        }
       }
-    }
+    }, findItemByUuid);
   };
 
   // ----------------------------------------------------------------------
@@ -2026,6 +2088,9 @@ export const useProject = () => {
             break;
           }
           case 'project_changed': {
+            // A save this window had waiting was for the show that has just
+            // been replaced: it must never be sent over the new one (R2-07).
+            cancelPendingSave();
             // New project → all cached waveforms are invalid.
             server().invalidateWaveformCache();
             // A new project was loaded server-side by some other client.
