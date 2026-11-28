@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Toate setările într-un singur loc",
-      "description": "Toate setările stau pe o singură pagină. Preferințele personale, precum limba și tema, vă urmează pe orice ecran vă autentificați, iar spectacolul sună la fel peste tot."
+      "description": "Toate setările stau pe o singură pagină, grupate pe teme și explicate pe loc. O insignă arată cui aparține fiecare: dumneavoastră, spectacolului, acestui calculator sau serverului. Tema vă urmează pe orice ecran vă autentificați, iar spectacolul sună la fel peste tot."
     },
     "audioEngine": {
       "title": "Motor audio robust, scris în C++",
@@ -514,7 +514,7 @@
           "text": "Spectacolele din 2.5 se deschid neschimbate. După ce un spectacol este salvat în 2.6, păstrați-l pe 2.6 sau mai nou: LivePlay 2.5 i-ar pierde filele, paginile cart și conexiunile."
         }
       },
-      "fixes": "evenimente și conexiuni mai fiabile, redare care nu se mai blochează când lipsesc fișiere, importuri care nu suprascriu niciodată fișierul altui cue, scurtături de tastatură care nu mai interferează cu ferestrele pop-up și editoarele, taste de cart pe care Companion le declanșează corect pe fiecare pagină, build-uri macOS corectate (acum macOS 13.3 sau mai nou), o fereastră care încape lângă alte aplicații și culori de accent mai clare."
+      "fixes": "evenimente și conexiuni mai fiabile, redare care nu se mai blochează când lipsesc fișiere, importuri care nu suprascriu niciodată fișierul altui cue, scurtături de tastatură care nu mai interferează cu ferestrele pop-up și editoarele, taste de cart pe care Companion le declanșează corect pe fiecare pagină, build-uri macOS corectate (acum macOS 13.3 sau mai nou), o fereastră care încape lângă alte aplicații, culori de accent mai clare și o pagină de Setări mai ordonată, cu setările grupate pe teme, o descriere sub fiecare și o insignă care arată cui aparține."
     },
     "v25": {
       "title": "Un mixer adevărat.",

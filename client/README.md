@@ -42,7 +42,9 @@ Detached cart/mixer windows and playlist-tab or cart-page pop-outs are additiona
 | `locales/` | Application locale JSON |
 | `tests/` | Window-bounds, settings-placement, mixer, accent-palette, open-file and audio-format checks |
 
-Settings panes are Appearance, Playback, Audio, Mixer, Outputs, Keyboard, Surfaces, Connections, Project, Server, Users and About. Keep hardware mapping in Outputs and boot policy in Server; use the ownership guide when adding a field.
+Settings panes are Appearance, Playback, Audio & Metering, Hardware Outputs, Keyboard, Control Surfaces, Connections, Project, Server, Accounts and About (the mixer view lives in Appearance; `#/settings/mixer` still lands there). Keep hardware mapping in Hardware Outputs and boot policy in Server; use the ownership guide when adding a field. Long panes are split into `<h4 class="settings-group-title">` groups, and `SettingsScope.vue` badges who a setting belongs to (you, this show, this computer or the server): on the pane title when the whole pane has one owner, otherwise on each group. Every setting carries a one-line `settings-help` description under it.
+
+The Properties panel's timeline tabs (Playback, Events) share one frame, styled in `assets/styles/timeline.scss`: a toolbar with the tab's tools and `TimelineCursorTools.vue` (cursor time, Preview from cursor), the timeline with the shared ruler (`drawTimeRuler` in `app/utils/waveformRender.ts`), `TimelineNav.vue` for zoom and scroll over `app/composables/useTimelineView.ts`, and an inspector of `.insp-group` sections with `InspectorTimeField.vue` times. A new timeline tab should use the same frame. In the Properties panel, a field's description goes behind `FieldHelp.vue` (an ⓘ beside its label) rather than as a line under it; warnings stay inline. `SchemaForm.vue` takes `help-as="icon"` there and keeps descriptions inline in Settings.
 
 ## Run and package
 

@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Todas as definições num só sítio",
-      "description": "Todas as definições estão numa única página. As preferências pessoais, como o idioma e o tema, acompanham-no em qualquer ecrã onde inicie sessão, enquanto o espetáculo soa igual em todo o lado."
+      "description": "Todas as definições estão numa única página, agrupadas por tema e explicadas à medida que avança. Um distintivo mostra a quem pertence cada uma: a si, ao espetáculo, a este computador ou ao servidor. O seu tema acompanha-o em qualquer ecrã onde inicie sessão, enquanto o espetáculo soa igual em todo o lado."
     },
     "audioEngine": {
       "title": "Motor de áudio robusto em C++",
@@ -514,7 +514,7 @@
           "text": "Os espetáculos da versão 2.5 abrem sem alterações. Depois de guardar um espetáculo na 2.6, mantenha-o na 2.6 ou posterior: o LivePlay 2.5 perderia os seus separadores, páginas de cartuchos e ligações."
         }
       },
-      "fixes": "eventos e ligações mais fiáveis, reprodução que já não bloqueia com ficheiros em falta, importações que nunca substituem o ficheiro de outra deixa, atalhos de teclado que não interferem com janelas pop-up e editores, botões de cartucho que o Companion dispara corretamente em todas as páginas, versões para macOS corrigidas (agora macOS 13.3 ou posterior), uma janela que cabe ao lado de outras aplicações e cores de destaque mais nítidas."
+      "fixes": "eventos e ligações mais fiáveis, reprodução que já não bloqueia com ficheiros em falta, importações que nunca substituem o ficheiro de outra deixa, atalhos de teclado que não interferem com janelas pop-up e editores, botões de cartucho que o Companion dispara corretamente em todas as páginas, versões para macOS corrigidas (agora macOS 13.3 ou posterior), uma janela que cabe ao lado de outras aplicações, cores de destaque mais nítidas e uma página de Definições mais arrumada, com as definições agrupadas por tema, uma descrição sob cada uma e um distintivo que indica a quem pertence."
     },
     "v25": {
       "title": "Um misturador a sério.",

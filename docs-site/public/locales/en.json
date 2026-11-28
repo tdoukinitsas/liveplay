@@ -235,7 +235,7 @@
     },
     "settingsPage": {
       "title": "All Your Settings in One Place",
-      "description": "All your settings live on one page. Personal preferences such as language and theme follow you to any screen you sign in on, while the show itself sounds the same everywhere."
+      "description": "All your settings live on one page, grouped by topic and explained as you go. A badge shows who each one belongs to: you, the show, this computer or the server. Your theme follows you to any screen you sign in on, while the show itself sounds the same everywhere."
     },
     "audioEngine": {
       "title": "Robust C++ Audio Engine",
@@ -514,7 +514,7 @@
           "text": "Shows from 2.5 open unchanged. Once a show is saved in 2.6, keep it on 2.6 or later: LivePlay 2.5 would drop its tabs, cart pages and connections."
         }
       },
-      "fixes": "more dependable events and connections, playback that no longer stalls on missing media, imports that never overwrite another cue's file, keyboard shortcuts that stay out of popovers and editors, cart buttons that Companion fires correctly on every page, corrected macOS builds (now macOS 13.3 or later), a window that fits beside other apps, and clearer accent colours."
+      "fixes": "more dependable events and connections, playback that no longer stalls on missing media, imports that never overwrite another cue's file, keyboard shortcuts that stay out of popovers and editors, cart buttons that Companion fires correctly on every page, corrected macOS builds (now macOS 13.3 or later), a window that fits beside other apps, clearer accent colours, and a tidier Settings page with settings grouped by topic, a description under each and a badge for who it belongs to."
     },
     "v25": {
       "title": "A real mixer for your show.",

@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Tüm Ayarlar Tek Yerde",
-      "description": "Tüm ayarlarınız tek bir sayfada. Dil ve tema gibi kişisel tercihleriniz oturum açtığınız her ekranda sizinle gelir; gösterinin kendisi ise her yerde aynı duyulur."
+      "description": "Tüm ayarlarınız tek bir sayfada, konuya göre gruplanmış ve yerinde açıklanmış. Bir rozet her ayarın kime ait olduğunu gösterir: size, gösteriye, bu bilgisayara ya da sunucuya. Temanız oturum açtığınız her ekranda sizinle gelir; gösterinin kendisi ise her yerde aynı duyulur."
     },
     "audioEngine": {
       "title": "Sağlam C++ Ses Motoru",
@@ -514,7 +514,7 @@
           "text": "2.5 gösterileri değişmeden açılır. Bir gösteri 2.6'da kaydedildikten sonra onu 2.6 veya üzerinde kullanın: LivePlay 2.5 sekmelerini, kartuş sayfalarını ve bağlantılarını kaybeder."
         }
       },
-      "fixes": "daha güvenilir olaylar ve bağlantılar, eksik medyada artık takılmayan oynatma, başka bir cue'nun dosyasının üzerine asla yazmayan içe aktarmalar, açılır pencerelere ve düzenleyicilere karışmayan klavye kısayolları, Companion'ın her sayfada doğru tetiklediği kartuş tuşları, düzeltilmiş macOS derlemeleri (artık macOS 13.3 veya üzeri), diğer uygulamaların yanına sığan bir pencere ve daha net vurgu renkleri."
+      "fixes": "daha güvenilir olaylar ve bağlantılar, eksik medyada artık takılmayan oynatma, başka bir cue'nun dosyasının üzerine asla yazmayan içe aktarmalar, açılır pencerelere ve düzenleyicilere karışmayan klavye kısayolları, Companion'ın her sayfada doğru tetiklediği kartuş tuşları, düzeltilmiş macOS derlemeleri (artık macOS 13.3 veya üzeri), diğer uygulamaların yanına sığan bir pencere, daha net vurgu renkleri ve ayarların konuya göre gruplandığı, her birinin altında bir açıklama ve kime ait olduğunu gösteren bir rozet bulunan daha düzenli bir Ayarlar sayfası."
     },
     "v25": {
       "title": "Gösteriniz için gerçek bir mikser.",

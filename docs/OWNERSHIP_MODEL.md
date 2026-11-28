@@ -92,7 +92,7 @@ Detached-window flags are not persisted. Geometry is restored when a window is o
 1. Determine whether it changes the show, server hardware/policy, the person's presentation, or this machine's layout/input.
 2. Add validation at the owning store and make defaults explicit.
 3. Keep runtime annotations separate from saved values.
-4. Update the corresponding client setting and API catalog when externally visible.
+4. Update the corresponding client setting and API catalog when externally visible. On the Settings page, put it in the pane or group whose owner badge (`SettingsScope.vue`: you, this show, this computer, server) matches step 1, with a one-line description under it.
 5. Verify round-trip persistence and multi-client scope where relevant.
 
 Primary implementation: [server configuration](../server/src/core/server_config.cpp), [project state](../server/src/core/project_state.cpp), [user preferences](../server/src/core/user_prefs.cpp), [client preferences](../client/app/composables/usePreferences.ts), [Electron storage](../client/electron/main.js).

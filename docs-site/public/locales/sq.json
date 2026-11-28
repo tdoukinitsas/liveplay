@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Të gjitha cilësimet në një vend",
-      "description": "Të gjitha cilësimet gjenden në një faqe. Parapëlqimet personale, si gjuha dhe tema, ju ndjekin në çdo ekran ku hyni, ndërsa vetë shfaqja tingëllon njësoj kudo."
+      "description": "Të gjitha cilësimet gjenden në një faqe, të grupuara sipas temës dhe të shpjeguara aty për aty. Një stemë tregon kujt i përket secili: juve, shfaqjes, këtij kompjuteri apo serverit. Tema ju ndjek në çdo ekran ku hyni, ndërsa vetë shfaqja tingëllon njësoj kudo."
     },
     "audioEngine": {
       "title": "Motor audio i qëndrueshëm në C++",
@@ -514,7 +514,7 @@
           "text": "Shfaqjet nga 2.5 hapen të pandryshuara. Pasi një shfaqje ruhet në 2.6, mbajeni në 2.6 ose më të re: LivePlay 2.5 do t'i humbiste skedat, faqet e cart-it dhe lidhjet."
         }
       },
-      "fixes": "ngjarje dhe lidhje më të besueshme, luajtje që nuk ngec më te mediat që mungojnë, importe që nuk mbishkruajnë kurrë skedarin e një cue-je tjetër, shkurtore tastiere që nuk ndërhyjnë më në dritaret kërcyese dhe redaktuesit, taste cart-i që Companion i aktivizon saktë në çdo faqe, ndërtime të korrigjuara për macOS (tani macOS 13.3 ose më i ri), një dritare që përshtatet pranë aplikacioneve të tjera dhe ngjyra theksi më të qarta."
+      "fixes": "ngjarje dhe lidhje më të besueshme, luajtje që nuk ngec më te mediat që mungojnë, importe që nuk mbishkruajnë kurrë skedarin e një cue-je tjetër, shkurtore tastiere që nuk ndërhyjnë më në dritaret kërcyese dhe redaktuesit, taste cart-i që Companion i aktivizon saktë në çdo faqe, ndërtime të korrigjuara për macOS (tani macOS 13.3 ose më i ri), një dritare që përshtatet pranë aplikacioneve të tjera, ngjyra theksi më të qarta dhe një faqe Cilësimesh më e rregullt, me cilësimet të grupuara sipas temës, një përshkrim nën secilin dhe një stemë që tregon kujt i përket."
     },
     "v25": {
       "title": "Një mikser i vërtetë për shfaqjen tuaj.",

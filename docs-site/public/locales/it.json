@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Tutte le impostazioni in un unico posto",
-      "description": "Tutte le tue impostazioni stanno in una sola pagina. Le preferenze personali, come lingua e tema, ti seguono su ogni schermo a cui accedi, mentre lo spettacolo suona uguale ovunque."
+      "description": "Tutte le tue impostazioni stanno in una sola pagina, raggruppate per argomento e spiegate strada facendo. Un badge mostra a chi appartiene ciascuna: a te, allo spettacolo, a questo computer o al server. Il tuo tema ti segue su ogni schermo a cui accedi, mentre lo spettacolo suona uguale ovunque."
     },
     "audioEngine": {
       "title": "Motore audio robusto in C++",
@@ -514,7 +514,7 @@
           "text": "Gli spettacoli della 2.5 si aprono senza modifiche. Una volta salvato uno spettacolo nella 2.6, tienilo sulla 2.6 o successiva: LivePlay 2.5 perderebbe schede, pagine di cartucce e connessioni."
         }
       },
-      "fixes": "eventi e connessioni più affidabili, riproduzione che non si blocca più sui media mancanti, importazioni che non sovrascrivono mai il file di un altro cue, scorciatoie da tastiera che non interferiscono con popover ed editor, tasti delle cartucce che Companion attiva correttamente su ogni pagina, build per macOS corrette (ora macOS 13.3 o successivo), una finestra che si adatta accanto alle altre app e colori d’accento più chiari."
+      "fixes": "eventi e connessioni più affidabili, riproduzione che non si blocca più sui media mancanti, importazioni che non sovrascrivono mai il file di un altro cue, scorciatoie da tastiera che non interferiscono con popover ed editor, tasti delle cartucce che Companion attiva correttamente su ogni pagina, build per macOS corrette (ora macOS 13.3 o successivo), una finestra che si adatta accanto alle altre app, colori d’accento più chiari e una pagina Impostazioni più ordinata, con le impostazioni raggruppate per argomento, una descrizione sotto ciascuna e un badge che indica a chi appartiene."
     },
     "v25": {
       "title": "Un vero mixer per il tuo spettacolo.",

@@ -55,7 +55,7 @@ PFL is post-DSP and pre-fader/pre-mute. It lets the operator listen to a muted b
 | Bus output reaches another bus | Binding reflects the terminal route |
 | No output | No hardware destination |
 
-Mappings live in server-owned `outputs.json`; bus output names live in the project. Hardware mapping is edited in **Settings → Outputs**. Bus output choices are edited in the mixer.
+Mappings live in server-owned `outputs.json`; bus output names live in the project. Hardware mapping is edited in **Settings → Hardware Outputs**. Bus output choices are edited in the mixer.
 
 LTC also resolves an output name. An unresolved LTC destination is silent. Do not infer that every unbound output falls back to the main sound card.
 

@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Alla inställningar på ett ställe",
-      "description": "Alla inställningar finns på en och samma sida. Personliga val som språk och tema följer med dig till varje skärm du loggar in på, medan själva showen låter likadant överallt."
+      "description": "Alla inställningar finns på en och samma sida, grupperade efter ämne och förklarade där de står. En etikett visar vem varje inställning tillhör: dig, showen, den här datorn eller servern. Ditt tema följer med dig till varje skärm du loggar in på, medan själva showen låter likadant överallt."
     },
     "audioEngine": {
       "title": "Robust ljudmotor i C++",
@@ -514,7 +514,7 @@
           "text": "Shower från 2.5 öppnas oförändrade. När en show väl har sparats i 2.6 ska du hålla dig till 2.6 eller senare: LivePlay 2.5 skulle tappa dess flikar, cartsidor och anslutningar."
         }
       },
-      "fixes": "pålitligare händelser och anslutningar, uppspelning som inte längre fastnar på saknade mediefiler, importer som aldrig skriver över en annan kös fil, kortkommandon som håller sig borta från popup-fönster och redigerare, cartknappar som Companion utlöser rätt på varje sida, korrigerade macOS-byggen (nu macOS 13.3 eller senare), ett fönster som får plats bredvid andra appar och tydligare accentfärger."
+      "fixes": "pålitligare händelser och anslutningar, uppspelning som inte längre fastnar på saknade mediefiler, importer som aldrig skriver över en annan kös fil, kortkommandon som håller sig borta från popup-fönster och redigerare, cartknappar som Companion utlöser rätt på varje sida, korrigerade macOS-byggen (nu macOS 13.3 eller senare), ett fönster som får plats bredvid andra appar, tydligare accentfärger och en mer ordnad inställningssida med inställningarna grupperade efter ämne, en förklaring under var och en och en etikett för vem den tillhör."
     },
     "v25": {
       "title": "En riktig mixer för din show.",

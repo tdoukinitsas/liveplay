@@ -209,7 +209,7 @@
     },
     "settingsPage": {
       "title": "Alle Einstellungen an einem Ort",
-      "description": "Alle Einstellungen finden Sie auf einer Seite. Persönliche Vorlieben wie Sprache und Design folgen Ihnen auf jeden Bildschirm, an dem Sie sich anmelden, während die Show selbst überall gleich klingt."
+      "description": "Alle Einstellungen finden Sie auf einer Seite, nach Themen gruppiert und jeweils kurz erklärt. Ein Abzeichen zeigt, wem eine Einstellung gehört: Ihnen, der Show, diesem Computer oder dem Server. Ihr Design folgt Ihnen auf jeden Bildschirm, an dem Sie sich anmelden, während die Show selbst überall gleich klingt."
     },
     "audioEngine": {
       "title": "Robuste Audio-Engine in C++",
@@ -514,7 +514,7 @@
           "text": "Shows aus 2.5 öffnen sich unverändert. Sobald eine Show in 2.6 gespeichert ist, bleiben Sie bei 2.6 oder neuer: LivePlay 2.5 würde ihre Tabs, Cart-Seiten und Verbindungen verwerfen."
         }
       },
-      "fixes": "zuverlässigere Ereignisse und Verbindungen, Wiedergabe, die bei fehlenden Medien nicht mehr hängen bleibt, Importe, die nie die Datei eines anderen Cues überschreiben, Tastenkürzel, die sich aus Popovers und Editoren heraushalten, Cart-Tasten, die Companion auf jeder Seite richtig auslöst, korrigierte macOS-Builds (jetzt macOS 13.3 oder neuer), ein Fenster, das neben andere Apps passt, und klarere Akzentfarben."
+      "fixes": "zuverlässigere Ereignisse und Verbindungen, Wiedergabe, die bei fehlenden Medien nicht mehr hängen bleibt, Importe, die nie die Datei eines anderen Cues überschreiben, Tastenkürzel, die sich aus Popovers und Editoren heraushalten, Cart-Tasten, die Companion auf jeder Seite richtig auslöst, korrigierte macOS-Builds (jetzt macOS 13.3 oder neuer), ein Fenster, das neben andere Apps passt, klarere Akzentfarben und eine aufgeräumtere Einstellungsseite mit nach Themen gruppierten Einstellungen, einer Erklärung unter jeder und einem Abzeichen dafür, wem sie gehört."
     },
     "v25": {
       "title": "Ein echter Mixer für Ihre Show.",
