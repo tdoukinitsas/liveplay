@@ -18,8 +18,13 @@ const RESERVED_COMBOS: CartSlotKeyBinding[] = [
   { key: 'F1', ctrlKey: false, shiftKey: false, altKey: false },
 ];
 
+// A binding's key, lower case; '' for a malformed one (a show file can hold
+// anything), which then matches nothing instead of throwing (N-C16).
+const keyOf = (b: Partial<CartSlotKeyBinding> | null | undefined): string =>
+  typeof b?.key === 'string' ? b.key.toLowerCase() : '';
+
 const bindingsMatch = (a: CartSlotKeyBinding, b: CartSlotKeyBinding): boolean =>
-  a.key.toLowerCase() === b.key.toLowerCase()
+  keyOf(a) !== '' && keyOf(a) === keyOf(b)
   && a.ctrlKey  === b.ctrlKey
   && a.shiftKey === b.shiftKey
   && a.altKey   === b.altKey;
@@ -66,8 +71,21 @@ export const useCartHotkeys = () => {
   // The cart keys have their own route (F-03): every client hears a change at
   // once, and another client's save can't undo it.
   const persistCartKeys = (body: { cartSlotKeys?: Record<string, CartSlotKeyBinding>; cartPinnedKeys?: Record<string, CartSlotKeyBinding> }) => {
-    void useLiveplayServer().saveCartKeys(body)
-      .catch((e: unknown) => console.warn('[cart keys] could not save:', e));
+    const server = useLiveplayServer();
+    void server.saveCartKeys(body)
+      .catch(async (e: unknown) => {
+        console.warn('[cart keys] could not save:', e);
+        // Refused (a Viewer, a server that's gone): show what the server has,
+        // not a key that only this window believes in (N-C15).
+        try {
+          const stored = await server.fetchCartKeys();
+          const project = currentProject.value;
+          if (project && stored) {
+            if (stored.cartSlotKeys) (project as any).cartSlotKeys = stored.cartSlotKeys;
+            if (stored.cartPinnedKeys) project.cartPinnedKeys = stored.cartPinnedKeys;
+          }
+        } catch { /* nothing to roll back to */ }
+      });
   };
 
   // "Page 2 · 5 · Door slam": a pinned cart, as the Keyboard pane names it.
@@ -101,15 +119,6 @@ export const useCartHotkeys = () => {
     }
     return result;
   });
-
-  const isTextInputFocused = (): boolean => {
-    const el = document.activeElement;
-    if (!el) return false;
-    const tag = el.tagName.toLowerCase();
-    if (tag === 'input' || tag === 'textarea') return true;
-    if ((el as HTMLElement).isContentEditable) return true;
-    return false;
-  };
 
   const getTargetItem = (): AudioItem | null => {
     if (activeCues.value.size > 0) {
@@ -147,7 +156,7 @@ export const useCartHotkeys = () => {
     for (const [slotStr, binding] of Object.entries(pinnedKeys.value)) {
       if (
         binding && typeof binding.key === 'string'
-        && e.key.toLowerCase() === binding.key.toLowerCase()
+        && e.key.toLowerCase() === keyOf(binding)
         && (e.ctrlKey || e.metaKey) === binding.ctrlKey
         && e.shiftKey === binding.shiftKey
         && e.altKey === binding.altKey
@@ -163,7 +172,7 @@ export const useCartHotkeys = () => {
     const mappings = keyMappings.value;
     for (const [slotStr, binding] of Object.entries(mappings)) {
       if (
-        e.key.toLowerCase() === binding.key.toLowerCase()
+        e.key.toLowerCase() === keyOf(binding)
         && (e.ctrlKey || e.metaKey) === binding.ctrlKey
         && e.shiftKey === binding.shiftKey
         && e.altKey   === binding.altKey
@@ -179,7 +188,7 @@ export const useCartHotkeys = () => {
     for (const [action, binding] of Object.entries(mappings) as [PlaybackKeyAction, CartSlotKeyBinding | null][]) {
       if (!binding) continue;
       if (
-        e.key.toLowerCase() === binding.key.toLowerCase()
+        e.key.toLowerCase() === keyOf(binding)
         && (e.ctrlKey || e.metaKey) === binding.ctrlKey
         && e.shiftKey === binding.shiftKey
         && e.altKey   === binding.altKey
@@ -288,9 +297,11 @@ export const useCartHotkeys = () => {
 
   const handleKeydown = (e: KeyboardEvent) => {
     // A key a control on the page already handled (Esc closing a popover,
-    // Enter on a tab), or one that belongs to the control with focus (a
-    // select, a list), is not a transport key (F-02, F-09, F-53).
-    if (isTextInputFocused() || shouldIgnoreHotkey(e)) return;
+    // Enter on a tab), or one that belongs to the control with focus (typing
+    // in a field, a region with its own keys), is not a transport key (F-02,
+    // F-09, F-53). Which keys a focused control owns depends on the key: Esc
+    // reaches Stop All from a dropdown, a checkbox or a row (R2-06, R2-14).
+    if (shouldIgnoreHotkey(e)) return;
     if (!currentProject.value) return;
 
     // Playback actions
@@ -431,20 +442,30 @@ export const useCartHotkeys = () => {
                                before: Record<string, CartSlotKeyBinding> = currentProject.value?.cartPinnedKeys ?? {}) => {
     const project = currentProject.value;
     if (!project || Object.keys(before).length === 0) return;
-    const pins = { ...before };
+    // Built afresh: pins whose cart stayed put first, then the moved ones at
+    // their new slots. Moving them one by one over a copy lost a pin whenever
+    // a cart was pushed into a run of pinned carts: the slot it moved to still
+    // held the next cart's pin, not yet moved itself (R2-16).
+    const pins: Record<string, CartSlotKeyBinding> = {};
+    const moved: Array<[number, CartSlotKeyBinding]> = [];
+    const claimed = new Set<number>();
     let changed = false;
     for (const [slotStr, pin] of Object.entries(before)) {
       const slot = parseInt(slotStr, 10);
       const was = prev.get(slot);
-      if (!was || next.get(slot) === was) continue;
-      delete pins[slotStr];
+      if (!was || next.get(slot) === was) { pins[slotStr] = pin; continue; }
       changed = true;
       // Moved: the same target turned up in a slot that didn't have it.
       for (const [s, target] of next) {
-        if (target === was && prev.get(s) !== was && !pins[String(s)]) { pins[String(s)] = pin; break; }
+        if (target === was && prev.get(s) !== was && !claimed.has(s)) {
+          claimed.add(s);
+          moved.push([s, pin]);
+          break;
+        }
       }
     }
     if (!changed) return;
+    for (const [s, pin] of moved) pins[String(s)] = pin;
     project.cartPinnedKeys = pins;
     persistCartKeys({ cartPinnedKeys: pins });
   };

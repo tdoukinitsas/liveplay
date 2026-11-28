@@ -255,6 +255,7 @@ import { useOutputTarget, METER_COLORS } from '~/composables/useOutputTarget';
 import { calculatePerceivedLoudness } from '~/utils/audio';
 import { runTime, formatRunTime } from '~/utils/groupTiming';
 import { drawRowWaveform } from '~/utils/rowWaveform';
+import { keepingGotoTargets } from '~/utils/tabs';
 
 const props = defineProps<{
   item: AudioItem | GroupItem;
@@ -771,27 +772,32 @@ const handleDrop = (e: DragEvent) => {
     const y = e.clientY - rect.top;
     const height = rect.height;
     const { updateIndices, deleteCartItems } = useProject();
+    const project = currentProject.value;
 
-    if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
-      const groupItem = props.item as GroupItem;
-      groupItem.children.push(clone);
-      updateIndices(groupItem.children, groupItem.index);
-    } else {
-      const insertAfter = y >= height / 2;
-      let parentArray = currentProject.value.items;
-      let parentIndex: number[] = [];
-      if (props.item.index.length > 1) {
-        const parentGroup = findItemByIndex(props.item.index.slice(0, -1));
-        if (parentGroup && parentGroup.type === 'group') {
-          parentArray = (parentGroup as GroupItem).children;
-          parentIndex = (parentGroup as GroupItem).index;
+    // The cues after the drop move down one: a "go to index" aimed at one of
+    // them follows it, as for add and paste (N-C14).
+    keepingGotoTargets(project.items, findItemByIndex, () => {
+      if (props.item.type === 'group' && y > height * 0.3 && y < height * 0.7) {
+        const groupItem = props.item as GroupItem;
+        groupItem.children.push(clone);
+        updateIndices(groupItem.children, groupItem.index);
+      } else {
+        const insertAfter = y >= height / 2;
+        let parentArray = project.items;
+        let parentIndex: number[] = [];
+        if (props.item.index.length > 1) {
+          const parentGroup = findItemByIndex(props.item.index.slice(0, -1));
+          if (parentGroup && parentGroup.type === 'group') {
+            parentArray = (parentGroup as GroupItem).children;
+            parentIndex = (parentGroup as GroupItem).index;
+          }
         }
+        const pos = parentArray.findIndex(i => i.uuid === props.item.uuid);
+        if (parentArray === project.items) clone.tabId = props.item.tabId;
+        parentArray.splice(insertAfter ? pos + 1 : pos, 0, clone);
+        updateIndices(parentArray, parentIndex);
       }
-      const pos = parentArray.findIndex(i => i.uuid === props.item.uuid);
-      if (parentArray === currentProject.value.items) clone.tabId = props.item.tabId;
-      parentArray.splice(insertAfter ? pos + 1 : pos, 0, clone);
-      updateIndices(parentArray, parentIndex);
-    }
+    }, findItemByUuid);
 
     // Unassign the originating cart slot (also persists via saveProject).
     deleteCartItems([cartUuid]);
@@ -840,48 +846,56 @@ const handleDrop = (e: DragEvent) => {
   const target = findParentOf(props.item.uuid, currentProject.value.items, null);
   if (!target) return;
 
-  // Remove all items from their current locations (in reverse order to maintain indices)
-  for (let i = itemObjects.length - 1; i >= 0; i--) {
-    const item = itemObjects[i];
-    if (item) {
-      removeItem(item.uuid);
+  // The whole move, out and back in, is one change to every "go to index"
+  // target: each follows the cue it pointed at to wherever it ends up.
+  // Taking the cues out re-aimed the targets on its own and the insert then
+  // shifted them again, so after dragging B below C a cue aimed at D went to
+  // B (R2-04). keepingGotoTargets resolves by uuid at the end, so the ones
+  // removeItem applies on the way are simply overwritten.
+  const project = currentProject.value;
+  const { updateIndices } = useProject();
+  keepingGotoTargets(project.items, findItemByIndex, () => {
+    // Remove all items from their current locations (in reverse order to maintain indices)
+    for (let i = itemObjects.length - 1; i >= 0; i--) {
+      const item = itemObjects[i];
+      if (item) {
+        removeItem(item.uuid);
+      }
     }
-  }
 
-  if (intoGroup) {
-    // Drop inside group
-    const groupItem = props.item as GroupItem;
-    itemObjects.forEach(item => {
-      if (item) {
-        groupItem.children.push(item);
-      }
-    });
-    const { updateIndices } = useProject();
-    updateIndices(groupItem.children, groupItem.index);
-  } else {
-    // Insert before/after the target, in the list found above. The group's
-    // index is read now: removing may have re-numbered it.
-    const insertAfter = y >= height / 2;
-    const parentArray = target.list;
-    const parentIndex = target.group ? target.group.index : [];
+    if (intoGroup) {
+      // Drop inside group
+      const groupItem = props.item as GroupItem;
+      itemObjects.forEach(item => {
+        if (item) {
+          groupItem.children.push(item);
+        }
+      });
+      updateIndices(groupItem.children, groupItem.index);
+    } else {
+      // Insert before/after the target, in the list found above. The group's
+      // index is read now: removing may have re-numbered it.
+      const insertAfter = y >= height / 2;
+      const parentArray = target.list;
+      const parentIndex = target.group ? target.group.index : [];
 
-    // Find position in parent array
-    const itemPosInArray = parentArray.findIndex(i => i.uuid === props.item.uuid);
-    let insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
-    
-    // Insert all items at the position
-    itemObjects.forEach((item, idx) => {
-      if (item) {
-        if (parentArray === currentProject.value!.items) item.tabId = props.item.tabId;
-        parentArray.splice(insertPos + idx, 0, item);
-      }
-    });
-    
-    // Update all indices
-    const { updateIndices } = useProject();
-    updateIndices(parentArray, parentIndex);
-  }
-  
+      // Find position in parent array
+      const itemPosInArray = parentArray.findIndex(i => i.uuid === props.item.uuid);
+      const insertPos = insertAfter ? itemPosInArray + 1 : itemPosInArray;
+
+      // Insert all items at the position
+      itemObjects.forEach((item, idx) => {
+        if (item) {
+          if (parentArray === project.items) item.tabId = props.item.tabId;
+          parentArray.splice(insertPos + idx, 0, item);
+        }
+      });
+
+      // Update all indices
+      updateIndices(parentArray, parentIndex);
+    }
+  }, findItemByUuid);
+
   // Save project
   const { saveProject } = useProject();
   saveProject();

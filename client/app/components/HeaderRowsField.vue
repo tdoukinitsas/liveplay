@@ -72,9 +72,30 @@ watch(() => props.modelValue, (v) => {
 const isSecret = (row: HeaderRow) => isSecretHeader(row.name) || row.value === SECRET_MASK;
 
 const commit = () => emit('update:modelValue', formatHeaders(rows.value));
-const setName = (i: number, name: string) => { rows.value[i]!.name = name; commit(); };
+// A stored credential is restored by its header's name (and, for a name used
+// twice, in order). So a stored value never moves to another row (R2-18):
+//   * renamed, it can't follow the new name: its value is cleared, to be
+//     entered again, rather than saved as literal dots;
+//   * one of two same-named stored values removed, the other's would be
+//     restored from the first stored line, the removed one: it is cleared too.
+const setName = (i: number, name: string) => {
+  const row = rows.value[i]!;
+  if (row.value === SECRET_MASK && name.trim().toLowerCase() !== row.name.trim().toLowerCase()) row.value = '';
+  row.name = name;
+  commit();
+};
 const setValue = (i: number, value: string) => { rows.value[i]!.value = value; commit(); };
-const remove = (i: number) => { rows.value.splice(i, 1); commit(); };
+const remove = (i: number) => {
+  const gone = rows.value[i]!;
+  rows.value.splice(i, 1);
+  if (gone.value === SECRET_MASK && gone.raw === undefined) {
+    const name = gone.name.trim().toLowerCase();
+    for (const r of rows.value) {
+      if (r.raw === undefined && r.value === SECRET_MASK && r.name.trim().toLowerCase() === name) r.value = '';
+    }
+  }
+  commit();
+};
 const add = () => { rows.value.push({ name: '', value: '' }); };
 
 // Typing into a stored secret replaces it: select the dots so the first key

@@ -15,7 +15,7 @@ LivePlay has server, user and project state, plus machine-local storage and tran
 | Project | Playlist tabs, cart pages, cart keys (position and pinned), item events, volume automation, event connections and presets (credentials sealed) | `.liveplay` document |
 | Machine | Server connection selection, recent paths, window geometry, workspace layout | Electron `userData` and renderer `localStorage` |
 | Machine | MIDI configuration and local input device | `userData/midi-config.json` |
-| Session | Shared selection, armed next item, live PFL, preview and transport | Server memory |
+| Session | Shared selection, armed next item, live PFL, preview and transport, and the order cues were fired in (GO, Up Next and Stop Current follow it) | Server memory |
 | Session | What events changed (bus fields, the Stop All fade mode) and each connection's sign-in state | Server memory; saved as the operator left them |
 | Connection | Meter cadence, analyser selection, locale, handshake identity, and the tab and page a window shows | WebSocket session |
 
@@ -28,8 +28,9 @@ Configuration and profile schemas are defined in the [API reference](https://tdo
 - Logical output names travel with projects; physical device/channel mappings remain on the server.
 - Authentication is disabled by default. Creating the first account forces its role to administrator and enables authentication.
 - User accounts and API-token secrets are managed by the server. A token is not project content.
-- Event connections travel with the show, so a show opened elsewhere already knows its devices; addresses, ports and MIDI port names are show content to adjust at the next venue. Credentials in them (HTTP header values such as Authorization or an API key) are sealed on disk with `secret.key`, which never leaves the machine. No client is ever sent one: every response and frame carries a mask in its place, and a mask sent back means "as stored". A show opened on another server can't open them, so its connections ask for a sign-in, as do connections a device refused (401/403).
-- API tokens can read connections (every header value masked) and fire what the operator set up, but can't change connections.
+- Event connections travel with the show, so a show opened elsewhere already knows its devices; addresses, ports and MIDI port names are show content to adjust at the next venue. Credentials in them (HTTP header values such as Authorization or an API key) are sealed on disk with `secret.key`, which never leaves the machine, and each sealed value is bound to its connection, that connection's address and its header name: copied anywhere else, it doesn't open. No API response or frame carries one: every response and frame carries a mask in its place, and a mask sent back means "as stored", only for the same connection at the same address. Sealed values are only opened from a show file read by this server; one sent in a request is treated as a mask. A credential goes only where it was given for: pointing a connection at another address (or removing it and making another with the same id) leaves it, and the cues' events on it, asking for their credentials again. A show opened on another server can't open them either, so its connections ask for a sign-in, as do connections a device refused (401/403). Without a usable `secret.key` a credential is left out of the saved file, never written in plain text.
+- Credentials the header rule doesn't recognise (a header named outside it, a key in a URL's query or in a body) are show content like any other field: masked from no one and saved as typed.
+- API tokens can read connections (every header value masked) and fire what the operator set up, but can't change connections, change or add a cue's events, or replace the open show with another (by document or load-from-document); they may open a show file.
 
 The server data directory and the selected boot-config path are distinct concepts: naming another `liveplay.json` does not relocate every other persistence file.
 
@@ -60,7 +61,11 @@ Do not write API runtime annotations into a second configuration store. The serv
 
 Parts with their own endpoints (tabs and pages, connections, cart keys) are written through them. An ordinary save that carries a whole document leaves those parts as the server holds them for the same show, since the saving client's copy may be older than another client's change; a wholesale replace (a new show, or a client restoring one the server forgot) takes the document's.
 
-The document's `version` is the show-file format. 2.6 writes "2.6.0". An older show is upgraded once on load (customActions become events; ducks keep their 50 ms timing). LivePlay 2.5 drops tabs, pages, connections and pinned keys when it saves a 2.6 show, so 2.6 shows are one-way.
+"The same show" is the same `showId`, an id every show is given when it is made (or, for a show from before 2.6, when it is first opened) and saved with it. A document without one (from a 2.5 client) is the same show only with the same saved folder and the same name; an unsaved show is never the same as another. Two shows in one folder are two shows.
+
+The document's `version` is the show-file format. 2.6 writes "2.6.0". An older show is upgraded once on load (customActions become events; ducks keep their 50 ms timing; a show whose API-bound carts used slots past 16 gets a first page big enough to show them). A show that already uses 2.6 features (tabs, pages, connections, events, automation) is treated as 2.6 whatever its version says. LivePlay 2.5 drops tabs, pages, connections and pinned keys when it saves a 2.6 show, so 2.6 shows are one-way.
+
+With several cues on air and no Up Next armed, GO and Up Next continue from the cue fired first, or with the show setting `goContinuesFrom` "latest" the one fired last. The server's GO and `summary.next` and the desktop's Up Next and Space follow the same setting.
 
 Supported compatibility fields are accepted/constrained by the current loaders and settings registry. See the reference for exact rules; there is no unrestricted merge of arbitrary project settings.
 
@@ -75,9 +80,10 @@ Supported compatibility fields are accepted/constrained by the current loaders a
 | Show Mode | `localStorage['liveplay-ui-mode']` |
 | Locale fallback | `localStorage['liveplay-locale']` |
 | MIDI configuration | `userData/midi-config.json` |
-| Which operator this window follows, by session (`{id, label}`) | `localStorage['liveplay.followOperator']` |
+| Which operator this computer follows, by session (`{id, label}`; the id is used only while its label still matches, since session ids restart with the server) | `localStorage['liveplay.followOperator']` |
 | Playlist zoom | `localStorage['liveplay.playlistZoom']` |
 | The playlist tab and cart page this window shows | `sessionStorage['liveplay.playlistTab']`, `sessionStorage['liveplay.cartPage']`; a pop-out names them in its URL |
+| The page and tab MIDI acts on (the ones in the window looked at last) | Main window memory, told by the other windows over IPC; MIDI is handled in the main window only |
 
 Detached-window flags are not persisted. Geometry is restored when a window is opened, without forcing that window open at startup; a tab or page pop-out's is keyed `tab:<kind>:<id>`.
 

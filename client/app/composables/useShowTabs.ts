@@ -52,6 +52,12 @@ const SAVE_DELAY_MS = 250;
 
 let _wired = false;
 let _saveTimer: ReturnType<typeof setTimeout> | null = null;
+// The show the pending tab save was for (R2-07).
+let _saveTimerShow = '';
+
+// Which show a project is: its showId, or its folder and name.
+const showKey = (p: any): string =>
+  !p ? '' : p.showId ? `id:${p.showId}` : `path:${p.folderPath ?? ''}|${p.name ?? ''}`;
 
 const fromUrl = (key: string): string | null =>
   import.meta.client ? new URLSearchParams(window.location.search).get(key) : null;
@@ -128,6 +134,19 @@ const buildShowTabs = (wire: boolean) => {
   const activePlaylistTabId = computed(() => activePlaylistTab.value.id);
   const activeCartPageId = computed(() => activeCartPage.value.id);
 
+  // ---- What MIDI acts on (R2-05) ------------------------------------------
+  // MIDI is handled in the main window only (one handler per machine, not
+  // one per window). Its cart pads fire, and its Select ▲/▼ step, what the
+  // operator last looked at: the cart page in the detached cart window or a
+  // page's own window, the tab in a tab's own window, or this window's own
+  // when it was the last one focused. null = this window's own.
+  const midiView = useState<{ cartPage: string | null; playlistTab: string | null }>(
+    'showTabs.midiView', () => ({ cartPage: null, playlistTab: null }));
+  const midiCartPage = computed<CartPage>(() =>
+    cartPages.value.find(page => page.id === midiView.value.cartPage) ?? activeCartPage.value);
+  const midiPlaylistTabId = computed<string>(() =>
+    playlistTabs.value.find(tab => tab.id === midiView.value.playlistTab)?.id ?? activePlaylistTabId.value);
+
   const itemsOnActiveTab = computed(() =>
     itemsOnTab(currentProject.value?.items ?? [], playlistTabs.value, activePlaylistTabId.value));
 
@@ -142,7 +161,12 @@ const buildShowTabs = (wire: boolean) => {
   const followedView = computed<ClientView | null>(() => {
     const target = follow.value;
     if (!target) return null;
-    const byId = target.id !== null ? followOptions.value.find(v => v.id === target.id) : undefined;
+    // The id only while it still names the same person: ids are a server's
+    // session counter, which starts again at 1 when the server restarts, so
+    // after a restart someone else can hold it (R2-22).
+    const byId = target.id !== null
+      ? followOptions.value.find(v => v.id === target.id && (!target.label || v.label === target.label))
+      : undefined;
     if (byId) return byId;
     // No session with that id: it reconnected (a new id), or the setting
     // predates ids. Its label still finds it, but only if no one else has it.
@@ -208,6 +232,43 @@ const buildShowTabs = (wire: boolean) => {
       }, { deep: true });
     }
 
+    // What MIDI acts on (see midiView): every window says what it shows when
+    // it gains focus or changes it while focused; the main window listens.
+    if (import.meta.client) {
+      const api = (window as any).electronAPI;
+      const q = new URLSearchParams(window.location.search);
+      const cartHere = q.get('cartWindow') === '1';
+      const playlistHere = q.get('playlistWindow') === '1';
+      const cartDetached = useState<boolean>('liveplay:cartDetached', () => false);
+      if (isSecondaryWindow) {
+        if (cartHere || playlistHere) {
+          const report = () => api?.broadcastViewFocus?.({
+            cartPage: cartHere ? activeCartPageId.value : null,
+            playlistTab: playlistHere ? activePlaylistTabId.value : null,
+          });
+          window.addEventListener('focus', report);
+          watch([activeCartPageId, activePlaylistTabId], () => { if (document.hasFocus()) report(); });
+        }
+      } else {
+        api?.onViewFocus?.((_e: unknown, v: { cartPage?: string | null; playlistTab?: string | null }) => {
+          midiView.value = {
+            cartPage: v?.cartPage ?? midiView.value.cartPage,
+            playlistTab: v?.playlistTab ?? midiView.value.playlistTab,
+          };
+        });
+        // This window looked at: its own tab, and its own page while its cart
+        // pane is docked here (a detached cart window shows the page instead).
+        const own = () => {
+          midiView.value = {
+            cartPage: cartDetached.value ? midiView.value.cartPage : null,
+            playlistTab: null,
+          };
+        };
+        window.addEventListener('focus', own);
+        watch([activeCartPageId, activePlaylistTabId], () => { if (document.hasFocus()) own(); });
+      }
+    }
+
     // A tab's own window is named after the tab it shows, and closes once that
     // tab is gone (deleted, or another show opened) rather than quietly
     // showing the first tab under the old name.
@@ -245,6 +306,7 @@ const buildShowTabs = (wire: boolean) => {
   function scheduleSave() {
     localEditPending.value = true;
     if (_saveTimer) clearTimeout(_saveTimer);
+    _saveTimerShow = showKey(currentProject.value);
     _saveTimer = setTimeout(() => { void flushSave(); }, SAVE_DELAY_MS);
   }
 
@@ -252,6 +314,13 @@ const buildShowTabs = (wire: boolean) => {
     if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
     const project = currentProject.value;
     if (!project) { localEditPending.value = false; return; }
+    // These tabs were edited in a show that another client has since replaced:
+    // they must not land on the new one (R2-07).
+    if (_saveTimerShow && _saveTimerShow !== showKey(project)) {
+      _saveTimerShow = '';
+      localEditPending.value = false;
+      return;
+    }
     try {
       await server.saveProjectTabs({
         playlistTabs: JSON.parse(JSON.stringify(project.playlistTabs ?? [])),
@@ -537,6 +606,8 @@ const buildShowTabs = (wire: boolean) => {
     activeCartPage,
     activePlaylistTabId,
     activeCartPageId,
+    midiCartPage,
+    midiPlaylistTabId,
     itemsOnActiveTab,
     selectTab,
     canAdd,

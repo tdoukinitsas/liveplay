@@ -33,8 +33,9 @@
         role="button"
         tabindex="0"
         :title="t('mixer.feeding.selectHint')"
-        @click="select(row.group.uuid)"
-        @keydown.enter="select(row.group.uuid)"
+        @click="onRowClick($event, row.group.uuid)"
+        @keydown.enter.prevent="select(row.group.uuid)"
+        @keydown.space.prevent="select(row.group.uuid)"
       >
         <span class="feed__stripe" :style="{ background: row.group.color }"></span>
         <span class="feed__index">{{ formatItemIndex(row.group.index) }}</span>
@@ -66,8 +67,9 @@
         :role="row.cart ? undefined : 'button'"
         :tabindex="row.cart ? undefined : 0"
         :title="row.cart ? undefined : t('mixer.feeding.selectHint')"
-        @click="!row.cart && select(row.item.uuid)"
-        @keydown.enter="!row.cart && select(row.item.uuid)"
+        @click="!row.cart && onRowClick($event, row.item.uuid)"
+        @keydown.enter.prevent="!row.cart && select(row.item.uuid)"
+        @keydown.space.prevent="!row.cart && select(row.item.uuid)"
       >
         <canvas :ref="canvasRef(row.item.uuid)" class="feed__wave"></canvas>
         <span
@@ -281,6 +283,15 @@ function groupTimeTitle(row: GroupRow): string {
 // selection for exactly that. Cart cues have no playlist row to go to.
 function select(uuid: string) {
   toggleItemSelection(uuid, false, false);
+}
+
+// A mouse click lets go of focus, as a tab does (TabStrip onTabClick): a row
+// left focused would keep Space and Enter for itself, so GO and Play Selected
+// stopped working until the operator clicked somewhere else (R2-14). A
+// keyboard user who tabbed here keeps it, and Space or Enter selects.
+function onRowClick(e: MouseEvent, uuid: string) {
+  select(uuid);
+  if (e.detail > 0) (e.currentTarget as HTMLElement | null)?.blur();
 }
 
 // ---- Waveforms ------------------------------------------------------------

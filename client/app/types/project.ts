@@ -495,6 +495,10 @@ export interface ProjectSettings {
     rmsWindowMs?: number;
   };
   defaultTransitionMode?: TransitionMode;
+  // With two or more cues on air and no Up Next armed, which one GO and Up
+  // Next continue from. Absent = 'earliest' (the one fired first, as 2.5 did);
+  // the server applies the same rule to its GO (R2-08).
+  goContinuesFrom?: 'earliest' | 'latest';
   autoCueNextWithoutEndBehavior?: boolean;
   stopAllFadeMs?: number;
   // Absent = true: Stop All silences the preview audition too (#60).
@@ -534,6 +538,10 @@ export const BUS_SCHEMA_VERSION = 2;
 export interface Project {
   name: string;
   version: string;
+  // The show's own id (R2-12): how the server tells this show saved again
+  // from another show in the same folder. Made with the show; the server
+  // gives one to a show from before 2.6.
+  showId?: string;
   // Where the project folder is ON THIS MACHINE. Derived by the server from the
   // location of the .liveplay file, not stored in it — a saved project names no
   // directory, so one that has been moved, mailed or unzipped elsewhere still

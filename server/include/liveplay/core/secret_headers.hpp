@@ -12,7 +12,10 @@
 //   * a client that sends MASK back means "keep the stored value", so saving
 //     what you were shown never wipes the secret;
 //   * on disk each one is sealed with a key that never leaves the server
-//     machine (secrets.hpp). A show opened elsewhere asks for them again.
+//     machine (secrets.hpp), bound to its connection, address and header
+//     name. A show opened elsewhere asks for them again;
+//   * a mask means "as stored" only for the same connection at the same
+//     address: a credential never follows a connection somewhere new (R2-01).
 //
 // Header-only and free of libsodium so the rules can be unit-tested
 // (server/tests/secret_headers_test.cpp).
@@ -22,14 +25,19 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 namespace liveplay::core::secrets {
 
 // What a client sees in place of a secret value.
 inline constexpr std::string_view kMask = "\xE2\x80\xA2\xE2\x80\xA2\xE2\x80\xA2\xE2\x80\xA2\xE2\x80\xA2\xE2\x80\xA2";  // ••••••
-// The prefix of a value sealed for disk (secrets.hpp).
-inline constexpr std::string_view kSealedPrefix = "lpenc:v1:";
+// The prefixes of a value sealed for disk (secrets.hpp). v1 (2.6 RC2 only) is
+// still opened on load; v2 is what is written, bound to where it may be sent.
+inline constexpr std::string_view kSealedPrefix   = "lpenc:v1:";
+inline constexpr std::string_view kSealedPrefixV2 = "lpenc:v2:";
+// What every sealed value starts with, whatever its version.
+inline constexpr std::string_view kSealedFamily   = "lpenc:v";
 
 inline std::string lower(std::string_view s) {
     std::string out{s};
@@ -58,7 +66,33 @@ inline bool is_secret_header(std::string_view name) {
 }
 
 inline bool is_sealed(std::string_view v) {
-    return v.substr(0, kSealedPrefix.size()) == kSealedPrefix;
+    return v.substr(0, kSealedFamily.size()) == kSealedFamily;
+}
+
+// An HTTP base URL as compared for "still the same destination" and bound into
+// a seal: trimmed, "http://" when it names no scheme (as the HTTP plugin sends
+// it), scheme and host in lower case, the default port dropped, no trailing
+// slash. "Host:80", "http://host" and "HTTP://Host/" are one destination.
+inline std::string normalise_base_url(std::string_view in) {
+    std::string url = trim(in);
+    while (!url.empty() && url.back() == '/') url.pop_back();
+    if (url.empty()) return url;
+    auto scheme_end = url.find("://");
+    if (scheme_end == std::string::npos) {
+        url = "http://" + url;
+        scheme_end = 4;
+    }
+    const auto host_start = scheme_end + 3;
+    auto host_end = url.find('/', host_start);
+    if (host_end == std::string::npos) host_end = url.size();
+    std::transform(url.begin(), url.begin() + static_cast<std::ptrdiff_t>(host_end), url.begin(),
+                   [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    const std::string scheme = url.substr(0, scheme_end);
+    const std::string default_port = scheme == "https" ? ":443" : scheme == "http" ? ":80" : "";
+    if (!default_port.empty() && host_end >= host_start + default_port.size() &&
+        url.compare(host_end - default_port.size(), default_port.size(), default_port) == 0)
+        url.erase(host_end - default_port.size(), default_port.size());
+    return url;
 }
 
 struct HeaderLine {
@@ -150,29 +184,85 @@ inline std::string restore_headers(const std::string& incoming, const std::strin
     return join_headers(lines);
 }
 
+// Like restore_headers, but from several candidate texts (other events and
+// presets on the same connection), and only where they agree: a masked line
+// gets a value only when every candidate that has that header has the same
+// one. Two events on one connection authenticating as different principals
+// leave the mask (and a sign-in prompt) rather than lend one the other's
+// credential (R2-19).
+inline std::string restore_headers_unique(const std::string& incoming,
+                                          const std::vector<std::string>& candidates) {
+    if (incoming.find(kMask) == std::string::npos) return incoming;
+    auto lines = split_headers(incoming);
+    for (auto& h : lines) {
+        const bool masked = h.has_colon ? h.value == kMask : trim(h.raw) == kMask;
+        if (!masked) continue;
+        std::vector<std::string> values;
+        for (const auto& c : candidates) {
+            for (const auto& o : split_headers(c)) {
+                if (h.has_colon != o.has_colon) continue;
+                std::string v;
+                if (h.has_colon) {
+                    if (lower(o.name) != lower(h.name) || o.value.empty() || o.value == kMask) continue;
+                    v = o.value;
+                } else {
+                    v = trim(o.raw);
+                    if (v.empty() || v == kMask) continue;
+                }
+                if (std::find(values.begin(), values.end(), v) == values.end()) values.push_back(v);
+            }
+        }
+        if (values.size() != 1) continue;
+        if (h.has_colon) h.value = values.front();
+        else h.raw = values.front();
+    }
+    return join_headers(lines);
+}
+
 // Every secret value through `fn` (seal on the way to disk, open on the way
-// in). `fn` returns the new value. A line with no colon is never sent as a
-// header, but it is masked like a secret (it may be a pasted token), so it is
-// sealed like one too.
+// in). `fn(value)` or `fn(value, header_name)` returns the new value; the name
+// is lower case, "" for a line with no colon. A line with no colon is never
+// sent as a header, but it is masked like a secret (it may be a pasted token),
+// so it is sealed like one too.
 template <typename Fn>
 std::string map_secret_values(const std::string& text, Fn&& fn) {
     if (text.empty()) return text;
+    const auto call = [&](const std::string& v, const std::string& name) -> std::string {
+        if constexpr (std::is_invocable_v<Fn&, const std::string&, const std::string&>) {
+            return fn(v, name);
+        } else {
+            (void)name;
+            return fn(v);
+        }
+    };
     auto lines = split_headers(text);
     bool changed = false;
     for (auto& h : lines) {
         if (!h.has_colon) {
             const std::string raw = trim(h.raw);
             if (raw.empty() || raw == kMask) continue;
-            std::string next = fn(raw);
+            std::string next = call(raw, std::string{});
             if (next != raw) { h.raw = std::move(next); changed = true; }
             continue;
         }
         if (h.value.empty() || h.value == kMask) continue;
         if (!is_secret_header(h.name) && !is_sealed(h.value)) continue;
-        std::string next = fn(h.value);
+        std::string next = call(h.value, lower(h.name));
         if (next != h.value) { h.value = std::move(next); changed = true; }
     }
     return changed ? join_headers(lines) : text;
+}
+
+// The "where it may be sent" a sealed value is bound to (secrets::seal's
+// associated data): the connection, its normalised base URL, the header name.
+inline std::string seal_binding(std::string_view connection_id, std::string_view base_url,
+                                std::string_view header_name) {
+    std::string ad{connection_id};
+    ad += '\x1f';
+    ad += normalise_base_url(base_url);
+    ad += '\x1f';
+    ad += lower(header_name);
+    return ad;
 }
 
 // True when a header can't be sent as it is: a value still sealed (the key

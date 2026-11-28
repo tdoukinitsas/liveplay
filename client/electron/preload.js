@@ -180,6 +180,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // UI mode ("show mode") sync across windows
   broadcastUiMode: (mode) => ipcRenderer.send('ui-mode-changed', mode),
   onUiModeSet: (callback) => ipcRenderer.on('ui-mode-set', callback),
+  // What a window shows ({ cartPage, playlistTab }), when it gains focus or
+  // changes it: the main window's MIDI acts on the one looked at last (R2-05).
+  broadcastViewFocus: (view) => ipcRenderer.send('view-focus-changed', view),
+  onViewFocus: (callback) => ipcRenderer.on('view-focus-set', callback),
 
   // State viewer - send state updates to main process
   updateAppState: (state) => ipcRenderer.send('update-app-state', state),

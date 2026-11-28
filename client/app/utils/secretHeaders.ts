@@ -35,6 +35,28 @@ export const parseHeaders = (text: string): HeaderRow[] =>
       return { name: line.slice(0, colon).trim(), value: line.slice(colon + 1).trim() };
     });
 
+/**
+ * A base URL as the server compares it for "still the same destination"
+ * (secret_headers.hpp normalise_base_url): "host:80", "http://host" and
+ * "HTTP://Host/" are one place. A stored credential is only ever sent to the
+ * place it was given for, so moving a connection asks for it again (R2-01).
+ */
+export const normaliseBaseUrl = (input: unknown): string => {
+  let url = typeof input === 'string' ? input.trim() : '';
+  url = url.replace(/\/+$/, '');
+  if (!url) return url;
+  if (!url.includes('://')) url = `http://${url}`;
+  const schemeEnd = url.indexOf('://');
+  const hostStart = schemeEnd + 3;
+  let hostEnd = url.indexOf('/', hostStart);
+  if (hostEnd === -1) hostEnd = url.length;
+  const scheme = url.slice(0, schemeEnd).toLowerCase();
+  let host = url.slice(hostStart, hostEnd).toLowerCase();
+  const defaultPort = scheme === 'https' ? ':443' : scheme === 'http' ? ':80' : '';
+  if (defaultPort && host.endsWith(defaultPort)) host = host.slice(0, -defaultPort.length);
+  return `${scheme}://${host}${url.slice(hostEnd)}`;
+};
+
 export const formatHeaders = (rows: HeaderRow[]): string =>
   rows.filter(r => r.raw !== undefined || r.name.trim() || r.value.trim())
     .map(r => (r.raw !== undefined ? r.raw : `${r.name.trim()}: ${r.value.trim()}`))

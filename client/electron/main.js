@@ -3365,6 +3365,21 @@ ipcMain.on('mixer-window-attach', () => {
 // UI mode (edit / "show mode") sync across windows. Each renderer owns its
 // own state, so broadcast a change from any window to every other window so
 // the detached cart player stays in lockstep with the main window.
+// A window's view, relayed to the others (the main window keeps it for MIDI,
+// R2-05). Only the two ids travel; anything else in the message is dropped.
+ipcMain.on('view-focus-changed', (event, view) => {
+  const clean = {
+    cartPage: typeof view?.cartPage === 'string' ? view.cartPage : null,
+    playlistTab: typeof view?.playlistTab === 'string' ? view.playlistTab : null,
+  };
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.webContents.id === event.sender.id) continue;
+    if (win.webContents && !win.webContents.isDestroyed()) {
+      win.webContents.send('view-focus-set', clean);
+    }
+  }
+});
+
 ipcMain.on('ui-mode-changed', (event, mode) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.webContents.id === event.sender.id) continue;

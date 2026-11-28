@@ -137,6 +137,13 @@
         />
         <p v-else-if="draftPlugin" class="settings-help">{{ t('events.connections.noFields') }}</p>
         <p v-else class="settings-help">{{ t('events.connections.unknownPlugin', { plugin: draft.plugin }) }}</p>
+        <!-- A stored credential goes only where it was given for: saving a new
+             address leaves this connection, and the cues' events on it, asking
+             for their credentials again (R2-01, R2-18). Said before, not after. -->
+        <p v-if="dropsCredentials" class="conn-warn" role="status">
+          <span class="material-symbols-rounded" aria-hidden="true">key_off</span>
+          {{ t('events.connections.addressDropsCredentials') }}
+        </p>
 
         <!-- Reusable settings: change one here and every event using it follows. -->
         <div v-if="draftPlugin && presetActions.length > 0" class="conn-presets">
@@ -239,6 +246,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { DiscoveredDevice, EventConnection, EventPreset } from '~/types/events';
 import { defaultsFor, eventActions, findAction, findPlugin, fillDefaults, formatSummary } from '~/utils/events';
+import { SECRET_MASK, normaliseBaseUrl } from '~/utils/secretHeaders';
 import Btn from './Btn.vue';
 import SchemaForm from './SchemaForm.vue';
 
@@ -301,6 +309,32 @@ const originalName = ref('');
 // The draft as it opened, to tell later whether it has changes (draftChanged).
 let draftBaseline = '';
 const draftPlugin = computed(() => (draft.value ? pluginOf(draft.value.plugin) : null));
+
+// Saving this draft moves a connection that holds stored credentials (its
+// own, its presets', or its cues' events') to another address: they don't go
+// with it (R2-01), and the operator should know before pressing Save.
+const dropsCredentials = computed((): boolean => {
+  const d = draft.value;
+  if (!d || isNew.value || d.plugin !== 'http') return false;
+  const stored = connections.value.find(c => c.id === d.id);
+  if (!stored) return false;
+  if (normaliseBaseUrl((stored.config as any)?.baseUrl) === normaliseBaseUrl((d.config as any)?.baseUrl)) return false;
+  const masked = (h: unknown) => typeof h === 'string' && h.includes(SECRET_MASK);
+  if (masked((stored.config as any)?.headers)) return true;
+  if ((stored.presets ?? []).some(p => masked((p.options as any)?.headers))) return true;
+  let found = false;
+  const walk = (items: any[] | undefined) => {
+    for (const it of items ?? []) {
+      if (found) return;
+      if (Array.isArray(it?.events) &&
+          it.events.some((ev: any) => ev?.connectionId === d.id && masked(ev?.options?.headers))) found = true;
+      if (Array.isArray(it?.children)) walk(it.children);
+    }
+  };
+  walk(currentProject.value?.items as any[]);
+  walk(currentProject.value?.cartOnlyItems as any[]);
+  return found;
+});
 
 function startAdd() {
   const plugin = pluginOf(addPluginId.value);
@@ -526,6 +560,11 @@ function discardForSignIn() {
 </script>
 
 <style scoped>
+.conn-warn {
+  display: flex; align-items: flex-start; gap: 6px; margin: var(--spacing-sm) 0;
+  font-size: 12px; color: var(--color-warning);
+}
+.conn-warn .material-symbols-rounded { font-size: 16px; }
 .conn-discover { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-sm); margin: var(--spacing-sm) 0; }
 .conn-discover-list { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 4px; }
 .conn-discover-item {

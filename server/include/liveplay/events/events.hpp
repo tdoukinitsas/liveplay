@@ -35,6 +35,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -147,6 +148,9 @@ private:
         std::mutex              mutex;
         std::condition_variable cv;
         std::deque<Queued>      jobs;
+        bool                    retire = false;        // under mutex: exit once drained
+        std::atomic<bool>       done{false};           // the thread has returned
+        Clock::time_point       last_used = Clock::now();   // under Dispatcher::mutex_
     };
     void scheduler_loop();
     void lane_loop(Lane& lane, Plugin& plugin);
@@ -160,6 +164,11 @@ private:
     // to answer (a projector that's switched off) holds up only its own
     // events, never another device's. Jobs on one lane run in order.
     std::map<std::string, std::unique_ptr<Lane>>   lanes_;
+    // Connection lanes no show has used for a while (N-S9): told to exit once
+    // drained, joined when they have. Connection ids are per show, so a server
+    // that opens many shows would otherwise keep a thread per old connection.
+    std::vector<std::unique_ptr<Lane>>             retired_;
+    Clock::time_point                              last_sweep_ = Clock::now();
     std::map<std::string, bool>                    needs_connection_;   // from the schema, at add_plugin
 
     struct Scheduled {

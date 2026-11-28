@@ -94,6 +94,44 @@ int main() {
           map_secret_values("Authorization: " + M, [](const std::string&) { return std::string{"x"}; }) ==
               "Authorization: " + M);
 
+    // ---- One destination, however it is written (R2-01) ----------------------
+    check("host alone is http://host", normalise_base_url("10.0.0.5:8000") == "http://10.0.0.5:8000",
+          normalise_base_url("10.0.0.5:8000"));
+    check("scheme and host case and a trailing slash don't matter",
+          normalise_base_url("HTTP://Desk.Local/") == "http://desk.local", normalise_base_url("HTTP://Desk.Local/"));
+    check("the default port doesn't matter",
+          normalise_base_url("http://desk:80/api") == normalise_base_url("desk/api"),
+          normalise_base_url("http://desk:80/api"));
+    check("the path's case does", normalise_base_url("http://h/API") != normalise_base_url("http://h/api"));
+    check("another port is another place", normalise_base_url("h:8080") != normalise_base_url("h"));
+    check("a seal is bound to connection, place and header",
+          seal_binding("c1", "HTTP://H:80/", "Authorization") == std::string{"c1\x1fhttp://h\x1f" "authorization"});
+    check("any version of a seal is a seal", is_sealed("lpenc:v2:AAAA") && is_sealed("lpenc:v1:AAAA") &&
+                                              !is_sealed("lpencv1"));
+
+    // ---- Only where the candidates agree (R2-19) -----------------------------
+    check("one candidate value is restored",
+          restore_headers_unique("Authorization: " + M, {"Authorization: Bearer a", "X-Other: 1"}) ==
+              "Authorization: Bearer a");
+    check("two that agree are restored",
+          restore_headers_unique("Authorization: " + M, {"Authorization: Bearer a", "authorization: Bearer a"}) ==
+              "Authorization: Bearer a");
+    check("two that differ leave the mask",
+          restore_headers_unique("Authorization: " + M, {"Authorization: Bearer a", "Authorization: Bearer b"}) ==
+              "Authorization: " + M);
+    check("none leaves the mask", restore_headers_unique("X-Key: " + M, {"Authorization: Bearer a"}) ==
+                                      "X-Key: " + M);
+    {
+        std::string names;
+        map_secret_values("Authorization: a\nX-Api-Key: b\nAccept: c\nraw-token",
+                          [&](const std::string& v, const std::string& name) {
+                              names += name + "|";
+                              return v;
+                          });
+        check("the seal callback is told each secret's header name", names == "authorization|x-api-key||",
+              names);
+    }
+
     std::printf("\n%s (%d failure%s)\n", failures ? "FAILED" : "ALL PASSED", failures,
                 failures == 1 ? "" : "s");
     return failures ? 1 : 0;
